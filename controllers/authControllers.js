@@ -108,6 +108,7 @@ exports.registerSuperAdmin = async (req, res) => {
   }
 };
 
+
 // Login Super Admin
 exports.loginSuperAdmin = async (req, res) => {
   const { username, password } = req.body;

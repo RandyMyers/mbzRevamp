@@ -27,10 +27,12 @@
 **Body:**
 ```json
 {
-  "name": "string",
-  "businessName": "string", 
+  "firstName": "string",
+  "lastName": "string",
   "email": "string",
-  "password": "string"
+  "password": "string",
+  "companyName": "string",
+  "referralCode": "string (optional)"
 }
 ```
 **Response:**
@@ -42,9 +44,10 @@
   "username": "string",
   "email": "string",
   "role": "string",
-  "token": "string",
+  "organization": "string",
+  "organizationId": "string",
   "organizationCode": "string",
-  "organizationId": "string"
+  "token": "string"
 }
 ```
 
@@ -81,10 +84,20 @@
 ```json
 {
   "username": "string",
-  "name": "string",
+  "fullName": "string",
   "email": "string",
-  "password": "string",
-  "role": "super-admin"
+  "password": "string"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Super Admin registered successfully",
+  "userId": "string",
+  "username": "string",
+  "email": "string",
+  "role": "string"
 }
 ```
 
@@ -95,6 +108,20 @@
 {
   "username": "string",
   "password": "string"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Super Admin login successful",
+  "token": "string",
+  "userId": "string",
+  "username": "string",
+  "email": "string",
+  "userRole": "string",
+  "profilePicture": "string",
+  "status": "string"
 }
 ```
 
@@ -109,6 +136,13 @@
   "newPassword": "string"
 }
 ```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
 
 ### POST /auth/super-admin/change/password
 **Description:** Change password for super admin
@@ -118,6 +152,62 @@
   "userId": "string",
   "currentPassword": "string",
   "newPassword": "string"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Super Admin password updated successfully"
+}
+```
+
+### POST /auth/affiliate/register
+**Description:** Register an affiliate user
+**Body:**
+```json
+{
+  "fullName": "string",
+  "email": "string",
+  "password": "string",
+  "phone": "string",
+  "referralCode": "string (optional)"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Affiliate registered successfully",
+  "userId": "string",
+  "username": "string",
+  "email": "string",
+  "role": "string",
+  "token": "string"
+}
+```
+
+### POST /auth/affiliate/login
+**Description:** Login affiliate user
+**Body:**
+```json
+{
+  "email": "string",
+  "password": "string"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Affiliate login successful",
+  "token": "string",
+  "userId": "string",
+  "username": "string",
+  "email": "string",
+  "role": "string",
+  "profilePicture": "string",
+  "status": "string"
 }
 ```
 
