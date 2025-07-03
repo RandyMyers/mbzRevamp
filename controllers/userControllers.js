@@ -12,6 +12,7 @@ const logEvent = require('../helper/logEvent');
 //Create User
 
 
+
 // Create a new user within the same organization as the admin
 
 exports.createUser = async (req, res) => {
