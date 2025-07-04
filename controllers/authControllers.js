@@ -73,25 +73,25 @@ exports.registerSuperAdmin = async (req, res) => {
     // Save the user
     await newSuperAdmin.save();
 
-    // Send welcome email
-    try {
-      await sendSystemEmail(
-        email,
-        'Welcome to MBZ Technology Platform - Super Admin Account Created',
-        `
-          <h2>Welcome to MBZ Technology Platform!</h2>
-          <p>Hello ${fullName},</p>
-          <p>Your Super Admin account has been successfully created.</p>
-          <p><strong>Username:</strong> ${username}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p>You now have full access to manage the platform and all organizations.</p>
-          <p>Best regards,<br>MBZ Technology Team</p>
-        `
-      );
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    // Email sending temporarily disabled
+    // try {
+    //   await sendSystemEmail(
+    //     email,
+    //     'Welcome to MBZ Technology Platform - Super Admin Account Created',
+    //     `
+    //       <h2>Welcome to MBZ Technology Platform!</h2>
+    //       <p>Hello ${fullName},</p>
+    //       <p>Your Super Admin account has been successfully created.</p>
+    //       <p><strong>Username:</strong> ${username}</p>
+    //       <p><strong>Email:</strong> ${email}</p>
+    //       <p>You now have full access to manage the platform and all organizations.</p>
+    //       <p>Best regards,<br>MBZ Technology Team</p>
+    //     `
+    //   );
+    // } catch (emailError) {
+    //   console.error('Failed to send welcome email:', emailError);
+    //   // Don't fail registration if email fails
+    // }
     
 
     res.status(201).json({ 
@@ -215,26 +215,26 @@ exports.registerOrganizationUser = async (req, res) => {
     // Save the user
     await newUser.save();
 
-    // Send welcome email
-    try {
-      await sendSystemEmail(
-        email,
-        'Welcome to MBZ Technology - Your Business Account is Ready!',
-        `
-          <h2>Welcome to MBZ Technology!</h2>
-          <p>Hello ${fullName},</p>
-          <p>Your business account has been successfully created.</p>
-          <p><strong>Business Name:</strong> ${businessName}</p>
-          <p><strong>Organization Code:</strong> ${organizationCode}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p>You can now log in to your dashboard and start managing your business operations.</p>
-          <p>Best regards,<br>MBZ Technology Team</p>
-        `
-      );
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    // Email sending temporarily disabled
+    // try {
+    //   await sendSystemEmail(
+    //     email,
+    //     'Welcome to MBZ Technology - Your Business Account is Ready!',
+    //     `
+    //       <h2>Welcome to MBZ Technology!</h2>
+    //       <p>Hello ${fullName},</p>
+    //       <p>Your business account has been successfully created.</p>
+    //       <p><strong>Business Name:</strong> ${businessName}</p>
+    //       <p><strong>Organization Code:</strong> ${organizationCode}</p>
+    //       <p><strong>Email:</strong> ${email}</p>
+    //       <p>You can now log in to your dashboard and start managing your business operations.</p>
+    //       <p>Best regards,<br>MBZ Technology Team</p>
+    //     `
+    //   );
+    // } catch (emailError) {
+    //   console.error('Failed to send welcome email:', emailError);
+    //   // Don't fail registration if email fails
+    // }
 
     const token = jwt.sign(
       { userId: newUser._id, role: newUser.role }, 
@@ -370,24 +370,24 @@ exports.registerAffiliate = async (req, res) => {
     // Save the user
     await newAffiliate.save();
 
-    // Send welcome email
-    try {
-      await sendSystemEmail(
-        email,
-        'Welcome to MBZ Technology - Affiliate Account Created',
-        `
-          <h2>Welcome to MBZ Technology Affiliate Program!</h2>
-          <p>Hello ${fullName},</p>
-          <p>Your affiliate account has been successfully created.</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p>Your account is currently pending approval. You will receive notification once approved.</p>
-          <p>Best regards,<br>MBZ Technology Team</p>
-        `
-      );
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    // Email sending temporarily disabled
+    // try {
+    //   await sendSystemEmail(
+    //     email,
+    //     'Welcome to MBZ Technology - Affiliate Account Created',
+    //     `
+    //       <h2>Welcome to MBZ Technology Affiliate Program!</h2>
+    //       <p>Hello ${fullName},</p>
+    //       <p>Your affiliate account has been successfully created.</p>
+    //       <p><strong>Email:</strong> ${email}</p>
+    //       <p>Your account is currently pending approval. You will receive notification once approved.</p>
+    //       <p>Best regards,<br>MBZ Technology Team</p>
+    //     `
+    //   );
+    // } catch (emailError) {
+    //   console.error('Failed to send welcome email:', emailError);
+    //   // Don't fail registration if email fails
+    // }
 
     const token = jwt.sign(
       { userId: newAffiliate._id, role: newAffiliate.role }, 
@@ -642,25 +642,25 @@ exports.registerUser = async (req, res) => {
     // Save the user
     await newUser.save();
 
-    // Send welcome email
-    try {
-      await sendSystemEmail(
-        email,
-        'Welcome to MBZ Technology Platform - Account Created',
-        `
-          <h2>Welcome to MBZ Technology Platform!</h2>
-          <p>Hello ${firstName} ${lastName},</p>
-          <p>Your account has been successfully created for ${companyName}.</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Organization Code:</strong> ${newOrganization.organizationCode}</p>
-          <p>You can now log in to your dashboard and start managing your business.</p>
-          <p>Best regards,<br>MBZ Technology Team</p>
-        `
-      );
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    // Email sending temporarily disabled
+    // try {
+    //   await sendSystemEmail(
+    //     email,
+    //     'Welcome to MBZ Technology Platform - Account Created',
+    //     `
+    //       <h2>Welcome to MBZ Technology Platform!</h2>
+    //       <p>Hello ${firstName} ${lastName},</p>
+    //       <p>Your account has been successfully created for ${companyName}.</p>
+    //       <p><strong>Email:</strong> ${email}</p>
+    //       <p><strong>Organization Code:</strong> ${newOrganization.organizationCode}</p>
+    //       <p>You can now log in to your dashboard and start managing your business.</p>
+    //       <p>Best regards,<br>MBZ Technology Team</p>
+    //     `
+    //   );
+    // } catch (emailError) {
+    //   console.error('Failed to send welcome email:', emailError);
+    //   // Don't fail registration if email fails
+    // }
 
     const token = jwt.sign(
       { userId: newUser._id, role: adminRole.name }, 
