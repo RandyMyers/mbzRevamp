@@ -6165,3 +6165,35 @@
   }
 }
 ```
+## 36. PUBLIC CONTACT FORM
+
+### POST /contact
+**Description:** Send a message from the public website contact form. This endpoint is for non-authenticated users to contact MBZ Technology support. The message will be sent to the support email using secure SMTP.
+
+**Body:**
+```json
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "phone": "+1234567890",
+  "subject": "General Inquiry",
+  "otherSubject": "(optional, if subject is 'Other')",
+  "message": "Hello, I would like to know more about your services."
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Your message has been sent successfully."
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": "Missing required fields."
+}
+```
