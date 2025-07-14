@@ -66,6 +66,7 @@ const paymentGatewayKeyRoutes = require('./routes/paymentGatewayKeyRoutes');
 const chatIntegrationRoutes = require('./routes/chatIntegrationRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 
 dotenv.config();
 
@@ -162,6 +163,7 @@ app.use('/api/payment-gateways', paymentGatewayKeyRoutes);
 app.use('/api/chat-integrations', chatIntegrationRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/contact', contactRoutes);
 
 //Start the cron job for receiver emails
 receiverEvent.scheduleReceiverEmails();
