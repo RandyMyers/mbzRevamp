@@ -6,12 +6,19 @@ exports.sendContactEmail = async (req, res) => {
 
   console.log('[Contact] Incoming request:', { name, email, phone, subject, otherSubject, message });
 
+  // Log relevant environment variables for debugging
+  console.log('[Contact] ENV SMTP_HOST:', process.env.SMTP_HOST);
+  console.log('[Contact] ENV SMTP_PORT:', process.env.SMTP_PORT);
+  console.log('[Contact] ENV SMTP_USER:', process.env.SMTP_USER);
+  console.log('[Contact] ENV CONTACT_RECEIVER:', process.env.CONTACT_RECEIVER);
+
   if (!name || !email || !subject || !message) {
-    console.log('[Contact] Missing required fields.');
+    console.log('[Contact] Missing required fields:', { name, email, subject, message });
     return res.status(400).json({ success: false, error: 'Missing required fields.' });
   }
 
   const finalSubject = subject === 'Other' && otherSubject ? otherSubject : subject;
+  console.log('[Contact] Final subject:', finalSubject);
 
   try {
     const transporter = nodemailer.createTransport({
@@ -22,6 +29,11 @@ exports.sendContactEmail = async (req, res) => {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
       }
+    });
+    console.log('[Contact] Created transporter:', {
+      host: process.env.SMTP_HOST || 'mbztechnology.com',
+      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465,
+      user: process.env.SMTP_USER
     });
 
     const mailOptions = {
