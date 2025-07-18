@@ -36,6 +36,9 @@
 31. Audit Logs
 32. Email Logs
 33. Miscellaneous
+34. BIDIRECTIONAL WOOCOMMERCE SYNC
+35. WOOCOMMERCE REPORTS & ANALYTICS
+36. PUBLIC CONTACT FORM
 
 ## 1. AUTHENTICATION
 
@@ -489,95 +492,125 @@
 ## 4. ORDERS
 
 ### POST /orders/create
-**Description:** Create a new order
+**Description:** Create a new order with optional WooCommerce sync with optional WooCommerce sync
 **Body:**
 ```json
 {
+  "storeId": "store_id",
+  "userId": "user_id",
   "organizationId": "org_id",
-  "customerId": "customer_id",
-  "orderNumber": "ORD-001",
+  "customer_id": 12345,
+  "customer_Id": "customer_id",
+  "parent_id": null,
+  "billing": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "company": "Acme Corp",
+    "address_1": "123 Main St",
+    "address_2": "Suite 100",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US",
+    "email": "john@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "company": "Acme Corp",
+    "address_1": "123 Main St",
+    "address_2": "Suite 100",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US"
+  },
+  "order_id": "ORD-001",
+  "number": "ORD-001",
   "status": "pending",
-  "total": 299.99,
   "currency": "USD",
+  "version": "3.0.0",
+  "prices_include_tax": false,
+  "date_created": "2024-01-01T00:00:00Z",
+  "date_modified": "2024-01-01T00:00:00Z",
+  "discount_total": "0",
+  "discount_tax": "0",
+  "shipping_total": "10.00",
+  "shipping_tax": "0",
+  "cart_tax": "0",
+  "total": "299.99",
+  "total_tax": "0",
+  "order_key": "wc_order_abc123",
+  "payment_method": "credit_card",
+  "payment_method_title": "Credit Card",
+  "transaction_id": "txn_123456",
+  "customer_ip_address": "192.168.1.1",
+  "customer_user_agent": "Mozilla/5.0...",
+  "created_via": "rest-api",
+  "customer_note": "Please deliver before 5 PM",
+  "date_completed": null,
+  "date_paid": null,
+  "cart_hash": "abc123hash",
   "line_items": [
     {
+      "product_id": "123",
       "inventoryId": "product_id",
       "name": "Premium Widget",
       "quantity": 2,
-      "price": 149.99,
-      "subtotal": 299.98
+      "subtotal": "299.98",
+      "total": "299.98",
+      "total_tax": "0",
+      "taxes": [],
+      "meta_data": [],
+      "sku": "WID-001",
+      "price": 149.99
     }
   ],
-  "billing_address": {
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john@example.com",
-    "phone": "+1234567890",
-    "address1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postalCode": "10001",
-    "country": "US"
-  },
-  "shipping_address": {
-    "firstName": "John",
-    "lastName": "Doe",
-    "address1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postalCode": "10001",
-    "country": "US"
-  },
-  "payment_method": "credit_card",
-  "shipping_method": "standard",
-  "notes": "Please deliver before 5 PM"
+  "shipping_lines": [
+    {
+      "id": 1,
+      "method_title": "Standard Shipping",
+      "method_id": "flat_rate",
+      "total": "10.00",
+      "total_tax": "0",
+      "taxes": [],
+      "meta_data": []
+    }
+  ],
+  "meta_data": [
+    {
+      "key": "order_source",
+      "value": "api"
+    }
+  ],
+  "syncToWooCommerce": true
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
+  "message": "Order created successfully",
   "data": {
     "_id": "order_id",
+    "storeId": "store_id",
+    "userId": "user_id",
     "organizationId": "org_id",
-    "customerId": "customer_id",
-    "orderNumber": "ORD-001",
+    "customer_id": 12345,
     "status": "pending",
-    "total": 299.99,
     "currency": "USD",
-    "line_items": [
-      {
-        "inventoryId": "product_id",
-        "name": "Premium Widget",
-        "quantity": 2,
-        "price": 149.99,
-        "subtotal": 299.98
-      }
-    ],
-    "billing_address": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "phone": "+1234567890",
-      "address1": "123 Main St",
-      "city": "New York",
-      "state": "NY",
-      "postalCode": "10001",
-      "country": "US"
-    },
-    "shipping_address": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "address1": "123 Main St",
-      "city": "New York",
-      "state": "NY",
-      "postalCode": "10001",
-      "country": "US"
-    },
-    "payment_method": "credit_card",
-    "shipping_method": "standard",
-    "notes": "Please deliver before 5 PM",
+    "total": "299.99",
+    "wooCommerceId": 456,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
     "date_created": "2024-01-01T00:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 456,
+    "status": "synced",
+    "error": null
   }
 }
 ```
@@ -739,27 +772,47 @@
 ```
 
 ### PATCH /orders/update/:orderId
-**Description:** Update order details
+**Description:** Update order details with optional WooCommerce sync
 **Body:**
 ```json
 {
   "status": "shipped",
-  "tracking_number": "TRK123456789",
-  "shipping_date": "2024-01-02T00:00:00Z",
-  "notes": "Order shipped via express delivery"
+  "total": "299.99",
+  "customer_note": "Order shipped via express delivery",
+  "date_completed": "2024-01-02T00:00:00Z",
+  "date_paid": "2024-01-02T00:00:00Z",
+  "meta_data": [
+    {
+      "key": "tracking_number",
+      "value": "TRK123456789"
+    },
+    {
+      "key": "shipping_date",
+      "value": "2024-01-02T00:00:00Z"
+    }
+  ],
+  "syncToWooCommerce": true
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
+  "message": "Order updated successfully",
   "data": {
     "_id": "order_id",
     "status": "shipped",
-    "tracking_number": "TRK123456789",
-    "shipping_date": "2024-01-02T00:00:00Z",
-    "notes": "Order shipped via express delivery",
-    "date_updated": "2024-01-02T00:00:00Z"
+    "total": "299.99",
+    "wooCommerceId": 456,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "date_modified": "2024-01-02T00:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 456,
+    "status": "synced",
+    "error": null
   }
 }
 ```
@@ -802,76 +855,125 @@
 
 ## 5. INVENTORY
 
-### POST /inventory/create
-**Description:** Create a new product
+### POST /inventory/products
+**Description:** Create a new inventory product with optional WooCommerce sync
 **Body:**
 ```json
 {
   "organizationId": "org_id",
+  "storeId": "store_id",
   "name": "Premium Widget",
   "description": "High-quality widget for all your needs",
   "sku": "WID-001",
   "price": 29.99,
-  "comparePrice": 39.99,
-  "cost": 15.00,
-  "currency": "USD",
-  "category": "electronics",
-  "tags": ["widget", "premium", "electronics"],
-  "inventory": {
-    "quantity": 100,
-    "lowStockThreshold": 10,
-    "trackQuantity": true
-  },
+  "sale_price": 24.99,
+  "regular_price": 29.99,
+  "status": "publish",
+  "type": "simple",
+  "manage_stock": true,
+  "stock_quantity": 100,
+  "stock_status": "instock",
+  "categories": [
+    {
+      "id": 1,
+      "name": "Electronics",
+      "slug": "electronics"
+    }
+  ],
+  "tags": [
+    {
+      "name": "widget"
+    },
+    {
+      "name": "premium"
+    }
+  ],
   "images": [
     {
-      "url": "https://example.com/widget1.jpg",
+      "src": "https://example.com/widget1.jpg",
       "alt": "Widget Front View"
     }
   ],
-  "variants": [
-    {
-      "name": "Color",
-      "options": ["Red", "Blue", "Green"]
-    }
-  ],
-  "status": "active"
+  "syncToWooCommerce": true
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
-  "data": {
+  "product": {
     "_id": "product_id",
-    "organizationId": "org_id",
     "name": "Premium Widget",
-    "description": "High-quality widget for all your needs",
     "sku": "WID-001",
     "price": 29.99,
-    "comparePrice": 39.99,
-    "cost": 15.00,
-    "currency": "USD",
-    "category": "electronics",
-    "tags": ["widget", "premium", "electronics"],
-    "inventory": {
-      "quantity": 100,
-      "lowStockThreshold": 10,
-      "trackQuantity": true
-    },
+    "wooCommerceId": 123,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "createdAt": "2024-01-01T00:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 123,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product created successfully",
+  "product": {
+    "_id": "product_id",
+    "product_Id": 123,
+    "sku": "WID-001",
+    "name": "Premium Widget",
+    "description": "High-quality widget for all your needs",
+    "short_description": "Premium quality widget",
+    "price": 29.99,
+    "sale_price": 24.99,
+    "regular_price": 29.99,
+    "status": "publish",
+    "type": "simple",
+    "manage_stock": true,
+    "stock_quantity": 100,
+    "stock_status": "instock",
+    "categories": [
+      {
+        "id": 1,
+        "name": "Electronics",
+        "slug": "electronics"
+      }
+    ],
+    "tags": [
+      {
+        "name": "widget"
+      },
+      {
+        "name": "premium"
+      }
+    ],
     "images": [
       {
-        "url": "https://example.com/widget1.jpg",
+        "id": 0,
+        "src": "https://example.com/widget1.jpg",
         "alt": "Widget Front View"
       }
     ],
-    "variants": [
-      {
-        "name": "Color",
-        "options": ["Red", "Blue", "Green"]
-      }
-    ],
-    "status": "active",
-    "createdAt": "2024-01-01T00:00:00Z"
+    "wooCommerceId": 123,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "storeId": "store_id",
+    "userId": "user_id",
+    "organizationId": "org_id",
+    "date_created": "2024-01-01T00:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 123,
+    "status": "synced",
+    "error": null
   }
 }
 ```
@@ -1027,44 +1129,61 @@
 ```
 
 ### PATCH /inventory/update/:productId
-**Description:** Update product details
+**Description:** Update product with optional WooCommerce sync
 **Body:**
 ```json
 {
   "name": "Updated Premium Widget",
   "price": 34.99,
-  "inventory": {
-    "quantity": 85,
-    "lowStockThreshold": 15
-  },
-  "status": "active"
+  "description": "Updated description",
+  "stock_quantity": 85,
+  "syncToWooCommerce": true
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
-  "data": {
+  "message": "Product updated successfully",
+  "product": {
     "_id": "product_id",
     "name": "Updated Premium Widget",
     "price": 34.99,
-    "inventory": {
-      "quantity": 85,
-      "lowStockThreshold": 15
-    },
-    "status": "active",
-    "updatedAt": "2024-01-01T12:00:00Z"
+    "description": "Updated description",
+    "stock_quantity": 85,
+    "wooCommerceId": 123,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "date_modified": "2024-01-01T12:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 123,
+    "status": "synced",
+    "error": null
   }
 }
 ```
 
 ### DELETE /inventory/delete/:productId
-**Description:** Delete a product
+**Description:** Delete a product with optional WooCommerce sync
+**Body:**
+```json
+{
+  "syncToWooCommerce": true
+}
+```
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Product deleted successfully"
+  "message": "Product deleted successfully",
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 123,
+    "status": "deleted",
+    "error": null
+  }
 }
 ```
 
@@ -1094,54 +1213,138 @@
 }
 ```
 
+### POST /inventory/sync-to-woocommerce/:productId
+**Description:** Manually sync a product to WooCommerce
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product created in WooCommerce successfully",
+  "product": {
+    "_id": "product_id",
+    "name": "Premium Widget",
+    "wooCommerceId": 123,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "action": "created",
+    "wooCommerceId": 123,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
 ## 6. CUSTOMERS
 
 ### POST /customers/create
-**Description:** Create a new customer
+**Description:** Create a new customer with optional WooCommerce sync
 **Body:**
 ```json
 {
+  "storeId": "store_id",
+  "userId": "user_id",
   "organizationId": "org_id",
-  "firstName": "Jane",
-  "lastName": "Smith",
+  "customer_id": 12345,
+  "customer_ip_address": "192.168.1.1",
+  "date_created": "2024-01-01T00:00:00Z",
+  "date_created_gmt": "2024-01-01T00:00:00Z",
+  "date_modified": "2024-01-01T00:00:00Z",
+  "date_modified_gmt": "2024-01-01T00:00:00Z",
   "email": "jane.smith@example.com",
-  "phone": "+1234567890",
-  "address": {
-    "address1": "456 Oak St",
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "role": "customer",
+  "username": "jane.smith",
+  "billing": {
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "company": "Acme Corp",
+    "address_1": "456 Oak St",
+    "address_2": "Suite 100",
     "city": "Los Angeles",
     "state": "CA",
-    "postalCode": "90210",
+    "postcode": "90210",
+    "country": "US",
+    "email": "jane.smith@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping": {
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "company": "Acme Corp",
+    "address_1": "456 Oak St",
+    "address_2": "Suite 100",
+    "city": "Los Angeles",
+    "state": "CA",
+    "postcode": "90210",
     "country": "US"
   },
-  "tags": ["vip", "returning"],
-  "notes": "Preferred customer with special pricing",
-  "status": "active"
+  "is_paying_customer": true,
+  "avatar_url": "https://example.com/avatar.jpg",
+  "meta_data": [
+    {
+      "key": "customer_type",
+      "value": "vip"
+    }
+  ],
+  "syncToWooCommerce": false
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
+  "message": "Customer created successfully",
   "data": {
     "_id": "customer_id",
+    "storeId": "store_id",
+    "userId": "user_id",
     "organizationId": "org_id",
-    "firstName": "Jane",
-    "lastName": "Smith",
+    "customer_id": 12345,
     "email": "jane.smith@example.com",
-    "phone": "+1234567890",
-    "address": {
-      "address1": "456 Oak St",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "role": "customer",
+    "username": "jane.smith",
+    "billing": {
+      "first_name": "Jane",
+      "last_name": "Smith",
+      "company": "Acme Corp",
+      "address_1": "456 Oak St",
+      "address_2": "Suite 100",
       "city": "Los Angeles",
       "state": "CA",
-      "postalCode": "90210",
+      "postcode": "90210",
+      "country": "US",
+      "email": "jane.smith@example.com",
+      "phone": "+1234567890"
+    },
+    "shipping": {
+      "first_name": "Jane",
+      "last_name": "Smith",
+      "company": "Acme Corp",
+      "address_1": "456 Oak St",
+      "address_2": "Suite 100",
+      "city": "Los Angeles",
+      "state": "CA",
+      "postcode": "90210",
       "country": "US"
     },
-    "tags": ["vip", "returning"],
-    "notes": "Preferred customer with special pricing",
-    "status": "active",
-    "totalOrders": 0,
-    "totalSpent": 0,
-    "createdAt": "2024-01-01T00:00:00Z"
+    "is_paying_customer": true,
+    "avatar_url": "https://example.com/avatar.jpg",
+    "wooCommerceId": 12345,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "date_created": "2024-01-01T00:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
   }
 }
 ```
@@ -1246,29 +1449,56 @@
 ```
 
 ### PATCH /customers/update/:customerId
-**Description:** Update customer details
+**Description:** Update customer details with optional WooCommerce sync
 **Body:**
 ```json
 {
-  "firstName": "Updated Jane",
-  "lastName": "Updated Smith",
   "email": "updated.jane@example.com",
-  "phone": "+1234567891",
-  "tags": ["vip", "returning", "premium"]
+  "first_name": "Updated Jane",
+  "last_name": "Updated Smith",
+  "billing": {
+    "first_name": "Updated Jane",
+    "last_name": "Updated Smith",
+    "email": "updated.jane@example.com",
+    "phone": "+1234567891"
+  },
+  "shipping": {
+    "first_name": "Updated Jane",
+    "last_name": "Updated Smith"
+  },
+  "meta_data": [
+    {
+      "key": "customer_type",
+      "value": "vip"
+    },
+    {
+      "key": "tags",
+      "value": "vip,returning,premium"
+    }
+  ],
+  "syncToWooCommerce": true
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
+  "message": "Customer updated successfully",
   "data": {
     "_id": "customer_id",
-    "firstName": "Updated Jane",
-    "lastName": "Updated Smith",
     "email": "updated.jane@example.com",
-    "phone": "+1234567891",
-    "tags": ["vip", "returning", "premium"],
-    "updatedAt": "2024-01-01T12:00:00Z"
+    "first_name": "Updated Jane",
+    "last_name": "Updated Smith",
+    "wooCommerceId": 12345,
+    "syncStatus": "synced",
+    "lastWooCommerceSync": "2024-01-15T12:00:00Z",
+    "date_modified": "2024-01-01T12:00:00Z"
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
   }
 }
 ```
@@ -5492,7 +5722,7 @@
 ## 25. STORE MANAGEMENT
 
 ### POST /stores/create
-**Description:** Create a new store
+**Description:** Create a new store with optional automatic webhook creation
 **Body:**
 ```json
 {
@@ -5503,7 +5733,8 @@
   "platformType": "woocommerce",
   "url": "https://mystore.com",
   "apiKey": "wc_api_key_123",
-  "secretKey": "wc_secret_key_456"
+  "secretKey": "wc_secret_key_456",
+  "createWebhooks": true
 }
 ```
 **Response:**
@@ -5526,6 +5757,26 @@
     "lastSyncDate": null,
     "createdAt": "2024-01-01T00:00:00Z",
     "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  "webhookCreation": {
+    "total": 6,
+    "successful": 6,
+    "failed": 0,
+    "webhooks": [
+      {
+        "topic": "order.created",
+        "webhookId": "webhook_id_1",
+        "wooCommerceId": 123,
+        "deliveryUrl": "https://api.example.com/webhooks/woocommerce/store_id-order-created-1234567890/order.created"
+      },
+      {
+        "topic": "order.updated",
+        "webhookId": "webhook_id_2",
+        "wooCommerceId": 124,
+        "deliveryUrl": "https://api.example.com/webhooks/woocommerce/store_id-order-updated-1234567891/order.updated"
+      }
+    ],
+    "errors": []
   }
 }
 ```
@@ -5691,17 +5942,71 @@
       "url": "https://mystore.com",
       "isActive": true,
       "lastSyncDate": "2024-01-15T00:00:00Z",
-      "organizationId": {
-        "name": "My Company",
-        "email": "contact@mycompany.com"
-      },
-      "userId": {
-        "name": "John Doe",
-        "email": "john@example.com"
-      },
       "createdAt": "2024-01-01T00:00:00Z"
     }
   ]
+}
+```
+
+### POST /stores/:storeId/webhooks
+**Description:** Create default webhooks for an existing store
+**Body:**
+```json
+{
+  "topics": ["order.created", "order.updated", "customer.created", "customer.updated", "product.created", "product.updated"],
+  "userId": "user_id"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Webhooks created successfully",
+  "store": "My Online Store",
+  "webhookResults": {
+    "total": 6,
+    "successful": 6,
+    "failed": 0,
+    "webhooks": [
+      {
+        "topic": "order.created",
+        "webhookId": "webhook_id_1",
+        "wooCommerceId": 123,
+        "deliveryUrl": "https://api.example.com/webhooks/woocommerce/store_id-order-created-1234567890/order.created"
+      }
+    ],
+    "errors": []
+  }
+}
+```
+
+### GET /stores/:storeId/webhooks/status
+**Description:** Get webhook status for a store
+**Response:**
+```json
+{
+  "success": true,
+  "store": "My Online Store",
+  "webhookStatus": {
+    "total": 6,
+    "active": 5,
+    "paused": 1,
+    "disabled": 0,
+    "topics": [
+      {
+        "topic": "order.created",
+        "status": "active",
+        "lastDelivery": "2024-01-15T10:30:00Z",
+        "failureCount": 0
+      },
+      {
+        "topic": "order.updated",
+        "status": "paused",
+        "lastDelivery": "2024-01-14T15:45:00Z",
+        "failureCount": 2
+      }
+    ]
+  }
 }
 ```
 
@@ -5913,10 +6218,11 @@
 ```
 
 ### GET /webhooks/list
-**Description:** List all webhooks
+**Description:** List all webhooks with summary statistics
 **Query Parameters:**
 - `storeId` (optional): Filter by store ID
 - `organizationId` (optional): Filter by organization ID
+- `status` (optional): Filter by status (active, paused, disabled)
 
 **Response:**
 ```json
@@ -5927,7 +6233,8 @@
       "_id": "webhook_id",
       "storeId": {
         "name": "My Store",
-        "url": "https://mystore.com"
+        "url": "https://mystore.com",
+        "platformType": "woocommerce"
       },
       "name": "Order Created Webhook",
       "topic": "order.created",
@@ -5938,7 +6245,13 @@
       "lastDelivery": "2024-01-15T10:00:00Z",
       "createdAt": "2024-01-01T00:00:00Z"
     }
-  ]
+  ],
+  "summary": {
+    "total": 6,
+    "active": 5,
+    "paused": 1,
+    "disabled": 0
+  }
 }
 ```
 
@@ -6165,6 +6478,1334 @@
   }
 }
 ```
+
+### POST /webhooks/:id/test
+**Description:** Test webhook functionality
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Webhook test initiated successfully"
+}
+```
+
+### PUT /webhooks/bulk/update
+**Description:** Bulk update webhook status
+**Body:**
+```json
+{
+  "webhookIds": ["webhook_id_1", "webhook_id_2", "webhook_id_3"],
+  "status": "active"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk webhook update completed",
+  "results": {
+    "total": 3,
+    "successful": 3,
+    "failed": 0,
+    "errors": []
+  }
+}
+```
+
+### GET /webhooks/stats
+**Description:** Get webhook statistics and analytics
+**Query Parameters:**
+- `storeId` (optional): Filter by store ID
+- `organizationId` (optional): Filter by organization ID
+- `days` (optional): Number of days for recent deliveries (default: 30)
+
+**Response:**
+```json
+{
+  "success": true,
+  "stats": {
+    "statusStats": [
+      { "_id": "active", "count": 15 },
+      { "_id": "paused", "count": 2 },
+      { "_id": "disabled", "count": 1 }
+    ],
+    "topicStats": [
+      { "_id": "order.created", "count": 6 },
+      { "_id": "order.updated", "count": 6 },
+      { "_id": "customer.created", "count": 6 },
+      { "_id": "customer.updated", "count": 6 },
+      { "_id": "product.created", "count": 6 },
+      { "_id": "product.updated", "count": 6 }
+    ],
+    "recentDeliveries": [
+      { "_id": "success", "count": 1250 },
+      { "_id": "failed", "count": 15 }
+    ]
+  }
+}
+```
+
+### Webhook Auto-Creation Features
+
+#### Automatic Webhook Creation
+When creating a new WooCommerce store with `createWebhooks: true`, the system automatically:
+1. Validates the store configuration
+2. Creates webhooks for all default topics
+3. Returns detailed results of the webhook creation process
+4. Provides webhook URLs and identifiers for management
+
+#### Manual Webhook Management
+For existing stores, you can:
+1. Create webhooks manually using `/stores/:storeId/webhooks`
+2. Check webhook status using `/stores/:storeId/webhooks/status`
+3. Update webhook topics and settings
+4. Monitor webhook performance and delivery status
+
+#### Webhook Security
+- Unique webhook identifiers per store
+- Secure secret generation using crypto.randomBytes(32)
+- URL-based store identification for routing
+- HMAC-SHA256 signature verification
+- Rate limiting to prevent API overload
+
+#### Error Handling
+- Comprehensive validation of store configuration
+- Detailed error reporting for failed webhook creation
+- Automatic retry logic for transient failures
+- Webhook status monitoring and alerting
+
+#### Monitoring & Analytics
+- Real-time webhook delivery status
+- Failure tracking and reporting
+- Performance metrics and statistics
+- Bulk operations for webhook management
+- Historical delivery logs and analytics
+
+## 27. WEBHOOK AUTO-CREATION & MANAGEMENT
+
+### Overview
+The webhook auto-creation feature automatically sets up WooCommerce webhooks when a new store is added to the platform. This enables real-time synchronization of orders, customers, and products between WooCommerce stores and the platform.
+
+### Default Webhook Topics
+The system automatically creates webhooks for the following topics:
+- `order.created` - New orders
+- `order.updated` - Order modifications
+- `customer.created` - New customers
+- `customer.updated` - Customer modifications
+- `product.created` - New products
+- `product.updated` - Product modifications
+
+### POST /webhooks/:id/test
+**Description:** Test webhook functionality
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Webhook test initiated successfully"
+}
+```
+
+### PUT /webhooks/bulk/update
+**Description:** Bulk update webhook status
+**Body:**
+```json
+{
+  "webhookIds": ["webhook_id_1", "webhook_id_2", "webhook_id_3"],
+  "status": "active"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk webhook update completed",
+  "results": {
+    "total": 3,
+    "successful": 3,
+    "failed": 0,
+    "errors": []
+  }
+}
+```
+
+### GET /webhooks/stats
+**Description:** Get webhook statistics and analytics
+**Query Parameters:**
+- `storeId` (optional): Filter by store ID
+- `organizationId` (optional): Filter by organization ID
+- `days` (optional): Number of days for recent deliveries (default: 30)
+
+**Response:**
+```json
+{
+  "success": true,
+  "stats": {
+    "statusStats": [
+      { "_id": "active", "count": 15 },
+      { "_id": "paused", "count": 2 },
+      { "_id": "disabled", "count": 1 }
+    ],
+    "topicStats": [
+      { "_id": "order.created", "count": 6 },
+      { "_id": "order.updated", "count": 6 },
+      { "_id": "customer.created", "count": 6 },
+      { "_id": "customer.updated", "count": 6 },
+      { "_id": "product.created", "count": 6 },
+      { "_id": "product.updated", "count": 6 }
+    ],
+    "recentDeliveries": [
+      { "_id": "success", "count": 1250 },
+      { "_id": "failed", "count": 15 }
+    ]
+  }
+}
+```
+
+### Webhook Auto-Creation Features
+
+#### Automatic Webhook Creation
+When creating a new WooCommerce store with `createWebhooks: true`, the system automatically:
+1. Validates the store configuration
+2. Creates webhooks for all default topics
+3. Returns detailed results of the webhook creation process
+4. Provides webhook URLs and identifiers for management
+
+#### Manual Webhook Management
+For existing stores, you can:
+1. Create webhooks manually using `/stores/:storeId/webhooks`
+2. Check webhook status using `/stores/:storeId/webhooks/status`
+3. Update webhook topics and settings
+4. Monitor webhook performance and delivery status
+
+#### Webhook Security
+- Unique webhook identifiers per store
+- Secure secret generation using crypto.randomBytes(32)
+- URL-based store identification for routing
+- HMAC-SHA256 signature verification
+- Rate limiting to prevent API overload
+
+#### Error Handling
+- Comprehensive validation of store configuration
+- Detailed error reporting for failed webhook creation
+- Automatic retry logic for transient failures
+- Webhook status monitoring and alerting
+
+#### Monitoring & Analytics
+- Real-time webhook delivery status
+- Failure tracking and reporting
+- Performance metrics and statistics
+- Bulk operations for webhook management
+- Historical delivery logs and analytics
+
+## 34. BIDIRECTIONAL WOOCOMMERCE SYNC
+
+This section documents the bidirectional synchronization functionality between the MBZ Tech platform and WooCommerce stores. The system supports creating, updating, and deleting entities (Products, Customers, Orders) in both directions with optional sync parameters.
+
+### Overview
+
+The bidirectional sync system includes:
+- **Optional Sync Parameters**: All CRUD operations include an optional `syncToWooCommerce` parameter
+- **Sync Status Tracking**: Each entity tracks sync status, WooCommerce ID, and error messages
+- **Manual Sync Endpoints**: Dedicated endpoints for manual synchronization
+- **Error Handling**: Comprehensive error handling and logging
+- **Webhook Integration**: Real-time updates via WooCommerce webhooks
+
+### Sync Status Values
+
+- `pending`: Entity has not been synced to WooCommerce
+- `synced`: Entity successfully synced to WooCommerce
+- `failed`: Sync attempt failed (error details stored in `syncError`)
+
+### Common Response Format
+
+All sync-enabled endpoints return a `wooCommerceSync` object in the response:
+
+```json
+{
+  "success": true,
+  "message": "Operation completed successfully",
+  "data": { /* entity data */ },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+## 34.1 INVENTORY/PRODUCTS BIDIRECTIONAL SYNC
+
+### POST /inventory/create (Enhanced)
+**Description:** Create a new product with optional WooCommerce sync
+**Body:**
+```json
+{
+  "storeId": "store_id",
+  "userId": "user_id",
+  "organizationId": "org_id",
+  "name": "Premium Widget",
+  "type": "simple",
+  "regular_price": "29.99",
+  "description": "High-quality premium widget",
+  "short_description": "Premium widget for all your needs",
+  "categories": [
+    {
+      "id": 15,
+      "name": "Widgets"
+    }
+  ],
+  "images": [
+    {
+      "src": "https://example.com/image1.jpg",
+      "name": "Widget Front View"
+    }
+  ],
+  "attributes": [
+    {
+      "name": "Color",
+      "visible": true,
+      "variation": true,
+      "options": ["Red", "Blue", "Green"]
+    }
+  ],
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product created successfully",
+  "data": {
+    "_id": "product_id",
+    "name": "Premium Widget",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T10:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### PATCH /inventory/update/:id (Enhanced)
+**Description:** Update a product with optional WooCommerce sync
+**Body:**
+```json
+{
+  "name": "Updated Premium Widget",
+  "regular_price": "39.99",
+  "description": "Updated description",
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product updated successfully",
+  "data": {
+    "_id": "product_id",
+    "name": "Updated Premium Widget",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T11:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### DELETE /inventory/delete/:id (Enhanced)
+**Description:** Delete a product with optional WooCommerce sync
+**Body:**
+```json
+{
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product deleted successfully",
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "deleted",
+    "error": null
+  }
+}
+```
+
+### POST /inventory/sync-to-woocommerce/:id
+**Description:** Manually sync a product to WooCommerce
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product created in WooCommerce successfully",
+  "data": {
+    "_id": "product_id",
+    "name": "Premium Widget",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T12:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "action": "created",
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+## 34.2 CUSTOMERS BIDIRECTIONAL SYNC
+
+### POST /customers/create (Enhanced)
+**Description:** Create a new customer with optional WooCommerce sync
+**Body:**
+```json
+{
+  "storeId": "store_id",
+  "userId": "user_id",
+  "organizationId": "org_id",
+  "customer_id": 12345,
+  "email": "jane.smith@example.com",
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "username": "jane.smith",
+  "billing": {
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "company": "Acme Corp",
+    "address_1": "456 Oak St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "postcode": "90210",
+    "country": "US",
+    "email": "jane.smith@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping": {
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "company": "Acme Corp",
+    "address_1": "456 Oak St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "postcode": "90210",
+    "country": "US"
+  },
+  "is_paying_customer": true,
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Customer created successfully",
+  "data": {
+    "_id": "customer_id",
+    "email": "jane.smith@example.com",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T10:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### PATCH /customers/update/:id (Enhanced)
+**Description:** Update a customer with optional WooCommerce sync
+**Body:**
+```json
+{
+  "first_name": "Updated Jane",
+  "last_name": "Updated Smith",
+  "email": "updated.jane@example.com",
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Customer updated successfully",
+  "data": {
+    "_id": "customer_id",
+    "email": "updated.jane@example.com",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T11:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### DELETE /customers/delete/:id (Enhanced)
+**Description:** Delete a customer with optional WooCommerce sync
+**Body:**
+```json
+{
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Customer deleted successfully",
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 12345,
+    "status": "deleted",
+    "error": null
+  }
+}
+```
+
+### POST /customers/sync-to-woocommerce/:customerId
+**Description:** Manually sync a customer to WooCommerce
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Customer updated in WooCommerce successfully",
+  "data": {
+    "_id": "customer_id",
+    "email": "jane.smith@example.com",
+    "wooCommerceId": 12345,
+    "lastWooCommerceSync": "2024-01-01T12:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "action": "updated",
+    "wooCommerceId": 12345,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+## 34.3 ORDERS BIDIRECTIONAL SYNC
+
+### POST /orders/create (Enhanced)
+**Description:** Create a new order with optional WooCommerce sync
+**Body:**
+```json
+{
+  "storeId": "store_id",
+  "userId": "user_id",
+  "organizationId": "org_id",
+  "customer_id": 12345,
+  "order_id": 67890,
+  "number": "ORD-001",
+  "status": "pending",
+  "currency": "USD",
+  "total": "299.99",
+  "billing": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "company": "Acme Corp",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US",
+    "email": "john@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "company": "Acme Corp",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US"
+  },
+  "line_items": [
+    {
+      "product_id": "12345",
+      "inventoryId": "product_id",
+      "name": "Premium Widget",
+      "quantity": 2,
+      "subtotal": "299.98",
+      "total": "299.98",
+      "price": "149.99"
+    }
+  ],
+  "shipping_lines": [
+    {
+      "method_title": "Standard Shipping",
+      "total": "0.00"
+    }
+  ],
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order created successfully",
+  "data": {
+    "_id": "order_id",
+    "order_id": 67890,
+    "wooCommerceId": 67890,
+    "lastWooCommerceSync": "2024-01-01T10:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 67890,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### PATCH /orders/update/:orderId (Enhanced)
+**Description:** Update an order with optional WooCommerce sync
+**Body:**
+```json
+{
+  "status": "processing",
+  "customer_note": "Updated order note",
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order updated successfully",
+  "data": {
+    "_id": "order_id",
+    "status": "processing",
+    "wooCommerceId": 67890,
+    "lastWooCommerceSync": "2024-01-01T11:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 67890,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+### DELETE /orders/delete/:orderId (Enhanced)
+**Description:** Delete an order with optional WooCommerce sync
+**Body:**
+```json
+{
+  "syncToWooCommerce": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order deleted successfully",
+  "wooCommerceSync": {
+    "synced": true,
+    "wooCommerceId": 67890,
+    "status": "deleted",
+    "error": null
+  }
+}
+```
+
+### POST /orders/sync-to-woocommerce/:orderId
+**Description:** Manually sync an order to WooCommerce
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order created in WooCommerce successfully",
+  "data": {
+    "_id": "order_id",
+    "order_id": 67890,
+    "wooCommerceId": 67890,
+    "lastWooCommerceSync": "2024-01-01T12:00:00Z",
+    "syncStatus": "synced",
+    "syncError": null
+  },
+  "wooCommerceSync": {
+    "synced": true,
+    "action": "created",
+    "wooCommerceId": 67890,
+    "status": "synced",
+    "error": null
+  }
+}
+```
+
+## 34.4 ERROR HANDLING
+
+### Sync Error Response Format
+When sync operations fail, the response includes error details:
+
+```json
+{
+  "success": false,
+  "message": "Operation completed but WooCommerce sync failed",
+  "data": {
+    "_id": "entity_id",
+    "syncStatus": "failed",
+    "syncError": "WooCommerce API error: Invalid product data"
+  },
+  "wooCommerceSync": {
+    "synced": false,
+    "wooCommerceId": null,
+    "status": "failed",
+    "error": "WooCommerce API error: Invalid product data"
+  }
+}
+```
+
+### Common Error Scenarios
+
+1. **Store Not Found**: When the entity is not associated with a valid store
+2. **WooCommerce API Errors**: Network issues, authentication failures, or invalid data
+3. **Duplicate Entries**: When trying to create an entity that already exists in WooCommerce
+4. **Missing Required Fields**: When required WooCommerce fields are not provided
+
+### Best Practices
+
+1. **Always Check Sync Status**: Verify the `syncStatus` field after operations
+2. **Handle Errors Gracefully**: Implement retry logic for failed syncs
+3. **Use Manual Sync**: Use manual sync endpoints to retry failed operations
+4. **Monitor Webhooks**: Ensure webhook endpoints are properly configured
+5. **Validate Data**: Ensure all required fields are present before syncing
+
+---
+
+*This completes the bidirectional WooCommerce sync implementation for Products, Customers, and Orders.*
+
+## 35. WOOCOMMERCE REPORTS & ANALYTICS
+
+The WooCommerce Reports & Analytics system provides comprehensive reporting capabilities that integrate with WooCommerce's native reporting API while coexisting with the existing manual analytics system. This system supports multiple WooCommerce stores per organization and provides both individual store reports and aggregated multi-store analytics.
+
+### 35.1 INDIVIDUAL STORE REPORTS
+
+#### GET /woocommerce/reports/:storeId/:reportType
+**Description:** Fetch any WooCommerce report for a specific store
+**Parameters:**
+- `storeId` (path): Store ID
+- `reportType` (path): Type of report (sales, top_sellers, orders/totals, customers/totals, products/totals, coupons/totals, reviews/totals, categories/totals, tags/totals, attributes/totals)
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+- `force_refresh` (query): Force refresh cache (true/false)
+
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "sales",
+  "source": "woocommerce",
+  "data": {
+    "totalSales": 15420.50,
+    "netSales": 14200.00,
+    "averageSales": 284.00,
+    "totalOrders": 50,
+    "totalItems": 125,
+    "totalTax": 1220.50,
+    "totalShipping": 0.00,
+    "totalRefunds": 0,
+    "totalDiscount": 500.00,
+    "totalCustomers": 45,
+    "dailyBreakdown": [
+      {
+        "date": "2024-01-01",
+        "sales": 1200.00,
+        "orders": 4,
+        "items": 10,
+        "tax": 100.00,
+        "shipping": 0.00,
+        "discount": 50.00,
+        "customers": 4
+      }
+    ]
+  },
+  "fetchedAt": "2024-01-01T10:00:00Z"
+}
+```
+
+#### GET /woocommerce/reports/:storeId/sales
+**Description:** Fetch sales report for a specific store
+**Parameters:**
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "sales",
+  "data": {
+    "totalSales": 15420.50,
+    "netSales": 14200.00,
+    "averageSales": 284.00,
+    "totalOrders": 50,
+    "totalItems": 125,
+    "totalTax": 1220.50,
+    "totalShipping": 0.00,
+    "totalRefunds": 0,
+    "totalDiscount": 500.00,
+    "totalCustomers": 45,
+    "dailyBreakdown": [...]
+  }
+}
+```
+
+#### GET /woocommerce/reports/:storeId/top-sellers
+**Description:** Fetch top sellers report for a specific store
+**Parameters:**
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "top_sellers",
+  "data": [
+    {
+      "productId": 12345,
+      "title": "Premium Widget",
+      "quantity": 25,
+      "ranking": 1
+    },
+    {
+      "productId": 12346,
+      "title": "Standard Widget",
+      "quantity": 18,
+      "ranking": 2
+    }
+  ]
+}
+```
+
+#### GET /woocommerce/reports/:storeId/orders/totals
+**Description:** Fetch orders totals report for a specific store
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "orders/totals",
+  "data": [
+    {
+      "status": "completed",
+      "name": "Completed",
+      "total": 35
+    },
+    {
+      "status": "processing",
+      "name": "Processing",
+      "total": 10
+    },
+    {
+      "status": "pending",
+      "name": "Pending",
+      "total": 5
+    }
+  ]
+}
+```
+
+#### GET /woocommerce/reports/:storeId/customers/totals
+**Description:** Fetch customers totals report for a specific store
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "customers/totals",
+  "data": [
+    {
+      "type": "paying",
+      "name": "Paying customer",
+      "total": 40
+    },
+    {
+      "type": "non_paying",
+      "name": "Non-paying customer",
+      "total": 5
+    }
+  ]
+}
+```
+
+#### GET /woocommerce/reports/:storeId/products/totals
+**Description:** Fetch products totals report for a specific store
+**Response:**
+```json
+{
+  "success": true,
+  "storeId": "store_id",
+  "storeName": "My WooCommerce Store",
+  "reportType": "products/totals",
+  "data": [
+    {
+      "type": "simple",
+      "name": "Simple product",
+      "total": 150
+    },
+    {
+      "type": "variable",
+      "name": "Variable product",
+      "total": 25
+    }
+  ]
+}
+```
+
+### 35.2 MULTI-STORE ANALYTICS
+
+#### GET /woocommerce/reports/multi-store/:organizationId/:reportType
+**Description:** Fetch aggregated reports across all WooCommerce stores in an organization
+**Parameters:**
+- `organizationId` (path): Organization ID
+- `reportType` (path): Type of report
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+
+**Response:**
+```json
+{
+  "success": true,
+  "organizationId": "org_id",
+  "reportType": "sales",
+  "stores": 3,
+  "successfulStores": 3,
+  "data": {
+    "totalSales": 45620.50,
+    "netSales": 42000.00,
+    "averageSales": 284.00,
+    "totalOrders": 150,
+    "totalItems": 375,
+    "totalTax": 3620.50,
+    "totalShipping": 0.00,
+    "totalRefunds": 0,
+    "totalDiscount": 1500.00,
+    "totalCustomers": 135,
+    "stores": 3,
+    "storeBreakdown": [
+      {
+        "storeId": "store_1",
+        "storeName": "Store 1",
+        "storeUrl": "https://store1.com",
+        "sales": 15420.50,
+        "orders": 50,
+        "customers": 45
+      },
+      {
+        "storeId": "store_2",
+        "storeName": "Store 2",
+        "storeUrl": "https://store2.com",
+        "sales": 15200.00,
+        "orders": 50,
+        "customers": 45
+      }
+    ]
+  },
+  "storeBreakdown": [
+    {
+      "storeId": "store_1",
+      "storeName": "Store 1",
+      "storeUrl": "https://store1.com",
+      "success": true,
+      "data": {...},
+      "source": "woocommerce"
+    }
+  ]
+}
+```
+
+### 35.3 ANALYTICS COMPARISON
+
+#### GET /woocommerce/reports/compare/:organizationId/:reportType
+**Description:** Compare WooCommerce data with existing manual analytics
+**Parameters:**
+- `organizationId` (path): Organization ID
+- `reportType` (path): Type of report to compare
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+
+**Response:**
+```json
+{
+  "success": true,
+  "organizationId": "org_id",
+  "reportType": "sales",
+  "comparison": {
+    "wooCommerce": {
+      "totalSales": 45620.50,
+      "totalOrders": 150,
+      "totalCustomers": 135
+    },
+    "manual": {
+      "totalSales": 45000.00,
+      "totalOrders": 148,
+      "totalCustomers": 130
+    },
+    "differences": {
+      "summary": "Sales difference: 620.50, Orders difference: 2",
+      "details": {
+        "totalSales": {
+          "wooCommerce": 45620.50,
+          "manual": 45000.00,
+          "difference": 620.50,
+          "percentage": 1.38
+        },
+        "totalOrders": {
+          "wooCommerce": 150,
+          "manual": 148,
+          "difference": 2,
+          "percentage": 1.35
+        }
+      }
+    }
+  }
+}
+```
+
+### 35.4 CACHE MANAGEMENT
+
+#### GET /woocommerce/reports/cache/stats
+**Description:** Get cache statistics for WooCommerce reports
+**Response:**
+```json
+{
+  "success": true,
+  "stats": {
+    "totalEntries": 150,
+    "expiredEntries": 25,
+    "validEntries": 125
+  }
+}
+```
+
+#### DELETE /woocommerce/reports/cache/expired
+**Description:** Clear expired cache entries
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Expired cache entries cleared",
+  "deletedCount": 25
+}
+```
+
+#### DELETE /woocommerce/reports/cache/store/:storeId
+**Description:** Clear cache for a specific store
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Store cache cleared",
+  "deletedCount": 10
+}
+```
+
+### 35.5 SUPPORTED REPORT TYPES
+
+1. **Sales Reports** (`sales`)
+   - Total sales, net sales, average order value
+   - Order counts, item counts, customer counts
+   - Tax, shipping, discount, refund totals
+   - Daily breakdown with trends
+
+2. **Top Sellers** (`top_sellers`)
+   - Best-selling products by quantity
+   - Product rankings and performance metrics
+   - Cross-store aggregation support
+
+3. **Orders Totals** (`orders/totals`)
+   - Order status breakdown (completed, processing, pending, etc.)
+   - Status counts and percentages
+   - Multi-store aggregation
+
+4. **Customers Totals** (`customers/totals`)
+   - Paying vs non-paying customer counts
+   - Customer type breakdown
+   - Customer acquisition metrics
+
+5. **Products Totals** (`products/totals`)
+   - Product type breakdown (simple, variable, grouped, etc.)
+   - Product category distribution
+   - Inventory status metrics
+
+6. **Coupons Totals** (`coupons/totals`)
+   - Coupon usage statistics
+   - Discount type breakdown
+   - Coupon performance metrics
+
+7. **Reviews Totals** (`reviews/totals`)
+   - Review rating distribution
+   - Review counts by rating
+   - Customer satisfaction metrics
+
+8. **Categories Totals** (`categories/totals`)
+   - Product category distribution
+   - Category performance metrics
+   - Category sales breakdown
+
+9. **Tags Totals** (`tags/totals`)
+   - Product tag distribution
+   - Tag usage statistics
+   - Tag performance metrics
+
+10. **Attributes Totals** (`attributes/totals`)
+    - Product attribute distribution
+    - Attribute usage statistics
+    - Attribute performance metrics
+
+### 35.6 CACHING STRATEGY
+
+The system implements intelligent caching to optimize performance:
+
+- **Sales Reports**: 15-minute cache (frequently changing)
+- **Top Sellers**: 30-minute cache (moderate changes)
+- **Orders Totals**: 10-minute cache (real-time updates)
+- **Customers/Products Totals**: 1-hour cache (stable data)
+- **Categories/Tags/Attributes**: 24-hour cache (rarely changing)
+
+### 35.7 ERROR HANDLING
+
+#### Common Error Responses
+
+**Store Not Found:**
+```json
+{
+  "success": false,
+  "message": "WooCommerce store not found"
+}
+```
+
+**Invalid Report Type:**
+```json
+{
+  "success": false,
+  "message": "Invalid report type. Must be one of: sales, top_sellers, orders/totals, ..."
+}
+```
+
+**WooCommerce API Error:**
+```json
+{
+  "success": false,
+  "message": "Failed to fetch WooCommerce report",
+  "error": "WooCommerce API error: Authentication failed"
+}
+```
+
+**No Data Available:**
+```json
+{
+  "success": false,
+  "message": "No sales data available"
+}
+```
+
+### 35.8 BEST PRACTICES
+
+1. **Use Caching**: Leverage the built-in caching system to reduce API calls
+2. **Handle Errors**: Implement proper error handling for failed API calls
+3. **Monitor Performance**: Use cache statistics to optimize performance
+4. **Compare Data**: Regularly compare WooCommerce data with manual analytics
+5. **Multi-Store**: Use multi-store endpoints for organizations with multiple stores
+6. **Force Refresh**: Use `force_refresh=true` when you need fresh data
+7. **Date Ranges**: Use specific date ranges for precise reporting periods
+
+### 35.9 INTEGRATION WITH EXISTING ANALYTICS
+
+The WooCommerce Reports system is designed to coexist with the existing manual analytics:
+
+- **No Replacement**: Manual analytics remain fully functional
+- **Comparison Tools**: Built-in comparison endpoints show differences
+- **Unified Dashboard**: Both systems can be displayed together
+- **Data Validation**: Use comparison tools to validate data accuracy
+- **Hybrid Approach**: Combine both systems for comprehensive insights
+
+### 35.10 EXPORT FUNCTIONALITY
+
+The WooCommerce Reports system includes comprehensive export capabilities for PDF and CSV formats, supporting individual store reports, multi-store aggregation, and analytics comparison.
+
+#### GET /export/formats
+**Description:** Get available export formats and their descriptions
+**Response:**
+```json
+{
+  "success": true,
+  "formats": [
+    {
+      "format": "csv",
+      "name": "CSV (Comma Separated Values)",
+      "description": "Spreadsheet format, compatible with Excel and Google Sheets",
+      "mimeType": "text/csv"
+    },
+    {
+      "format": "pdf",
+      "name": "PDF (Portable Document Format)",
+      "description": "Professional document format with formatting and charts",
+      "mimeType": "application/pdf"
+    }
+  ]
+}
+```
+
+#### GET /export/store/:storeId/:reportType/:format
+**Description:** Export individual store report in specified format
+**Parameters:**
+- `storeId` (path): Store ID
+- `reportType` (path): Type of report (sales, top_sellers, orders/totals, etc.)
+- `format` (path): Export format (pdf or csv)
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+- `force_refresh` (query): Force refresh cache (true/false)
+
+**Response:** File download (PDF or CSV)
+- **CSV**: Text file with comma-separated values
+- **PDF**: Professional document with tables and formatting
+
+**Example Usage:**
+```
+GET /api/export/store/12345/sales/pdf?period=month
+GET /api/export/store/12345/top_sellers/csv?date_min=2024-01-01&date_max=2024-01-31
+```
+
+#### GET /export/multi-store/:organizationId/:reportType/:format
+**Description:** Export multi-store aggregated report in specified format
+**Parameters:**
+- `organizationId` (path): Organization ID
+- `reportType` (path): Type of report
+- `format` (path): Export format (pdf or csv)
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+- `force_refresh` (query): Force refresh cache (true/false)
+
+**Response:** File download with aggregated data from all stores
+- **CSV**: Includes store breakdown and aggregated summary
+- **PDF**: Professional document with aggregated data and store status
+
+**Example Usage:**
+```
+GET /api/export/multi-store/67890/sales/pdf?period=month
+GET /api/export/multi-store/67890/orders/totals/csv?date_min=2024-01-01&date_max=2024-01-31
+```
+
+#### GET /export/comparison/:organizationId/:reportType/:format
+**Description:** Export analytics comparison report in specified format
+**Parameters:**
+- `organizationId` (path): Organization ID
+- `reportType` (path): Type of report to compare
+- `format` (path): Export format (pdf or csv)
+- `period` (query): Time period (week, month, last_month, year, custom)
+- `date_min` (query): Start date (ISO 8601 format)
+- `date_max` (query): End date (ISO 8601 format)
+
+**Response:** File download with comparison data
+- **CSV**: Side-by-side comparison with differences and percentages
+- **PDF**: Professional document with comparison tables and summary
+
+**Example Usage:**
+```
+GET /api/export/comparison/67890/sales/pdf?period=month
+GET /api/export/comparison/67890/orders/totals/csv?date_min=2024-01-01&date_max=2024-01-31
+```
+
+### 35.11 EXPORT FEATURES
+
+#### CSV Export Features
+- **Comprehensive Data**: All report data included with proper formatting
+- **Headers and Metadata**: Report title, period, date range, and generation timestamp
+- **Multi-Store Support**: Store breakdown and aggregated data
+- **Comparison Data**: Side-by-side WooCommerce vs Manual analytics
+- **Excel Compatible**: Properly formatted for import into Excel and Google Sheets
+
+#### PDF Export Features
+- **Professional Formatting**: Clean, professional document layout
+- **Tables and Charts**: Well-formatted tables with proper headers
+- **Headers and Footers**: Report metadata and page numbering
+- **Multi-Page Support**: Automatic pagination for large datasets
+- **Branding**: Organization and store information included
+
+#### Export File Naming
+Files are automatically named using the pattern:
+```
+{reportType}_{storeName}_{period}_{date}.{format}
+```
+
+Examples:
+- `sales_my_store_month_2024-01-15.pdf`
+- `top_sellers_my_store_custom_2024-01-15.csv`
+- `multi_sales_my_organization_month_2024-01-15.pdf`
+- `comparison_sales_my_organization_month_2024-01-15.csv`
+
+#### Export Best Practices
+1. **Use Appropriate Formats**: CSV for data analysis, PDF for presentations
+2. **Consider File Size**: Large reports may take time to generate
+3. **Cache Utilization**: Use cached data when possible for faster exports
+4. **Error Handling**: Implement proper error handling for failed exports
+5. **User Feedback**: Provide progress indicators for large exports
+
+---
+
+*This completes the WooCommerce Reports & Analytics implementation with full support for multiple stores, caching, comparison with existing analytics, and comprehensive export functionality.*
+
 ## 36. PUBLIC CONTACT FORM
 
 ### POST /contact
@@ -6197,3 +7838,583 @@
   "error": "Missing required fields."
 }
 ```
+
+## WooCommerce Reports & Comparison Endpoints
+
+### Valid reportType values:
+- sales
+- top_sellers
+- orders/totals
+- customers/totals
+- products/totals
+- coupons/totals
+- reviews/totals
+- categories/totals
+- tags/totals
+- attributes/totals
+
+### Common parameters:
+- period: string (e.g., 'week', 'month', 'last_month', 'year')
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+### 1. Sales Report
+**Endpoint:** `GET /api/woocommerce/reports/sales`
+
+**Parameters:**
+- period: string (week, month, last_month, year)
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/sales?orgId=123&period=month&date_min=2024-01-01&date_max=2024-01-31
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "totalSales": "1450.00",
+  "totalOrders": 25,
+  "totalItems": 67,
+  "totalCustomers": 18,
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "total_sales": "850.00",
+          "net_sales": "800.00",
+          "average_sales": "28.57",
+          "total_orders": 15,
+          "total_items": 42,
+          "total_tax": "50.00",
+          "total_shipping": "0.00",
+          "total_refunds": 0,
+          "total_discount": "0.00",
+          "totals_grouped_by": "day",
+          "total_customers": 12
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 2. Orders Report
+**Endpoint:** `GET /api/woocommerce/reports/orders`
+
+**Parameters:**
+- period: string (week, month, last_month, year)
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/orders?orgId=123&period=month
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "orders": [
+    {
+      "slug": "pending",
+      "name": "Pending payment",
+      "total": 7
+    },
+    {
+      "slug": "processing",
+      "name": "Processing",
+      "total": 2
+    },
+    {
+      "slug": "on-hold",
+      "name": "On hold",
+      "total": 1
+    },
+    {
+      "slug": "completed",
+      "name": "Completed",
+      "total": 15
+    },
+    {
+      "slug": "cancelled",
+      "name": "Cancelled",
+      "total": 0
+    },
+    {
+      "slug": "refunded",
+      "name": "Refunded",
+      "total": 0
+    },
+    {
+      "slug": "failed",
+      "name": "Failed",
+      "total": 0
+    }
+  ],
+  "totalOrders": 25,
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "completed",
+          "name": "Completed",
+          "total": 15
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 3. Products Report
+**Endpoint:** `GET /api/woocommerce/reports/products`
+
+**Parameters:**
+- period: string (week, month, last_month, year)
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/products?orgId=123&period=month
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "products": [
+    {
+      "slug": "external",
+      "name": "External/Affiliate product",
+      "total": 1
+    },
+    {
+      "slug": "grouped",
+      "name": "Grouped product",
+      "total": 1
+    },
+    {
+      "slug": "simple",
+      "name": "Simple product",
+      "total": 21
+    },
+    {
+      "slug": "variable",
+      "name": "Variable product",
+      "total": 3
+    }
+  ],
+  "totalProducts": 26,
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "simple",
+          "name": "Simple product",
+          "total": 21
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 4. Customers Report
+**Endpoint:** `GET /api/woocommerce/reports/customers`
+
+**Parameters:**
+- period: string (week, month, last_month, year)
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/customers?orgId=123&period=month
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "customers": [
+    {
+      "slug": "paying",
+      "name": "Paying customer",
+      "total": 18
+    },
+    {
+      "slug": "non_paying",
+      "name": "Non-paying customer",
+      "total": 7
+    }
+  ],
+  "totalCustomers": 25,
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "paying",
+          "name": "Paying customer",
+          "total": 18
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 5. Top Sellers Report
+**Endpoint:** `GET /api/woocommerce/reports/top-sellers`
+
+**Parameters:**
+- period: string (week, month, last_month, year)
+- date_min: string (YYYY-MM-DD, optional)
+- date_max: string (YYYY-MM-DD, optional)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/top-sellers?orgId=123&period=month
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "topSellers": [
+    {
+      "title": "Premium Product",
+      "product_id": 37,
+      "quantity": 15
+    },
+    {
+      "title": "Standard Product",
+      "product_id": 96,
+      "quantity": 12
+    },
+    {
+      "title": "Basic Product",
+      "product_id": 42,
+      "quantity": 8
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "title": "Premium Product",
+          "product_id": 37,
+          "quantity": 15
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 6. Coupons Report
+**Endpoint:** `GET /api/woocommerce/reports/coupons`
+
+**Parameters:**
+- None required (static report)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/coupons?orgId=123
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "coupons": [
+    {
+      "slug": "percent",
+      "name": "Percentage discount",
+      "total": 2
+    },
+    {
+      "slug": "fixed_cart",
+      "name": "Fixed cart discount",
+      "total": 1
+    },
+    {
+      "slug": "fixed_product",
+      "name": "Fixed product discount",
+      "total": 1
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "percent",
+          "name": "Percentage discount",
+          "total": 2
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 7. Reviews Report
+**Endpoint:** `GET /api/woocommerce/reports/reviews`
+
+**Parameters:**
+- None required (static report)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/reviews?orgId=123
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "reviews": [
+    {
+      "slug": "rated_1_out_of_5",
+      "name": "Rated 1 out of 5",
+      "total": 1
+    },
+    {
+      "slug": "rated_2_out_of_5",
+      "name": "Rated 2 out of 5",
+      "total": 0
+    },
+    {
+      "slug": "rated_3_out_of_5",
+      "name": "Rated 3 out of 5",
+      "total": 3
+    },
+    {
+      "slug": "rated_4_out_of_5",
+      "name": "Rated 4 out of 5",
+      "total": 5
+    },
+    {
+      "slug": "rated_5_out_of_5",
+      "name": "Rated 5 out of 5",
+      "total": 12
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "rated_5_out_of_5",
+          "name": "Rated 5 out of 5",
+          "total": 12
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 8. Categories Report
+**Endpoint:** `GET /api/woocommerce/reports/categories`
+
+**Parameters:**
+- None required (static report)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/categories?orgId=123
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "categories": [
+    {
+      "slug": "electronics",
+      "name": "Electronics",
+      "total": 15
+    },
+    {
+      "slug": "clothing",
+      "name": "Clothing",
+      "total": 8
+    },
+    {
+      "slug": "books",
+      "name": "Books",
+      "total": 3
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "electronics",
+          "name": "Electronics",
+          "total": 15
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 9. Tags Report
+**Endpoint:** `GET /api/woocommerce/reports/tags`
+
+**Parameters:**
+- None required (static report)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/tags?orgId=123
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "tags": [
+    {
+      "slug": "featured",
+      "name": "Featured",
+      "total": 5
+    },
+    {
+      "slug": "sale",
+      "name": "Sale",
+      "total": 3
+    },
+    {
+      "slug": "new",
+      "name": "New",
+      "total": 2
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "featured",
+          "name": "Featured",
+          "total": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### 10. Attributes Report
+**Endpoint:** `GET /api/woocommerce/reports/attributes`
+
+**Parameters:**
+- None required (static report)
+
+**Example Request:**
+```
+GET /api/woocommerce/reports/attributes?orgId=123
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "attributes": [
+    {
+      "slug": "color",
+      "name": "Color",
+      "total": 8
+    },
+    {
+      "slug": "size",
+      "name": "Size",
+      "total": 6
+    },
+    {
+      "slug": "material",
+      "name": "Material",
+      "total": 4
+    }
+  ],
+  "perStore": [
+    {
+      "store": "store_id_1",
+      "storeName": "My Store 1",
+      "data": [
+        {
+          "slug": "color",
+          "name": "Color",
+          "total": 8
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "totalStores": 1
+}
+```
+
+### Error Response Format
+All endpoints return the same error format:
+
+```json
+{
+  "success": false,
+  "error": "Error message describing what went wrong"
+}
+```
+
+### Common Error Scenarios:
+- **400 Bad Request**: Invalid parameters (e.g., invalid date format)
+- **401 Unauthorized**: Missing or invalid authentication
+- **404 Not Found**: Organization or store not found
+- **500 Internal Server Error**: Server-side error
+
+### Notes:
+- **Time-based reports** (sales, orders, products, customers, top_sellers) require `period` parameter for meaningful data
+- **Static reports** (coupons, reviews, categories, tags, attributes) work without additional parameters
+- All responses include `perStore` array showing data breakdown by individual stores
+- `errors` array contains any store-specific errors that occurred during data fetching
+- `totalStores` indicates the number of stores successfully processed
