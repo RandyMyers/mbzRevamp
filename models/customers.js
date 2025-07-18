@@ -100,6 +100,26 @@ const customerSchema = new mongoose.Schema({
       },
     }],
   },
+
+  // WooCommerce Sync Fields
+  wooCommerceId: {
+    type: Number,
+    required: false,
+    default: null
+  },
+  lastWooCommerceSync: {
+    type: Date,
+    default: null
+  },
+  syncStatus: {
+    type: String,
+    enum: ['pending', 'synced', 'failed'],
+    default: 'pending'
+  },
+  syncError: {
+    type: String,
+    default: null
+  }
 });
 
 const Customer = mongoose.model('Customer', customerSchema);

@@ -81,7 +81,7 @@ commissionSchema.methods.cancel = async function() {
 // Static methods
 commissionSchema.statics.getPendingCommissions = async function(affiliateId) {
   return this.find({
-    affiliateId,
+    affiliateId: new mongoose.Types.ObjectId(affiliateId),
     status: 'pending'
   }).sort({ createdAt: -1 });
 };
@@ -90,7 +90,7 @@ commissionSchema.statics.getTotalPendingAmount = async function(affiliateId) {
   const result = await this.aggregate([
     {
       $match: {
-        affiliateId: mongoose.Types.ObjectId(affiliateId),
+        affiliateId: new mongoose.Types.ObjectId(affiliateId),
         status: 'pending'
       }
     },

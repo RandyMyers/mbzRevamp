@@ -12,6 +12,8 @@ router.patch("/update/:productId", inventoryController.updateProduct);
 router.delete("/delete/:productId", inventoryController.deleteProduct);
 router.delete("/deleteAll/:storeId", inventoryController.deleteAllProductsByStore);
 
+
+
 // Product Synchronization
 router.post("/sync/:storeId/:organizationId", inventoryController.syncProducts);
 

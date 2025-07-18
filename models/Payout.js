@@ -120,7 +120,7 @@ payoutSchema.methods.fail = async function(reason) {
 // Static methods
 payoutSchema.statics.getPendingPayouts = async function(affiliateId) {
   return this.find({
-    affiliateId,
+    affiliateId: new mongoose.Types.ObjectId(affiliateId),
     status: 'pending'
   }).sort({ createdAt: -1 });
 };
@@ -129,7 +129,7 @@ payoutSchema.statics.getTotalPaidAmount = async function(affiliateId) {
   const result = await this.aggregate([
     {
       $match: {
-        affiliateId: mongoose.Types.ObjectId(affiliateId),
+        affiliateId: new mongoose.Types.ObjectId(affiliateId),
         status: 'completed'
       }
     },

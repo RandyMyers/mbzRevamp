@@ -15,7 +15,7 @@ exports.createTicket = async (req, res) => {
       category,
       priority,
       customer,
-      organizationId,
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       messages: [],
       hasUnreadMessages: false
     });
@@ -168,7 +168,7 @@ exports.addChatIntegration = async (req, res) => {
         priority: 'low',
         status: 'open',
         customer: { name: 'System', email: 'system@mbz.com' },
-        organizationId,
+        organizationId: new mongoose.Types.ObjectId(organizationId),
         messages: [],
         hasUnreadMessages: false,
         chatIntegrations: [integration]

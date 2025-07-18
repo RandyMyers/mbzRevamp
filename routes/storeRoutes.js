@@ -20,4 +20,8 @@ router.delete("/delete/:storeId", storeController.deleteStore);
 // Sync store with WooCommerce
 router.patch("/sync/:storeId", storeController.syncStoreWithWooCommerce);
 
-module.exports = router;
+// Webhook management for stores
+router.post("/:storeId/webhooks", storeController.createStoreWebhooks);
+router.get("/:storeId/webhooks/status", storeController.getStoreWebhookStatus);
+
+module.exports = router; 

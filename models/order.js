@@ -277,6 +277,26 @@ const orderSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.Mixed,
     }],
   },
+
+  // WooCommerce Sync Fields
+  wooCommerceId: {
+    type: Number,
+    required: false,
+    default: null
+  },
+  lastWooCommerceSync: {
+    type: Date,
+    default: null
+  },
+  syncStatus: {
+    type: String,
+    enum: ['pending', 'synced', 'failed'],
+    default: 'pending'
+  },
+  syncError: {
+    type: String,
+    default: null
+  }
 });
 
 const Order = mongoose.model('Order', orderSchema);

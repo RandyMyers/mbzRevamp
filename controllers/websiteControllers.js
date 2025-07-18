@@ -1,4 +1,5 @@
 // controllers/websiteController.js
+const mongoose = require('mongoose');
 const Website = require('../models/website');
 const Template = require('../models/template');
 const User = require('../models/users');
@@ -57,7 +58,7 @@ exports.createWebsite = async (req, res) => {
     
 
     // Verify organization access
-    const organization = await verifyOrganizationAccess(organizationId);
+    const organization = await verifyOrganizationAccess(organizationId, userId);
     if (!organization) {
       return res.status(403).json({
         success: false,
@@ -85,7 +86,7 @@ exports.createWebsite = async (req, res) => {
 
     // Create website data with logo preferences
     const websiteData = {
-      organization: organizationId,
+      organization: new mongoose.Types.ObjectId(organizationId),
       businessName,
       businessType,
       domain,
@@ -306,11 +307,11 @@ exports.getOrganizationWebsiteAnalytics = async (req, res) => {
       }
   
       // Total websites for organization
-      const totalWebsites = await Website.countDocuments({ organization: organizationId });
+      const totalWebsites = await Website.countDocuments({ organization: new mongoose.Types.ObjectId(organizationId) });
   
       // Websites by status for organization
       const websitesByStatus = await Website.aggregate([
-        { $match: { organization: mongoose.Types.ObjectId(organizationId) } },
+        { $match: { organization: new mongoose.Types.ObjectId(organizationId) } },
         { $group: { _id: "$status", count: { $sum: 1 } } }
       ]);
   
@@ -321,7 +322,7 @@ exports.getOrganizationWebsiteAnalytics = async (req, res) => {
       const websitesOverTime = await Website.aggregate([
         { 
           $match: { 
-            organization: mongoose.Types.ObjectId(organizationId),
+            organization: new mongoose.Types.ObjectId(organizationId),
             createdAt: { $gte: thirtyDaysAgo } 
           } 
         },
@@ -659,7 +660,7 @@ exports.getOrganizationWebsites = async (req, res) => {
       });
     }
 
-    const websites = await Website.find({ organization: organizationId })
+    const websites = await Website.find({ organization: new mongoose.Types.ObjectId(organizationId) })
       .populate('template')
       .sort({ createdAt: -1 });
 

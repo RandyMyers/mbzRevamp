@@ -3,6 +3,9 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
+const WooCommerceService = require('../services/wooCommerceService.js');
+const logEvent = require('../helper/logEvent');
+const cloudinary = require('cloudinary').v2;
 
 exports.syncCustomers = async (req, res) => {
   try {
@@ -65,11 +68,147 @@ exports.createCustomer = async (req, res) => {
         avatar_url,
         meta_data,
         _links,
+        syncToWooCommerce = false, // NEW: Option to sync to WooCommerce
       } = req.body;
   
       // Validate required fields
-      if (!storeId || !userId || !organizationId || !customer_id) {
-        return res.status(400).json({ message: 'Missing required fields.' });
+      const requiredFields = ['storeId', 'userId', 'organizationId', 'customer_id'];
+      const missingFields = requiredFields.filter(field => !req.body[field]);
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Missing required fields: ${missingFields.join(', ')}` 
+        });
+      }
+
+      // Validate data types and convert if necessary
+      const now = new Date();
+      
+      // Handle avatar upload if file is provided
+      let processedAvatarUrl = avatar_url;
+      
+      if (req.files && req.files.avatar) {
+        try {
+          // Upload the avatar to Cloudinary
+          const result = await cloudinary.uploader.upload(req.files.avatar.tempFilePath, {
+            folder: 'customer_avatars',
+          });
+          
+          processedAvatarUrl = result.secure_url;
+        } catch (uploadError) {
+          console.error('Cloudinary upload error:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to upload avatar to Cloudinary',
+            error: uploadError.message
+          });
+        }
+      }
+      
+      // Process billing data if provided
+      const processedBilling = billing ? {
+        first_name: billing.first_name || '',
+        last_name: billing.last_name || '',
+        company: billing.company || '',
+        address_1: billing.address_1 || '',
+        address_2: billing.address_2 || '',
+        city: billing.city || '',
+        state: billing.state || '',
+        postcode: billing.postcode || '',
+        country: billing.country || '',
+        email: billing.email || email || '',
+        phone: billing.phone || ''
+      } : null;
+
+      // Process shipping data if provided
+      const processedShipping = shipping ? {
+        first_name: shipping.first_name || '',
+        last_name: shipping.last_name || '',
+        company: shipping.company || '',
+        address_1: shipping.address_1 || '',
+        address_2: shipping.address_2 || '',
+        city: shipping.city || '',
+        state: shipping.state || '',
+        postcode: shipping.postcode || '',
+        country: shipping.country || ''
+      } : null;
+
+      // Process meta_data if provided
+      const processedMetaData = meta_data ? meta_data.map(item => ({
+        key: item.key || '',
+        value: item.value || null
+      })) : [];
+
+      // Process _links if provided
+      const processedLinks = _links ? {
+        self: _links.self ? _links.self.map(link => ({
+          href: link.href || ''
+        })) : [],
+        collection: _links.collection ? _links.collection.map(link => ({
+          href: link.href || ''
+        })) : []
+      } : null;
+
+      let wooCommerceId = null;
+      let syncStatus = 'pending';
+      let syncError = null;
+
+      // If sync to WooCommerce is requested
+      if (syncToWooCommerce && storeId) {
+        try {
+          // Get store information
+          const store = await Store.findById(storeId);
+          if (!store) {
+            return res.status(404).json({ 
+              success: false, 
+              message: "Store not found for WooCommerce sync" 
+            });
+          }
+
+          // Create WooCommerce service instance
+          const wooCommerceService = new WooCommerceService(store);
+
+          // Prepare customer data for WooCommerce
+          const customerData = {
+            storeId,
+            userId,
+            organizationId,
+            customer_id: Number(customer_id),
+            customer_ip_address,
+            date_created: date_created || now,
+            date_created_gmt: date_created_gmt || now,
+            date_modified: date_modified || now,
+            date_modified_gmt: date_modified_gmt || now,
+            email,
+            first_name,
+            last_name,
+            role: role || 'customer',
+            username,
+            billing: processedBilling,
+            shipping: processedShipping,
+            is_paying_customer: Boolean(is_paying_customer),
+            avatar_url: processedAvatarUrl,
+            meta_data: processedMetaData,
+            _links: processedLinks,
+          };
+
+          // Create customer in WooCommerce
+          const wooCommerceResult = await wooCommerceService.createCustomer(customerData);
+          
+          if (wooCommerceResult.success) {
+            wooCommerceId = wooCommerceResult.data.id;
+            syncStatus = 'synced';
+          } else {
+            syncStatus = 'failed';
+            syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
+            console.error('WooCommerce sync error:', wooCommerceResult.error);
+          }
+        } catch (wooCommerceError) {
+          syncStatus = 'failed';
+          syncError = wooCommerceError.message;
+          console.error('WooCommerce sync error:', wooCommerceError);
+        }
       }
   
       // Create a new customer
@@ -77,30 +216,64 @@ exports.createCustomer = async (req, res) => {
         storeId,
         userId,
         organizationId,
-        customer_id,
+        customer_id: Number(customer_id),
         customer_ip_address,
-        date_created,
-        date_created_gmt,
-        date_modified,
-        date_modified_gmt,
+        date_created: date_created || now,
+        date_created_gmt: date_created_gmt || now,
+        date_modified: date_modified || now,
+        date_modified_gmt: date_modified_gmt || now,
         email,
         first_name,
         last_name,
-        role,
+        role: role || 'customer',
         username,
-        billing,
-        shipping,
-        is_paying_customer,
-        avatar_url,
-        meta_data,
-        _links,
+        billing: processedBilling,
+        shipping: processedShipping,
+        is_paying_customer: Boolean(is_paying_customer),
+        avatar_url: processedAvatarUrl,
+        meta_data: processedMetaData,
+        _links: processedLinks,
+        wooCommerceId,
+        lastWooCommerceSync: syncStatus === 'synced' ? new Date() : null,
+        syncStatus,
+        syncError,
       });
   
       const savedCustomer = await newCustomer.save();
-      res.status(201).json({ message: 'Customer created successfully.', data: savedCustomer });
+
+      // Log the event
+      await logEvent({
+        action: 'create_customer',
+        user: req.user?._id || userId,
+        resource: 'Customer',
+        resourceId: savedCustomer._id,
+        details: { 
+          email: savedCustomer.email, 
+          syncToWooCommerce,
+          syncStatus,
+          wooCommerceId 
+        },
+        organization: req.user?.organization || organizationId
+      });
+
+      res.status(201).json({ 
+        success: true,
+        message: 'Customer created successfully.', 
+        data: savedCustomer,
+        wooCommerceSync: {
+          synced: syncStatus === 'synced',
+          wooCommerceId,
+          status: syncStatus,
+          error: syncError
+        }
+      });
     } catch (error) {
       console.error('Error creating customer:', error);
-      res.status(500).json({ message: 'Error creating customer.', error });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error creating customer.', 
+        error: error.message 
+      });
     }
   };
 
@@ -168,35 +341,314 @@ exports.createCustomer = async (req, res) => {
   exports.updateCustomer = async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const { syncToWooCommerce = false, ...updates } = req.body;
+
+      // Define allowed fields that can be updated
+      const allowedFields = [
+        'customer_ip_address',
+        'date_created',
+        'date_created_gmt',
+        'date_modified',
+        'date_modified_gmt',
+        'email',
+        'first_name',
+        'last_name',
+        'role',
+        'username',
+        'billing',
+        'shipping',
+        'is_paying_customer',
+        'avatar_url',
+        'meta_data',
+        '_links'
+      ];
+
+      // Sanitize update data - only allow specified fields
+      const sanitizedUpdates = {};
+      allowedFields.forEach(field => {
+        if (updates[field] !== undefined) {
+          sanitizedUpdates[field] = updates[field];
+        }
+      });
+
+      // Validate and process specific fields
+      if (sanitizedUpdates.is_paying_customer !== undefined) {
+        sanitizedUpdates.is_paying_customer = Boolean(sanitizedUpdates.is_paying_customer);
+      }
+
+      // Process billing data if provided
+      if (sanitizedUpdates.billing) {
+        sanitizedUpdates.billing = {
+          first_name: sanitizedUpdates.billing.first_name || '',
+          last_name: sanitizedUpdates.billing.last_name || '',
+          company: sanitizedUpdates.billing.company || '',
+          address_1: sanitizedUpdates.billing.address_1 || '',
+          address_2: sanitizedUpdates.billing.address_2 || '',
+          city: sanitizedUpdates.billing.city || '',
+          state: sanitizedUpdates.billing.state || '',
+          postcode: sanitizedUpdates.billing.postcode || '',
+          country: sanitizedUpdates.billing.country || '',
+          email: sanitizedUpdates.billing.email || '',
+          phone: sanitizedUpdates.billing.phone || ''
+        };
+      }
+
+      // Process shipping data if provided
+      if (sanitizedUpdates.shipping) {
+        sanitizedUpdates.shipping = {
+          first_name: sanitizedUpdates.shipping.first_name || '',
+          last_name: sanitizedUpdates.shipping.last_name || '',
+          company: sanitizedUpdates.shipping.company || '',
+          address_1: sanitizedUpdates.shipping.address_1 || '',
+          address_2: sanitizedUpdates.shipping.address_2 || '',
+          city: sanitizedUpdates.shipping.city || '',
+          state: sanitizedUpdates.shipping.state || '',
+          postcode: sanitizedUpdates.shipping.postcode || '',
+          country: sanitizedUpdates.shipping.country || ''
+        };
+      }
+
+      // Process meta_data if provided
+      if (sanitizedUpdates.meta_data) {
+        sanitizedUpdates.meta_data = sanitizedUpdates.meta_data.map(item => ({
+          key: item.key || '',
+          value: item.value || null
+        }));
+      }
+
+      // Process _links if provided
+      if (sanitizedUpdates._links) {
+        sanitizedUpdates._links = {
+          self: sanitizedUpdates._links.self ? sanitizedUpdates._links.self.map(link => ({
+            href: link.href || ''
+          })) : [],
+          collection: sanitizedUpdates._links.collection ? sanitizedUpdates._links.collection.map(link => ({
+            href: link.href || ''
+          })) : []
+        };
+      }
+
+      // Handle avatar upload if file is provided
+      if (req.files && req.files.avatar) {
+        try {
+          // Upload the avatar to Cloudinary
+          const result = await cloudinary.uploader.upload(req.files.avatar.tempFilePath, {
+            folder: 'customer_avatars',
+          });
+          
+          sanitizedUpdates.avatar_url = result.secure_url;
+        } catch (uploadError) {
+          console.error('Cloudinary upload error:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to upload avatar to Cloudinary',
+            error: uploadError.message
+          });
+        }
+      }
+
+      // Get the current customer to check if it has a WooCommerce ID
+      const currentCustomer = await Customer.findById(id);
+      if (!currentCustomer) {
+        return res.status(404).json({ success: false, message: 'Customer not found.' });
+      }
+
+      let wooCommerceSync = null;
+
+      // If sync to WooCommerce is requested
+      if (syncToWooCommerce && currentCustomer.storeId) {
+        try {
+          // Get store information
+          const store = await Store.findById(currentCustomer.storeId);
+          if (!store) {
+            return res.status(404).json({ 
+              success: false, 
+              message: "Store not found for WooCommerce sync" 
+            });
+          }
+
+          // Create WooCommerce service instance
+          const wooCommerceService = new WooCommerceService(store);
+
+          // Prepare customer data for WooCommerce (merge current data with updates)
+          const customerData = {
+            ...currentCustomer.toObject(),
+            ...sanitizedUpdates
+          };
+
+          let wooCommerceResult;
+
+          // If customer already exists in WooCommerce, update it
+          if (currentCustomer.wooCommerceId) {
+            wooCommerceResult = await wooCommerceService.updateCustomer(
+              currentCustomer.wooCommerceId, 
+              customerData
+            );
+          } else {
+            // If customer doesn't exist in WooCommerce, create it
+            wooCommerceResult = await wooCommerceService.createCustomer(customerData);
+          }
+          
+          if (wooCommerceResult.success) {
+            // Update the WooCommerce ID if it's a new customer
+            if (!currentCustomer.wooCommerceId && wooCommerceResult.data.id) {
+              sanitizedUpdates.wooCommerceId = wooCommerceResult.data.id;
+            }
+            
+            sanitizedUpdates.lastWooCommerceSync = new Date();
+            sanitizedUpdates.syncStatus = 'synced';
+            sanitizedUpdates.syncError = null;
+            
+            wooCommerceSync = {
+              synced: true,
+              wooCommerceId: sanitizedUpdates.wooCommerceId || currentCustomer.wooCommerceId,
+              status: 'synced',
+              error: null
+            };
+          } else {
+            sanitizedUpdates.syncStatus = 'failed';
+            sanitizedUpdates.syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
+            
+            wooCommerceSync = {
+              synced: false,
+              wooCommerceId: currentCustomer.wooCommerceId,
+              status: 'failed',
+              error: sanitizedUpdates.syncError
+            };
+            
+            console.error('WooCommerce sync error:', wooCommerceResult.error);
+          }
+        } catch (wooCommerceError) {
+          sanitizedUpdates.syncStatus = 'failed';
+          sanitizedUpdates.syncError = wooCommerceError.message;
+          
+          wooCommerceSync = {
+            synced: false,
+            wooCommerceId: currentCustomer.wooCommerceId,
+            status: 'failed',
+            error: wooCommerceError.message
+          };
+          
+          console.error('WooCommerce sync error:', wooCommerceError);
+        }
+      }
   
-      const updatedCustomer = await Customer.findByIdAndUpdate(id, updates, {
+      const updatedCustomer = await Customer.findByIdAndUpdate(id, sanitizedUpdates, {
         new: true,
         runValidators: true,
       });
   
-      if (!updatedCustomer) {
-        return res.status(404).json({ message: 'Customer not found.' });
-      }
-  
-      res.status(200).json({ message: 'Customer updated successfully.', data: updatedCustomer });
+      // Log the event
+      await logEvent({
+        action: 'update_customer',
+        user: req.user?._id,
+        resource: 'Customer',
+        resourceId: updatedCustomer._id,
+        details: { 
+          email: updatedCustomer.email, 
+          syncToWooCommerce,
+          syncStatus: sanitizedUpdates.syncStatus,
+          wooCommerceId: sanitizedUpdates.wooCommerceId || currentCustomer.wooCommerceId
+        },
+        organization: req.user?.organization || currentCustomer.organizationId
+      });
+
+      res.status(200).json({ 
+        success: true,
+        message: 'Customer updated successfully.', 
+        data: updatedCustomer,
+        wooCommerceSync
+      });
     } catch (error) {
       console.error('Error updating customer:', error);
-      res.status(500).json({ message: 'Error updating customer.', error });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error updating customer.', 
+        error: error.message 
+      });
     }
   };
 
   exports.deleteCustomer = async (req, res) => {
     try {
       const { id } = req.params;
+      const { syncToWooCommerce = false } = req.body;
+
+      // Get the customer before deleting to check if it has a WooCommerce ID
+      const customerToDelete = await Customer.findById(id);
+      if (!customerToDelete) {
+        return res.status(404).json({ success: false, message: 'Customer not found.' });
+      }
+
+      let wooCommerceSync = null;
+
+      // If sync to WooCommerce is requested and customer exists in WooCommerce
+      if (syncToWooCommerce && customerToDelete.wooCommerceId && customerToDelete.storeId) {
+        try {
+          // Get store information
+          const store = await Store.findById(customerToDelete.storeId);
+          if (!store) {
+            return res.status(404).json({ 
+              success: false, 
+              message: "Store not found for WooCommerce sync" 
+            });
+          }
+
+          // Create WooCommerce service instance
+          const wooCommerceService = new WooCommerceService(store);
+
+          // Delete customer from WooCommerce
+          const wooCommerceResult = await wooCommerceService.deleteCustomer(customerToDelete.wooCommerceId);
+          
+          if (wooCommerceResult.success) {
+            wooCommerceSync = {
+              synced: true,
+              wooCommerceId: customerToDelete.wooCommerceId,
+              status: 'deleted',
+              error: null
+            };
+          } else {
+            wooCommerceSync = {
+              synced: false,
+              wooCommerceId: customerToDelete.wooCommerceId,
+              status: 'failed',
+              error: wooCommerceResult.error?.message || 'WooCommerce delete failed'
+            };
+            console.error('WooCommerce delete error:', wooCommerceResult.error);
+          }
+        } catch (wooCommerceError) {
+          wooCommerceSync = {
+            synced: false,
+            wooCommerceId: customerToDelete.wooCommerceId,
+            status: 'failed',
+            error: wooCommerceError.message
+          };
+          console.error('WooCommerce delete error:', wooCommerceError);
+        }
+      }
   
       const deletedCustomer = await Customer.findByIdAndDelete(id);
   
-      if (!deletedCustomer) {
-        return res.status(404).json({ message: 'Customer not found.' });
-      }
-  
-      res.status(200).json({ message: 'Customer deleted successfully.', data: deletedCustomer });
+      // Log the event
+      await logEvent({
+        action: 'delete_customer',
+        user: req.user?._id,
+        resource: 'Customer',
+        resourceId: customerToDelete._id,
+        details: { 
+          email: customerToDelete.email, 
+          syncToWooCommerce,
+          wooCommerceId: customerToDelete.wooCommerceId
+        },
+        organization: req.user?.organization || customerToDelete.organizationId
+      });
+
+      res.status(200).json({ 
+        success: true,
+        message: 'Customer deleted successfully.', 
+        data: deletedCustomer,
+        wooCommerceSync
+      });
     } catch (error) {
       console.error('Error deleting customer:', error);
       res.status(500).json({ message: 'Error deleting customer.', error });
@@ -216,5 +668,126 @@ exports.createCustomer = async (req, res) => {
     }
   };
   
+  // MANUAL SYNC: Sync a customer to WooCommerce
+  exports.syncCustomerToWooCommerce = async (req, res) => {
+    const { customerId } = req.params;
+    
+    try {
+      const customer = await Customer.findById(customerId);
+      if (!customer) {
+        return res.status(404).json({ success: false, message: "Customer not found" });
+      }
 
-  
+      if (!customer.storeId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Customer is not associated with a store" 
+        });
+      }
+
+      // Get store information
+      const store = await Store.findById(customer.storeId);
+      if (!store) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Store not found" 
+        });
+      }
+
+      // Create WooCommerce service instance
+      const wooCommerceService = new WooCommerceService(store);
+
+      let wooCommerceResult;
+      let syncAction = '';
+
+      // Prepare customer data for WooCommerce
+      const customerData = customer.toObject();
+
+      // If customer already exists in WooCommerce, update it
+      if (customer.wooCommerceId) {
+        wooCommerceResult = await wooCommerceService.updateCustomer(customer.wooCommerceId, customerData);
+        syncAction = 'updated';
+      } else {
+        // If customer doesn't exist in WooCommerce, create it
+        wooCommerceResult = await wooCommerceService.createCustomer(customerData);
+        syncAction = 'created';
+      }
+      
+      if (wooCommerceResult.success) {
+        // Update the customer with sync information
+        const updateData = {
+          lastWooCommerceSync: new Date(),
+          syncStatus: 'synced',
+          syncError: null
+        };
+
+        // Update the WooCommerce ID if it's a new customer
+        if (!customer.wooCommerceId && wooCommerceResult.data.id) {
+          updateData.wooCommerceId = wooCommerceResult.data.id;
+        }
+
+        const updatedCustomer = await Customer.findByIdAndUpdate(
+          customerId,
+          { $set: updateData },
+          { new: true }
+        );
+
+        // Log the event
+        await logEvent({
+          action: 'manual_sync_customer',
+          user: req.user?._id,
+          resource: 'Customer',
+          resourceId: updatedCustomer._id,
+          details: { 
+            email: updatedCustomer.email, 
+            syncAction,
+            wooCommerceId: updateData.wooCommerceId || customer.wooCommerceId
+          },
+          organization: req.user?.organization || customer.organizationId
+        });
+
+        res.status(200).json({ 
+          success: true, 
+          message: `Customer ${syncAction} in WooCommerce successfully`,
+          data: updatedCustomer,
+          wooCommerceSync: {
+            synced: true,
+            action: syncAction,
+            wooCommerceId: updateData.wooCommerceId || customer.wooCommerceId,
+            status: 'synced',
+            error: null
+          }
+        });
+      } else {
+        // Update the customer with error information
+        await Customer.findByIdAndUpdate(
+          customerId,
+          { 
+            $set: {
+              syncStatus: 'failed',
+              syncError: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+            }
+          }
+        );
+
+        res.status(500).json({ 
+          success: false, 
+          message: "Failed to sync customer to WooCommerce",
+          wooCommerceSync: {
+            synced: false,
+            action: syncAction,
+            wooCommerceId: customer.wooCommerceId,
+            status: 'failed',
+            error: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Manual sync error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to sync customer to WooCommerce",
+        error: error.message
+      });
+    }
+  };

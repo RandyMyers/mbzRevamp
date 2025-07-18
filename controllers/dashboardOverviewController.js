@@ -3,8 +3,8 @@ const Customer = require('../models/customers');
 const Product = require('../models/inventory');
 const Website = require('../models/website');
 const Task = require('../models/task');
-const Campaign = require('../models/campaign');
-const SupportTicket = require('../models/supportTicket');
+const Campaign = require('../models/campaigns');
+const SupportTicket = require('../models/support');
 const currencyUtils = require('../utils/currencyUtils');
 const mongoose = require('mongoose');
 
@@ -31,7 +31,8 @@ const getPreviousPeriod = (startDate, endDate) => {
 
 exports.getDashboardOverview = async (req, res) => {
   try {
-    const { timeRange = '30d', organizationId, userId, displayCurrency } = req.query;
+    const { organizationId } = req.params;
+    const { timeRange = '30d', userId, displayCurrency } = req.query;
 
     if (!organizationId) {
       return res.status(400).json({
@@ -47,29 +48,40 @@ exports.getDashboardOverview = async (req, res) => {
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     // 1. Revenue Analytics with Multi-Currency Support
-    const currentRevenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
-      organizationId,
-      targetCurrency,
-      { date_created: { $gte: startDate, $lte: endDate } }
-    );
-    const currentRevenueResults = await Order.aggregate(currentRevenuePipeline);
-    const currentRevenueSummary = await currencyUtils.processMultiCurrencyResults(
-      currentRevenueResults, 
-      targetCurrency, 
-      organizationId
-    );
+    let currentRevenueSummary = { totalConverted: 0, currencyBreakdown: {} };
+    let previousRevenueSummary = { totalConverted: 0, currencyBreakdown: {} };
+    
+    try {
+      const currentRevenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
+        organizationId,
+        targetCurrency,
+        { date_created: { $gte: startDate, $lte: endDate } }
+      );
+      const currentRevenueResults = await Order.aggregate(currentRevenuePipeline);
+      currentRevenueSummary = await currencyUtils.processMultiCurrencyResults(
+        currentRevenueResults, 
+        targetCurrency, 
+        organizationId
+      );
+    } catch (error) {
+      console.error('Error calculating current revenue:', error);
+    }
 
-    const previousRevenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
-      organizationId,
-      targetCurrency,
-      { date_created: { $gte: previousStartDate, $lt: startDate } }
-    );
-    const previousRevenueResults = await Order.aggregate(previousRevenuePipeline);
-    const previousRevenueSummary = await currencyUtils.processMultiCurrencyResults(
-      previousRevenueResults, 
-      targetCurrency, 
-      organizationId
-    );
+    try {
+      const previousRevenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
+        organizationId,
+        targetCurrency,
+        { date_created: { $gte: previousStartDate, $lt: startDate } }
+      );
+      const previousRevenueResults = await Order.aggregate(previousRevenuePipeline);
+      previousRevenueSummary = await currencyUtils.processMultiCurrencyResults(
+        previousRevenueResults, 
+        targetCurrency, 
+        organizationId
+      );
+    } catch (error) {
+      console.error('Error calculating previous revenue:', error);
+    }
 
     const revenueGrowth = previousRevenueSummary.totalConverted > 0
       ? ((currentRevenueSummary.totalConverted - previousRevenueSummary.totalConverted) / previousRevenueSummary.totalConverted) * 100
@@ -183,23 +195,35 @@ exports.getDashboardOverview = async (req, res) => {
       : 0;
 
     // 9. Recent Orders with Currency Conversion
-    const recentOrders = await Order.find({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
-      status: { $nin: ['cancelled', 'refunded'] }
-    })
-    .sort({ date_created: -1 })
-    .limit(5)
-    .populate('customerId', 'fullName email')
-    .lean();
+    let convertedRecentOrders = [];
+    try {
+      const recentOrders = await Order.find({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        status: { $nin: ['cancelled', 'refunded'] }
+      })
+      .sort({ date_created: -1 })
+      .limit(5)
+      .populate('customerId', 'first_name last_name email')
+      .lean();
 
-    const convertedRecentOrders = await currencyUtils.convertOrderAmounts(
-      recentOrders,
-      targetCurrency,
-      organizationId
-    );
+      convertedRecentOrders = await currencyUtils.convertOrderAmounts(
+        recentOrders,
+        targetCurrency,
+        organizationId
+      );
+    } catch (error) {
+      console.error('Error fetching recent orders:', error);
+      convertedRecentOrders = [];
+    }
 
     // 10. Currency Statistics
-    const currencyStats = await currencyUtils.getCurrencyStats(organizationId);
+    let currencyStats = {};
+    try {
+      currencyStats = await currencyUtils.getCurrencyStats(organizationId);
+    } catch (error) {
+      console.error('Error fetching currency stats:', error);
+      currencyStats = {};
+    }
 
     res.json({
       success: true,

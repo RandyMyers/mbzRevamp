@@ -1,6 +1,7 @@
 const ExchangeRate = require('../models/exchangeRate');
 const Organization = require('../models/organization');
 const User = require('../models/users');
+const mongoose = require('mongoose');
 
 /**
  * Get the display currency for a user or organization
@@ -84,7 +85,7 @@ const getExchangeRate = async (organizationId, fromCurrency, toCurrency) => {
 
     // First try to get organization-specific rate
     let exchangeRate = await ExchangeRate.findOne({
-      organizationId: new require('mongoose').Types.ObjectId(organizationId),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       baseCurrency: fromCurrency,
       targetCurrency: toCurrency,
       isActive: true
@@ -96,7 +97,7 @@ const getExchangeRate = async (organizationId, fromCurrency, toCurrency) => {
 
     // Try reverse rate
     exchangeRate = await ExchangeRate.findOne({
-      organizationId: new require('mongoose').Types.ObjectId(organizationId),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       baseCurrency: toCurrency,
       targetCurrency: fromCurrency,
       isActive: true
@@ -204,7 +205,7 @@ const createMultiCurrencyRevenuePipeline = (organizationId, targetCurrency, addi
   return [
     {
       $match: {
-        organizationId: new require('mongoose').Types.ObjectId(organizationId),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
         status: { $nin: ['cancelled', 'refunded'] },
         total: { $exists: true, $ne: "" },
         ...additionalFilters
@@ -293,7 +294,7 @@ const getCurrencyStats = async (organizationId) => {
     const stats = await require('../models/order').aggregate([
       {
         $match: {
-          organizationId: new require('mongoose').Types.ObjectId(organizationId),
+          organizationId: new mongoose.Types.ObjectId(organizationId),
           status: { $nin: ['cancelled', 'refunded'] },
           currency: { $exists: true, $ne: null }
         }

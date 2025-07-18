@@ -66,6 +66,10 @@ const paymentGatewayKeyRoutes = require('./routes/paymentGatewayKeyRoutes');
 const chatIntegrationRoutes = require('./routes/chatIntegrationRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
+const wooCommerceReportsRoutes = require('./routes/wooCommerceReportsRoutes');
+//const exportRoutes = require('./routes/exportRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 
 dotenv.config();
 
@@ -162,6 +166,10 @@ app.use('/api/payment-gateways', paymentGatewayKeyRoutes);
 app.use('/api/chat-integrations', chatIntegrationRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/woocommerce', wooCommerceReportsRoutes);
+//app.use('/api/export', exportRoutes);
+app.use('/api/contact', contactRoutes);
 
 //Start the cron job for receiver emails
 receiverEvent.scheduleReceiverEmails();
