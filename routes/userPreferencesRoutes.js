@@ -24,4 +24,4 @@ router.get('/currency-stats', userPreferencesController.getCurrencyStats);
 // Get available currencies
 router.get('/available-currencies', userPreferencesController.getAvailableCurrencies);
 
-module.exports = router; 
+module.exports = router;  
