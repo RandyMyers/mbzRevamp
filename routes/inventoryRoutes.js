@@ -15,16 +15,16 @@ router.post("/woocommerce/sync-products/:storeId/:organizationId", inventoryCont
 router.post("/woocommerce/sync/:productId", inventoryController.syncProductToWooCommerce);
 router.post("/woocommerce/retry-sync/:productId", inventoryController.retryProductWooCommerceSync);
 
-// Analytics routes
-router.get("/analytics/total/:organizationId", inventoryController.getTotalProducts);
-router.get("/analytics/in-stock/:organizationId", inventoryController.getInStockItems);
-router.get("/analytics/low-stock/:organizationId", inventoryController.getLowStockItems);
-router.get("/analytics/out-of-stock/:organizationId", inventoryController.getOutOfStockItems);
-router.get("/analytics/categories/:organizationId", inventoryController.getCategoryCount);
-router.get("/analytics/stores/:organizationId", inventoryController.getStoreCount);
-router.get("/analytics/value/:organizationId", inventoryController.getTotalInventoryValue);
-router.get("/analytics/avg-price/:organizationId", inventoryController.getAveragePrice);
-router.get("/analytics/on-sale/:organizationId", inventoryController.getOnSaleCount);
-router.get("/analytics/avg-rating/:organizationId", inventoryController.getAverageRating);
+// Metrics routes
+router.get("/metrics/total-products/:organizationId", inventoryController.getTotalProducts);
+router.get("/metrics/in-stock/:organizationId", inventoryController.getInStockItems);
+router.get("/metrics/low-stock/:organizationId", inventoryController.getLowStockItems);
+router.get("/metrics/out-of-stock/:organizationId", inventoryController.getOutOfStockItems);
+router.get("/metrics/category-count/:organizationId", inventoryController.getCategoryCount);
+router.get("/metrics/store-count/:organizationId", inventoryController.getStoreCount);
+router.get("/metrics/total-value/:organizationId", inventoryController.getTotalInventoryValue);
+router.get("/metrics/avg-price/:organizationId", inventoryController.getAveragePrice);
+router.get("/metrics/on-sale/:organizationId", inventoryController.getOnSaleCount);
+router.get("/metrics/avg-rating/:organizationId", inventoryController.getAverageRating);
 
 module.exports = router;
