@@ -28,7 +28,7 @@ const affiliateRoutes = require('./routes/affiliateRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');  // New Coupon Routes
 const storeRoutes = require('./routes/storeRoutes'); 
 //const exchangeRateRoutes = require('./routes/exchangeRateRoutes');
-//const categoryRoutes = require('./routes/categoryRoutes');  // New Category Routes
+const categoryRoutes = require('./routes/categoryRoutes');  // New Category Routes
 //const cryptoWalletBTCRoutes = require('./routes/cryptoWalletBTCRoutes');
 //const cryptoWalletUSDTRoutes = require('./routes/cryptoWalletUSDTRoutes');
 //const cartRoutes = require('./routes/cartRoutes');
@@ -130,7 +130,7 @@ app.use('/api/affiliates', affiliateRoutes);
 app.use('/api/organization', organizationRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/products', productRoutes);
-//app.use('/api/categories', categoryRoutes);
+app.use('/api/categories', categoryRoutes);
 
 //app.use('/api/wallets/btc', cryptoWalletBTCRoutes);
 //app.use('/api/wallets/usdt', cryptoWalletUSDTRoutes);

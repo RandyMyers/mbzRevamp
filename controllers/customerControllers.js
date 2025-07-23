@@ -51,7 +51,7 @@ exports.createCustomer = async (req, res) => {
         storeId,
         userId,
         organizationId,
-        customer_id,
+        customer_id, // Optional - will be set after WooCommerce sync
         customer_ip_address,
         date_created,
         date_created_gmt,
@@ -71,8 +71,8 @@ exports.createCustomer = async (req, res) => {
         syncToWooCommerce = false, // NEW: Option to sync to WooCommerce
       } = req.body;
   
-      // Validate required fields
-      const requiredFields = ['storeId', 'userId', 'organizationId', 'customer_id'];
+      // Validate required fields (removed customer_id from required fields)
+      const requiredFields = ['storeId', 'userId', 'organizationId'];
       const missingFields = requiredFields.filter(field => !req.body[field]);
       
       if (missingFields.length > 0) {
@@ -150,73 +150,12 @@ exports.createCustomer = async (req, res) => {
         })) : []
       } : null;
 
-      let wooCommerceId = null;
-      let syncStatus = 'pending';
-      let syncError = null;
-
-      // If sync to WooCommerce is requested
-      if (syncToWooCommerce && storeId) {
-        try {
-          // Get store information
-          const store = await Store.findById(storeId);
-          if (!store) {
-            return res.status(404).json({ 
-              success: false, 
-              message: "Store not found for WooCommerce sync" 
-            });
-          }
-
-          // Create WooCommerce service instance
-          const wooCommerceService = new WooCommerceService(store);
-
-          // Prepare customer data for WooCommerce
-          const customerData = {
-            storeId,
-            userId,
-            organizationId,
-            customer_id: Number(customer_id),
-            customer_ip_address,
-            date_created: date_created || now,
-            date_created_gmt: date_created_gmt || now,
-            date_modified: date_modified || now,
-            date_modified_gmt: date_modified_gmt || now,
-            email,
-            first_name,
-            last_name,
-            role: role || 'customer',
-            username,
-            billing: processedBilling,
-            shipping: processedShipping,
-            is_paying_customer: Boolean(is_paying_customer),
-            avatar_url: processedAvatarUrl,
-            meta_data: processedMetaData,
-            _links: processedLinks,
-          };
-
-          // Create customer in WooCommerce
-          const wooCommerceResult = await wooCommerceService.createCustomer(customerData);
-          
-          if (wooCommerceResult.success) {
-            wooCommerceId = wooCommerceResult.data.id;
-            syncStatus = 'synced';
-          } else {
-            syncStatus = 'failed';
-            syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
-            console.error('WooCommerce sync error:', wooCommerceResult.error);
-          }
-        } catch (wooCommerceError) {
-          syncStatus = 'failed';
-          syncError = wooCommerceError.message;
-          console.error('WooCommerce sync error:', wooCommerceError);
-        }
-      }
-  
-      // Create a new customer
+      // PHASE 1: Create customer in local database first
       const newCustomer = new Customer({
         storeId,
         userId,
         organizationId,
-        customer_id: Number(customer_id),
+        customer_id: customer_id ? Number(customer_id) : null, // Optional now
         customer_ip_address,
         date_created: date_created || now,
         date_created_gmt: date_created_gmt || now,
@@ -233,22 +172,103 @@ exports.createCustomer = async (req, res) => {
         avatar_url: processedAvatarUrl,
         meta_data: processedMetaData,
         _links: processedLinks,
-        wooCommerceId,
-        lastWooCommerceSync: syncStatus === 'synced' ? new Date() : null,
-        syncStatus,
-        syncError,
+        syncStatus: syncToWooCommerce ? 'pending' : 'not_synced',
+        syncError: null,
       });
-  
+
       const savedCustomer = await newCustomer.save();
+
+      let wooCommerceId = null;
+      let syncStatus = savedCustomer.syncStatus;
+      let syncError = null;
+
+      // PHASE 2: Sync to WooCommerce if requested
+      if (syncToWooCommerce && storeId) {
+        try {
+          // Get store information
+          const store = await Store.findById(storeId);
+          if (!store) {
+            syncStatus = 'failed';
+            syncError = 'Store not found for WooCommerce sync';
+          } else {
+            // Create WooCommerce service instance
+            const wooCommerceService = new WooCommerceService(store);
+
+            // Prepare customer data for WooCommerce
+            const customerData = {
+              storeId,
+              userId,
+              organizationId,
+              customer_id: savedCustomer.local_id, // Use local_id for WooCommerce
+              customer_ip_address,
+              date_created: date_created || now,
+              date_created_gmt: date_created_gmt || now,
+              date_modified: date_modified || now,
+              date_modified_gmt: date_modified_gmt || now,
+              email,
+              first_name,
+              last_name,
+              role: role || 'customer',
+              username,
+              billing: processedBilling,
+              shipping: processedShipping,
+              is_paying_customer: Boolean(is_paying_customer),
+              avatar_url: processedAvatarUrl,
+              meta_data: processedMetaData,
+              _links: processedLinks,
+            };
+
+            // Create customer in WooCommerce
+            const wooCommerceResult = await wooCommerceService.createCustomer(customerData);
+            
+            if (wooCommerceResult.success) {
+              wooCommerceId = wooCommerceResult.data.id;
+              syncStatus = 'synced';
+              
+              // Update local record with WooCommerce ID
+              await Customer.findByIdAndUpdate(savedCustomer._id, {
+                customer_id: wooCommerceId,
+                wooCommerceId: wooCommerceId,
+                lastWooCommerceSync: new Date(),
+                syncStatus: 'synced',
+                syncError: null
+              });
+            } else {
+              syncStatus = 'failed';
+              syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
+              console.error('WooCommerce sync error:', wooCommerceResult.error);
+              
+              // Update local record with sync failure
+              await Customer.findByIdAndUpdate(savedCustomer._id, {
+                syncStatus: 'failed',
+                syncError: syncError
+              });
+            }
+          }
+        } catch (wooCommerceError) {
+          syncStatus = 'failed';
+          syncError = wooCommerceError.message;
+          console.error('WooCommerce sync error:', wooCommerceError);
+          
+          // Update local record with sync failure
+          await Customer.findByIdAndUpdate(savedCustomer._id, {
+            syncStatus: 'failed',
+            syncError: syncError
+          });
+        }
+      }
+
+      // Get updated customer record
+      const updatedCustomer = await Customer.findById(savedCustomer._id);
 
       // Log the event
       await logEvent({
         action: 'create_customer',
         user: req.user?._id || userId,
         resource: 'Customer',
-        resourceId: savedCustomer._id,
+        resourceId: updatedCustomer._id,
         details: { 
-          email: savedCustomer.email, 
+          email: updatedCustomer.email, 
           syncToWooCommerce,
           syncStatus,
           wooCommerceId 
@@ -259,7 +279,7 @@ exports.createCustomer = async (req, res) => {
       res.status(201).json({ 
         success: true,
         message: 'Customer created successfully.', 
-        data: savedCustomer,
+        data: updatedCustomer,
         wooCommerceSync: {
           synced: syncStatus === 'synced',
           wooCommerceId,
@@ -712,63 +732,55 @@ exports.createCustomer = async (req, res) => {
         wooCommerceResult = await wooCommerceService.createCustomer(customerData);
         syncAction = 'created';
       }
-      
+
       if (wooCommerceResult.success) {
-        // Update the customer with sync information
+        // Update local record with WooCommerce sync results
         const updateData = {
+          wooCommerceId: wooCommerceResult.data.id,
+          customer_id: wooCommerceResult.data.id,
           lastWooCommerceSync: new Date(),
           syncStatus: 'synced',
           syncError: null
         };
 
-        // Update the WooCommerce ID if it's a new customer
-        if (!customer.wooCommerceId && wooCommerceResult.data.id) {
-          updateData.wooCommerceId = wooCommerceResult.data.id;
-        }
-
         const updatedCustomer = await Customer.findByIdAndUpdate(
-          customerId,
-          { $set: updateData },
+          customerId, 
+          updateData, 
           { new: true }
         );
 
         // Log the event
         await logEvent({
-          action: 'manual_sync_customer',
-          user: req.user?._id,
+          action: 'sync_customer_to_woocommerce',
+          user: req.user?._id || customer.userId,
           resource: 'Customer',
-          resourceId: updatedCustomer._id,
+          resourceId: customer._id,
           details: { 
-            email: updatedCustomer.email, 
-            syncAction,
-            wooCommerceId: updateData.wooCommerceId || customer.wooCommerceId
+            email: customer.email, 
+            action: syncAction,
+            wooCommerceId: wooCommerceResult.data.id 
           },
           organization: req.user?.organization || customer.organizationId
         });
 
-        res.status(200).json({ 
+        res.json({ 
           success: true, 
           message: `Customer ${syncAction} in WooCommerce successfully`,
           data: updatedCustomer,
           wooCommerceSync: {
             synced: true,
             action: syncAction,
-            wooCommerceId: updateData.wooCommerceId || customer.wooCommerceId,
+            wooCommerceId: wooCommerceResult.data.id,
             status: 'synced',
             error: null
           }
         });
       } else {
-        // Update the customer with error information
-        await Customer.findByIdAndUpdate(
-          customerId,
-          { 
-            $set: {
-              syncStatus: 'failed',
-              syncError: wooCommerceResult.error?.message || 'WooCommerce sync failed'
-            }
-          }
-        );
+        // Update local record with sync failure
+        await Customer.findByIdAndUpdate(customerId, {
+          syncStatus: 'failed',
+          syncError: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+        });
 
         res.status(500).json({ 
           success: false, 
@@ -776,18 +788,54 @@ exports.createCustomer = async (req, res) => {
           wooCommerceSync: {
             synced: false,
             action: syncAction,
-            wooCommerceId: customer.wooCommerceId,
+            wooCommerceId: null,
             status: 'failed',
             error: wooCommerceResult.error?.message || 'WooCommerce sync failed'
           }
         });
       }
     } catch (error) {
-      console.error('Manual sync error:', error);
+      console.error('Error syncing customer to WooCommerce:', error);
+      
+      // Update local record with sync failure
+      await Customer.findByIdAndUpdate(customerId, {
+        syncStatus: 'failed',
+        syncError: error.message
+      });
+
       res.status(500).json({ 
         success: false, 
-        message: "Failed to sync customer to WooCommerce",
-        error: error.message
+        message: "Error syncing customer to WooCommerce",
+        error: error.message 
+      });
+    }
+  };
+
+  // RETRY SYNC: Retry WooCommerce sync for failed customers
+  exports.retryCustomerWooCommerceSync = async (req, res) => {
+    const { customerId } = req.params;
+    
+    try {
+      const customer = await Customer.findById(customerId);
+      if (!customer) {
+        return res.status(404).json({ success: false, message: "Customer not found" });
+      }
+
+      if (customer.syncStatus !== 'failed') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Customer is not in failed sync status" 
+        });
+      }
+
+      // Call the sync function
+      return await exports.syncCustomerToWooCommerce(req, res);
+    } catch (error) {
+      console.error('Error retrying customer WooCommerce sync:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Error retrying customer WooCommerce sync",
+        error: error.message 
       });
     }
   };

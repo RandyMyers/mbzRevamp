@@ -6,7 +6,7 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const logEvent = require('../helper/logEvent');
-const { createWooCommerceProduct } = require('../helper/wooCommerceCreateHelper');
+const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
 
 //const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
@@ -55,11 +55,15 @@ exports.syncProducts = async (req, res) => {
   }
 };
   
+
 // CREATE a new product in the inventory
 exports.createProduct = async (req, res) => {
   try {
+    console.log('🚀 CREATE PRODUCT - Starting product creation process');
+    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+    
     const {
-      product_Id,  // Required - WooCommerce Product ID
+      product_Id,  // Optional - will be set after WooCommerce sync
       sku,         // Required
       name,        // Required
       description,
@@ -75,107 +79,173 @@ exports.createProduct = async (req, res) => {
       status,      // Required
       featured,
       catalog_visibility,
+      virtual,
+      downloadable,
+      download_limit,
+      download_expiry,
+      external_url,
+      button_text,
+      tax_status,
+      tax_class,
       manage_stock,
       stock_quantity,
       stock_status,
       backorders,
       backorders_allowed,
+      backordered,
+      sold_individually,
       weight,
       dimensions,
       shipping_required,
       shipping_taxable,
       shipping_class,
       shipping_class_id,
+      reviews_allowed,
+      average_rating,
+      rating_count,
+      related_ids,
+      upsell_ids,
+      cross_sell_ids,
+      parent_id,
+      purchase_note,
       categories,
       tags,
       images,
-      average_rating,
-      rating_count,
-      reviews_allowed,
+      attributes,
+      default_attributes,
+      variations,
+      grouped_products,
+      menu_order,
+      meta_data,
       permalink,   // Required
       slug,        // Required
       type,        // Required
-      external_url,
-      button_text,
-      upsell_ids,
-      cross_sell_ids,
-      related_ids,
-      purchase_note,
-      sold_individually,
-      grouped_products,
-      menu_order,
       storeId,     // Required
       userId,      // Required
       organizationId, // Required
       syncToWooCommerce = false, // NEW: Option to sync to WooCommerce
     } = req.body;
 
-    // Validate required fields
-    const requiredFields = ['sku', 'name', 'status', 'permalink', 'slug', 'type', 'storeId', 'userId', 'organizationId'];
+    console.log('images received from front',req.files);
+
+    console.log('🔍 Validating required fields...');
+    // Validate required fields (removed product_Id and permalink from required fields)
+    const requiredFields = ['sku', 'name', 'status', 'slug', 'type', 'storeId', 'userId', 'organizationId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
+      console.log('❌ Missing required fields:', missingFields);
       return res.status(400).json({ 
         success: false, 
         message: `Missing required fields: ${missingFields.join(', ')}` 
       });
     }
+    console.log('✅ All required fields present');
+
+    console.log('🏪 Fetching store information...');
+    // Fetch store to get URL for permalink generation
+    const store = await Store.findById(storeId);
+    if (!store) {
+      console.log('❌ Store not found for ID:', storeId);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Store not found' 
+      });
+    }
+    console.log('✅ Store found:', store.name, 'URL:', store.url);
+
+    // Auto-generate permalink using store URL and product slug
+    const generatedPermalink = `${store.url}/product/${slug}/`;
+    console.log('🔗 Generated permalink:', generatedPermalink);
 
     // Validate data types and convert if necessary
     const now = new Date();
+    console.log('📅 Processing timestamp:', now);
     
     // Convert average_rating to string if provided
     const processedAverageRating = average_rating ? average_rating.toString() : "0.00";
+    console.log('⭐ Average rating processed:', processedAverageRating);
     
     // Validate and process categories
-    const processedCategories = categories ? categories.map(cat => ({
-      id: Number(cat.id) || 0,
-      name: cat.name || '',
-      slug: cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-') || ''
-    })) : [];
+    let processedCategories = [];
+    if (categories) {
+      try {
+        // Handle both string and object formats
+        const categoriesData = typeof categories === 'string' ? JSON.parse(categories) : categories;
+        processedCategories = categoriesData.map(cat => ({
+          id: Number(cat.id) || 0, // This should be the WooCommerce ID
+          name: cat.name || '',
+          slug: cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-') || '',
+          wooCommerceId: Number(cat.id) || 0 // Ensure WooCommerce ID is available
+        }));
+      } catch (parseError) {
+        console.error('❌ Error parsing categories:', parseError);
+        processedCategories = [];
+      }
+    }
+    console.log('📂 Categories processed:', processedCategories.length, 'categories');
 
     // Handle image uploads if files are provided
-    let processedImages = [];
+    let processedImages = []; // For MongoDB (with id and date_created)
+    let wooCommerceImages = []; // For WooCommerce (only src and alt)
     
     if (req.files && req.files.images) {
+      console.log('📸 Images received in req.files.images');
+      console.log('📁 Number of files received:', Array.isArray(req.files.images) ? req.files.images.length : 1);
       const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
       
-      for (const file of imageFiles) {
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
         try {
-          // Upload the image to Cloudinary
-          const result = await cloudinary.uploader.upload(file.tempFilePath, {
-            folder: 'product_images',
-          });
-
+          console.log(`☁️ Uploading image ${i + 1}/${imageFiles.length} to Cloudinary:`, file.name);
+          console.log(`📊 File details: Size: ${file.size}, Type: ${file.mimetype}, Temp path: ${file.tempFilePath}`);
+          const result = await cloudinary.uploader.upload(file.tempFilePath, { folder: 'product_images' });
+          
+          // For MongoDB (with id and date_created)
           processedImages.push({
-            id: 0, // Will be assigned by WooCommerce if synced
-            date_created: now,
+            id: Date.now() + i, // Generate a unique ID
+            date_created: new Date().toISOString(),
             src: result.secure_url,
             alt: file.name || ''
           });
-        } catch (uploadError) {
-          console.error('Cloudinary upload error:', uploadError);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to upload image to Cloudinary',
-            error: uploadError.message
+          
+          // For WooCommerce (only src and alt)
+          wooCommerceImages.push({
+            src: result.secure_url,
+            alt: file.name || ''
           });
+          
+          console.log(`✅ Image ${i + 1} uploaded to Cloudinary:`, result.secure_url);
+        } catch (uploadError) {
+          console.error(`❌ Cloudinary upload error for image ${i + 1}:`, uploadError);
+          return res.status(500).json({ success: false, message: `Failed to upload image ${file.name} to Cloudinary`, error: uploadError.message });
         }
       }
-    } else if (images) {
-      // If images are provided as URLs (from WooCommerce sync)
-      processedImages = images.map(img => ({
-        id: Number(img.id) || 0,
-        date_created: img.date_created || now,
-        src: img.src || '',
-        alt: img.alt || ''
-      }));
+    } else {
+      console.log('⚠️ No images received in req.files.images');
+      console.log('🔍 req.files:', req.files);
+      console.log('🔍 req.files.images:', req.files?.images);
     }
+    
+    console.log('📸 Final processedImages array (for MongoDB):', processedImages);
+    console.log('📸 Final wooCommerceImages array (for WooCommerce):', wooCommerceImages);
+    console.log('📸 Number of processed images:', processedImages.length);
 
     // Validate and process tags
-    const processedTags = tags ? tags.map(tag => ({
-      name: tag.name || ''
-    })) : [];
+    let processedTags = [];
+    if (tags) {
+      try {
+        // Handle both string and object formats
+        const tagsData = typeof tags === 'string' ? JSON.parse(tags) : tags;
+        processedTags = tagsData.map(tag => ({
+          name: tag.name || ''
+        }));
+      } catch (parseError) {
+        console.error('❌ Error parsing tags:', parseError);
+        processedTags = [];
+      }
+    }
+    console.log('🏷️ Tags processed:', processedTags.length, 'tags');
 
     // Validate numeric fields
     const processedPrice = price ? Number(price) : null;
@@ -183,67 +253,111 @@ exports.createProduct = async (req, res) => {
     const processedRegularPrice = regular_price ? Number(regular_price) : null;
     const processedStockQuantity = stock_quantity ? Number(stock_quantity) : null;
     const processedRatingCount = rating_count ? Number(rating_count) : 0;
+    
+    console.log('💰 Price data processed:', {
+      price: processedPrice,
+      sale_price: processedSalePrice,
+      regular_price: processedRegularPrice,
+      stock_quantity: processedStockQuantity
+    });
 
-    let wooCommerceId = product_Id ? Number(product_Id) : null;
-    let syncStatus = 'pending';
-    let syncError = null;
-
-    // If sync to WooCommerce is requested
-    if (syncToWooCommerce && storeId) {
+    // Process dimensions - ensure all values are strings for WooCommerce
+    let processedDimensions = null;
+    if (dimensions) {
       try {
-        // Get store information
-        const store = await Store.findById(storeId);
-        if (!store) {
-          return res.status(404).json({ 
-            success: false, 
-            message: "Store not found for WooCommerce sync" 
-          });
-        }
-
-        // Prepare product data for WooCommerce
-        const productData = {
-          name,
-          description: short_description || description,
-          short_description,
-          regular_price: processedRegularPrice ? processedRegularPrice.toString() : '0',
-          sale_price: processedSalePrice ? processedSalePrice.toString() : null,
-          status,
-          type,
-          sku,
-          manage_stock: Boolean(manage_stock),
-          stock_quantity: processedStockQuantity,
-          stock_status: stock_status || "instock",
-          weight: weight ? weight.toString() : null,
-          dimensions,
-          categories: processedCategories,
-          tags: processedTags,
-          images: processedImages,
-          featured: Boolean(featured),
-          catalog_visibility: catalog_visibility || "visible",
-          storeId,
-          organizationId
+        const dimensionsData = typeof dimensions === 'string' ? JSON.parse(dimensions) : dimensions;
+        processedDimensions = {
+          length: dimensionsData.length ? String(dimensionsData.length) : "",
+          width: dimensionsData.width ? String(dimensionsData.width) : "",
+          height: dimensionsData.height ? String(dimensionsData.height) : ""
         };
+        console.log('📏 Dimensions processed:', processedDimensions);
+      } catch (parseError) {
+        console.error('❌ Error parsing dimensions:', parseError);
+        processedDimensions = { length: "", width: "", height: "" };
+      }
+    } else {
+      processedDimensions = { length: "", width: "", height: "" };
+    }
 
-        // Create product in WooCommerce
-        const wooCommerceResult = await createWooCommerceProduct(store, productData);
-        
-        if (wooCommerceResult.success) {
-          wooCommerceId = wooCommerceResult.data.id;
-          syncStatus = 'synced';
-        } else {
-          syncStatus = 'failed';
-          syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
-          console.error('WooCommerce sync error:', wooCommerceResult.error);
-        }
-      } catch (wooCommerceError) {
-        syncStatus = 'failed';
-        syncError = wooCommerceError.message;
-        console.error('WooCommerce sync error:', wooCommerceError);
+    // Process other complex fields
+    let processedRelatedIds = [];
+    let processedUpsellIds = [];
+    let processedCrossSellIds = [];
+    let processedGroupedProducts = [];
+    let processedAttributes = [];
+    let processedDefaultAttributes = [];
+    let processedVariations = [];
+    let processedMetaData = [];
+
+    if (related_ids) {
+      try {
+        processedRelatedIds = typeof related_ids === 'string' ? JSON.parse(related_ids) : related_ids;
+      } catch (parseError) {
+        console.error('❌ Error parsing related_ids:', parseError);
       }
     }
 
+    if (upsell_ids) {
+      try {
+        processedUpsellIds = typeof upsell_ids === 'string' ? JSON.parse(upsell_ids) : upsell_ids;
+      } catch (parseError) {
+        console.error('❌ Error parsing upsell_ids:', parseError);
+      }
+    }
+
+    if (cross_sell_ids) {
+      try {
+        processedCrossSellIds = typeof cross_sell_ids === 'string' ? JSON.parse(cross_sell_ids) : cross_sell_ids;
+      } catch (parseError) {
+        console.error('❌ Error parsing cross_sell_ids:', parseError);
+      }
+    }
+
+    if (grouped_products) {
+      try {
+        processedGroupedProducts = typeof grouped_products === 'string' ? JSON.parse(grouped_products) : grouped_products;
+      } catch (parseError) {
+        console.error('❌ Error parsing grouped_products:', parseError);
+      }
+    }
+
+    if (attributes) {
+      try {
+        processedAttributes = typeof attributes === 'string' ? JSON.parse(attributes) : attributes;
+      } catch (parseError) {
+        console.error('❌ Error parsing attributes:', parseError);
+      }
+    }
+
+    if (default_attributes) {
+      try {
+        processedDefaultAttributes = typeof default_attributes === 'string' ? JSON.parse(default_attributes) : default_attributes;
+      } catch (parseError) {
+        console.error('❌ Error parsing default_attributes:', parseError);
+      }
+    }
+
+    if (variations) {
+      try {
+        processedVariations = typeof variations === 'string' ? JSON.parse(variations) : variations;
+      } catch (parseError) {
+        console.error('❌ Error parsing variations:', parseError);
+      }
+    }
+
+    if (meta_data) {
+      try {
+        processedMetaData = typeof meta_data === 'string' ? JSON.parse(meta_data) : meta_data;
+      } catch (parseError) {
+        console.error('❌ Error parsing meta_data:', parseError);
+      }
+    }
+
+    // PHASE 1: Create product in local database first
+    console.log('💾 PHASE 1: Creating product in local database...');
     const newProduct = new Inventory({
-      product_Id: wooCommerceId,
+      product_Id: product_Id ? Number(product_Id) : null, // Optional now
       sku,
       name,
       description,
@@ -265,11 +379,7 @@ exports.createProduct = async (req, res) => {
       backorders: backorders || "no",
       backorders_allowed: Boolean(backorders_allowed),
       weight,
-      dimensions: dimensions || {
-        length: null,
-        width: null,
-        height: null
-      },
+      dimensions: processedDimensions,
       shipping_required: Boolean(shipping_required !== false), // Default to true
       shipping_taxable: Boolean(shipping_taxable),
       shipping_class,
@@ -280,49 +390,172 @@ exports.createProduct = async (req, res) => {
       average_rating: processedAverageRating,
       rating_count: processedRatingCount,
       reviews_allowed: Boolean(reviews_allowed),
-      permalink,
+      permalink: generatedPermalink, // Use auto-generated permalink
       slug,
       type,
       external_url: external_url || "",
       button_text: button_text || "",
-      upsell_ids: upsell_ids || [],
-      cross_sell_ids: cross_sell_ids || [],
-      related_ids: related_ids || [],
+      upsell_ids: processedUpsellIds,
+      cross_sell_ids: processedCrossSellIds,
+      related_ids: processedRelatedIds,
       purchase_note: purchase_note || "",
       sold_individually: Boolean(sold_individually),
-      grouped_products: grouped_products || [],
+      grouped_products: processedGroupedProducts,
       menu_order: menu_order ? Number(menu_order) : 0,
+      attributes: processedAttributes,
+      default_attributes: processedDefaultAttributes,
+      variations: processedVariations,
+      meta_data: processedMetaData,
       date_created: now,
       date_modified: now,
       storeId,
       userId,
       organizationId,
-      lastWooCommerceSync: syncStatus === 'synced' ? new Date() : null,
-      syncStatus,
-      syncError,
+      syncStatus: syncToWooCommerce ? 'pending' : 'not_synced',
+      syncError: null,
     });
 
+    console.log('💾 Saving product to database...');
     const savedProduct = await newProduct.save();
+    console.log('✅ Product saved to database with ID:', savedProduct._id);
+
+    let wooCommerceId = null;
+    let syncStatus = savedProduct.syncStatus;
+    let syncError = null;
+
+    console.log(processedImages);
+
+    // PHASE 2: Sync to WooCommerce if requested
+    if (syncToWooCommerce && storeId) {
+      console.log('🔄 PHASE 2: Starting WooCommerce synchronization...');
+      console.log('🏪 Sync requested for store ID:', storeId);
+      
+      try {
+        // Get store information
+        const store = await Store.findById(storeId);
+        if (!store) {
+          console.log('❌ Store not found for WooCommerce sync');
+          syncStatus = 'failed';
+          syncError = 'Store not found for WooCommerce sync';
+        } else {
+          console.log('✅ Store found for WooCommerce sync:', store.name);
+          console.log('🔗 Store URL:', store.url);
+          
+          // Prepare product data for WooCommerce
+          const productData = {
+            name,
+            description: short_description || description,
+            short_description,
+            regular_price: processedRegularPrice ? processedRegularPrice.toString() : '0',
+            sale_price: processedSalePrice ? processedSalePrice.toString() : null,
+            status,
+            type,
+            sku,
+            manage_stock: Boolean(manage_stock),
+            stock_quantity: processedStockQuantity,
+            stock_status: stock_status || "instock",
+            weight: weight ? weight.toString() : null,
+            dimensions: processedDimensions, // Use processedDimensions here
+            categories: processedCategories,
+            tags: processedTags,
+            images: wooCommerceImages, // Use wooCommerceImages here
+            featured: Boolean(featured),
+            catalog_visibility: catalog_visibility || "visible",
+            storeId,
+            organizationId
+          };
+          
+          console.log('📦 Product data prepared for WooCommerce:', JSON.stringify(productData, null, 2));
+
+          // Create product in WooCommerce
+          console.log('🚀 Calling WooCommerce API to create product...');
+          const wooCommerceResult = await createProductInWooCommerce(productData, storeId, userId, organizationId);
+          console.log('📡 WooCommerce API response:', JSON.stringify(wooCommerceResult, null, 2));
+          
+          if (wooCommerceResult.success) {
+            wooCommerceId = wooCommerceResult.data.id;
+            syncStatus = 'synced';
+            console.log('✅ WooCommerce product created successfully!');
+            console.log('🆔 WooCommerce Product ID:', wooCommerceId);
+            
+            // Update local record with WooCommerce ID
+            console.log('💾 Updating local record with WooCommerce ID...');
+            await Inventory.findByIdAndUpdate(savedProduct._id, {
+              product_Id: wooCommerceId,
+              wooCommerceId: wooCommerceId,
+              lastWooCommerceSync: new Date(),
+              syncStatus: 'synced',
+              syncError: null
+            });
+            console.log('✅ Local record updated with WooCommerce ID');
+          } else {
+            syncStatus = 'failed';
+            syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
+            console.error('❌ WooCommerce sync failed:', wooCommerceResult.error);
+            
+            // Update local record with sync failure
+            console.log('💾 Updating local record with sync failure...');
+            await Inventory.findByIdAndUpdate(savedProduct._id, {
+              syncStatus: 'failed',
+              syncError: syncError
+            });
+            console.log('✅ Local record updated with sync failure');
+          }
+        }
+      } catch (wooCommerceError) {
+        syncStatus = 'failed';
+        syncError = wooCommerceError.message;
+        console.error('❌ WooCommerce sync error:', wooCommerceError);
+        
+        // Update local record with sync failure
+        console.log('💾 Updating local record with sync error...');
+        await Inventory.findByIdAndUpdate(savedProduct._id, {
+          syncStatus: 'failed',
+          syncError: syncError
+        });
+        console.log('✅ Local record updated with sync error');
+      }
+    } else {
+      console.log('⏭️ WooCommerce sync not requested (syncToWooCommerce:', syncToWooCommerce, ')');
+    }
+
+    // Get updated product record
+    console.log('📋 Fetching final product record...');
+    const updatedProduct = await Inventory.findById(savedProduct._id);
+    console.log('✅ Final product record retrieved');
 
     // Log the event
+    console.log('📝 Logging event...');
     await logEvent({
       action: 'create_inventory_product',
       user: userId,
       resource: 'Inventory',
-      resourceId: savedProduct._id,
+      resourceId: updatedProduct._id,
       details: { 
-        name: savedProduct.name, 
-        sku: savedProduct.sku,
+        name: updatedProduct.name, 
+        sku: updatedProduct.sku,
         syncToWooCommerce,
         syncStatus,
         wooCommerceId 
       },
       organization: organizationId
     });
+    console.log('✅ Event logged successfully');
+
+    console.log('🎉 PRODUCT CREATION COMPLETE!');
+    console.log('📊 Final Summary:', {
+      productId: updatedProduct._id,
+      name: updatedProduct.name,
+      sku: updatedProduct.sku,
+      syncToWooCommerce,
+      syncStatus,
+      wooCommerceId,
+      syncError
+    });
 
     res.status(201).json({ 
       success: true, 
-      product: savedProduct,
+      product: updatedProduct,
       wooCommerceSync: {
         synced: syncStatus === 'synced',
         wooCommerceId,
@@ -331,7 +564,7 @@ exports.createProduct = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error('❌ Error creating product:', error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to create product",
@@ -589,8 +822,6 @@ exports.updateProduct = async (req, res) => {
           });
 
           uploadedImages.push({
-            id: 0, // Will be assigned by WooCommerce if synced
-            date_created: now,
             src: result.secure_url,
             alt: file.name || ''
           });
@@ -655,7 +886,7 @@ exports.updateProduct = async (req, res) => {
           wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.product_Id, productData);
         } else {
           // If product doesn't exist in WooCommerce, create it
-          wooCommerceResult = await createWooCommerceProduct(store, productData);
+          wooCommerceResult = await createProductInWooCommerce(store, productData);
         }
         
         if (wooCommerceResult.success) {
@@ -909,5 +1140,154 @@ exports.getAverageRating = async (req, res) => {
     res.status(200).json({ success: true, avgRating });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to get average rating" });
+  }
+};
+
+// RETRY SYNC: Retry WooCommerce sync for failed products
+exports.retryProductWooCommerceSync = async (req, res) => {
+  const { productId } = req.params;
+  
+  try {
+    const product = await Inventory.findById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    if (product.syncStatus !== 'failed') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Product is not in failed sync status" 
+      });
+    }
+
+    // Call the sync function
+    return await exports.syncProductToWooCommerce(req, res);
+  } catch (error) {
+    console.error('Error retrying product WooCommerce sync:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error retrying product WooCommerce sync",
+      error: error.message 
+    });
+  }
+};
+
+// MANUAL SYNC: Sync a product to WooCommerce
+exports.syncProductToWooCommerce = async (req, res) => {
+  const { productId } = req.params;
+  
+  try {
+    const product = await Inventory.findById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    if (!product.storeId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Product is not associated with a store" 
+      });
+    }
+
+    // Get store information
+    const store = await Store.findById(product.storeId);
+    if (!store) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Store not found" 
+      });
+    }
+
+    let wooCommerceResult;
+    let syncAction = '';
+
+    // Prepare product data for WooCommerce
+    const productData = product.toObject();
+
+    // If product already exists in WooCommerce, update it
+    if (product.product_Id) {
+      wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.product_Id, productData);
+      syncAction = 'updated';
+    } else {
+      // If product doesn't exist in WooCommerce, create it
+      wooCommerceResult = await createProductInWooCommerce(store, productData);
+      syncAction = 'created';
+    }
+
+    if (wooCommerceResult.success) {
+      // Update local record with WooCommerce sync results
+      const updateData = {
+        product_Id: wooCommerceResult.data.id,
+        wooCommerceId: wooCommerceResult.data.id,
+        lastWooCommerceSync: new Date(),
+        syncStatus: 'synced',
+        syncError: null
+      };
+
+      const updatedProduct = await Inventory.findByIdAndUpdate(
+        productId, 
+        updateData, 
+        { new: true }
+      );
+
+      // Log the event
+      await logEvent({
+        action: 'sync_product_to_woocommerce',
+        user: req.user?._id || product.userId,
+        resource: 'Inventory',
+        resourceId: product._id,
+        details: { 
+          name: product.name, 
+          action: syncAction,
+          wooCommerceId: wooCommerceResult.data.id 
+        },
+        organization: req.user?.organization || product.organizationId
+      });
+
+      res.json({ 
+        success: true, 
+        message: `Product ${syncAction} in WooCommerce successfully`,
+        data: updatedProduct,
+        wooCommerceSync: {
+          synced: true,
+          action: syncAction,
+          wooCommerceId: wooCommerceResult.data.id,
+          status: 'synced',
+          error: null
+        }
+      });
+    } else {
+      // Update local record with sync failure
+      await Inventory.findByIdAndUpdate(productId, {
+        syncStatus: 'failed',
+        syncError: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+      });
+
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to sync product to WooCommerce",
+        wooCommerceSync: {
+          synced: false,
+          action: syncAction,
+          wooCommerceId: null,
+          status: 'failed',
+          error: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error syncing product to WooCommerce:', error);
+    
+    // Update local record with sync failure
+    await Inventory.findByIdAndUpdate(productId, {
+      syncStatus: 'failed',
+      syncError: error.message
+    });
+
+    res.status(500).json({ 
+      success: false, 
+      message: "Error syncing product to WooCommerce",
+      error: error.message 
+    });
   }
 };

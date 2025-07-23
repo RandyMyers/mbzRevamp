@@ -16,10 +16,20 @@ const customerSchema = new mongoose.Schema({
         ref: 'Organization',
         required: true,
       },
-  customer_id: {
+  // Local ID for internal tracking (auto-generated)
+  local_id: {
     type: Number,
     required: true,
-    
+    unique: true,
+    default: function() {
+      return Date.now();
+    }
+  },
+  // WooCommerce Customer ID (optional, set after WooCommerce sync)
+  customer_id: {
+    type: Number,
+    required: false,
+    default: null
   },
   customer_ip_address: {
     type: String,

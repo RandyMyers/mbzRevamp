@@ -7,6 +7,31 @@ const mongoose = require('mongoose');
 const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
 
+// Utility function to find order by WooCommerce ID (checks both wooCommerceId and number fields)
+const findOrderByWooCommerceId = async (wooCommerceId, storeId = null) => {
+  const query = {
+    $or: [
+      { wooCommerceId: Number(wooCommerceId) },
+      { number: wooCommerceId.toString() }
+    ]
+  };
+  
+  if (storeId) {
+    query.storeId = storeId;
+  }
+  
+  return await Order.findOne(query);
+};
+
+// Utility function to calculate order total from line items
+const calculateOrderTotal = (lineItems, totalTax = 0, shippingTotal = 0, discountTotal = 0) => {
+  const lineItemsTotal = lineItems.reduce((sum, item) => {
+    return sum + (Number(item.total) || Number(item.subtotal) || 0);
+  }, 0);
+  
+  return lineItemsTotal + Number(totalTax) + Number(shippingTotal) - Number(discountTotal);
+};
+
 exports.syncOrders = async (req, res) => {
   try {
     const { storeId, organizationId } = req.params;
@@ -138,13 +163,13 @@ exports.createOrder = async (req, res) => {
       inventoryId: item.inventoryId || null,
       name: item.name || '',
       quantity: Number(item.quantity) || 0,
-      subtotal: Number(item.subtotal) || 0,
-      total: Number(item.total) || 0,
-      total_tax: Number(item.total_tax) || 0,
+      subtotal: (Number(item.subtotal) || 0).toFixed(2), // Convert to string for WooCommerce
+      total: (Number(item.total) || 0).toFixed(2), // Convert to string for WooCommerce
+      total_tax: (Number(item.total_tax) || 0).toFixed(2), // Convert to string for WooCommerce
       taxes: item.taxes || [],
       meta_data: item.meta_data || [],
       sku: item.sku || '',
-      price: Number(item.price) || 0
+      price: (Number(item.price) || 0).toFixed(2) // Convert to string for WooCommerce
     })) : [];
 
     // Process shipping_lines if provided
@@ -152,8 +177,8 @@ exports.createOrder = async (req, res) => {
       id: Number(line.id) || 0,
       method_title: line.method_title || '',
       method_id: line.method_id || '',
-      total: Number(line.total) || 0,
-      total_tax: Number(line.total_tax) || 0,
+      total: (Number(line.total) || 0).toFixed(2), // Convert to string for WooCommerce
+      total_tax: (Number(line.total_tax) || 0).toFixed(2), // Convert to string for WooCommerce
       taxes: line.taxes || [],
       meta_data: line.meta_data || []
     })) : [];
@@ -180,6 +205,15 @@ exports.createOrder = async (req, res) => {
     const processedDateCompleted = date_completed ? new Date(date_completed) : null;
     const processedDatePaid = date_paid ? new Date(date_paid) : null;
 
+    // Validate customer_id - ensure it's a valid number
+    const processedCustomerId = customer_id && !isNaN(Number(customer_id)) ? Number(customer_id) : null;
+    if (!processedCustomerId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid or missing customer_id" 
+      });
+    }
+
     let wooCommerceId = null;
     let syncStatus = 'pending';
     let syncError = null;
@@ -204,7 +238,7 @@ exports.createOrder = async (req, res) => {
           storeId,
           userId,
           organizationId,
-          customer_id: Number(customer_id),
+          customer_id: processedCustomerId, // Use the validated customer_id
           billing: processedBilling,
           shipping: processedShipping,
           order_id: Number(order_id),
@@ -223,6 +257,8 @@ exports.createOrder = async (req, res) => {
         
         if (wooCommerceResult.success) {
           wooCommerceId = wooCommerceResult.data.id;
+          // Set both wooCommerceId and number to the WooCommerce order ID for consistency
+          number = wooCommerceResult.data.id.toString();
           syncStatus = 'synced';
         } else {
           syncStatus = 'failed';
@@ -236,6 +272,9 @@ exports.createOrder = async (req, res) => {
       }
     }
 
+    // Calculate order total from line items
+    const calculatedTotal = calculateOrderTotal(processedLineItems, processedTotalTax, processedShippingTotal, processedDiscountTotal);
+
     const newOrder = new Order({
       storeId,
       userId,
@@ -246,7 +285,7 @@ exports.createOrder = async (req, res) => {
       billing: processedBilling,
       shipping: processedShipping,
       order_id: Number(order_id),
-      number,
+      number: wooCommerceId ? wooCommerceId.toString() : number, // Use WooCommerce ID if available
       status: status || 'pending',
       currency: currency || 'USD',
       version: version || '6.0.0',
@@ -258,7 +297,7 @@ exports.createOrder = async (req, res) => {
       shipping_total: processedShippingTotal,
       shipping_tax: processedShippingTax,
       cart_tax: processedCartTax,
-      total: total ? Number(total) : 0,
+      total: calculatedTotal, // Use calculated total instead of request body total
       total_tax: processedTotalTax,
       order_key: order_key || '',
       payment_method: payment_method || '',
@@ -518,6 +557,18 @@ exports.updateOrder = async (req, res) => {
         sku: item.sku || '',
         price: Number(item.price) || 0
       }));
+      
+      // Recalculate order total when line items are updated
+      const currentTotalTax = sanitizedData.total_tax !== undefined ? sanitizedData.total_tax : currentOrder.total_tax;
+      const currentShippingTotal = sanitizedData.shipping_total !== undefined ? sanitizedData.shipping_total : currentOrder.shipping_total;
+      const currentDiscountTotal = sanitizedData.discount_total !== undefined ? sanitizedData.discount_total : currentOrder.discount_total;
+      
+      sanitizedData.total = calculateOrderTotal(
+        sanitizedData.line_items, 
+        currentTotalTax, 
+        currentShippingTotal, 
+        currentDiscountTotal
+      );
     }
 
     // Process shipping_lines if provided
@@ -582,6 +633,8 @@ exports.updateOrder = async (req, res) => {
           // Update the WooCommerce ID if it's a new order
           if (!currentOrder.wooCommerceId && wooCommerceResult.data.id) {
             sanitizedData.wooCommerceId = wooCommerceResult.data.id;
+            // Also update the number field for consistency
+            sanitizedData.number = wooCommerceResult.data.id.toString();
           }
           
           sanitizedData.lastWooCommerceSync = new Date();

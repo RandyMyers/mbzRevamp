@@ -3,8 +3,21 @@ const Schema = mongoose.Schema;
 
 // Product Schema for WooCommerce integration
 const InventorySchema = new Schema({
-  // WooCommerce Product ID and SKU
-  product_Id: { type: Number, required: true },
+  // Local ID for internal tracking (auto-generated)
+  local_id: {
+    type: Number,
+    required: true,
+    unique: true,
+    default: function() {
+      return Date.now();
+    }
+  },
+  // WooCommerce Product ID (optional, set after WooCommerce sync)
+  product_Id: { 
+    type: Number, 
+    required: false,
+    default: null
+  },
   sku: { type: String, required: true },
 
   // Basic Information

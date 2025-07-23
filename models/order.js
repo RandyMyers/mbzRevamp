@@ -171,6 +171,8 @@ const orderSchema = new mongoose.Schema({
   },
   number: {
     type: String,
+    // This field stores the WooCommerce order ID (same as wooCommerceId)
+    // Used for backward compatibility and consistency
   },
   meta_data: [{
     key: {
@@ -282,7 +284,8 @@ const orderSchema = new mongoose.Schema({
   wooCommerceId: {
     type: Number,
     required: false,
-    default: null
+    default: null,
+    // This field stores the WooCommerce order ID when order is created/synced from WooCommerce
   },
   lastWooCommerceSync: {
     type: Date,

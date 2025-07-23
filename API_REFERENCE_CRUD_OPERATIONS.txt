@@ -1,0 +1,1051 @@
+================================================================================
+                    MBZTECH API REFERENCE - CRUD OPERATIONS
+================================================================================
+
+This document covers the CRUD (Create, Read, Update, Delete) operations for:
+- Categories
+- Customers  
+- Orders
+- Inventory/Products
+
+================================================================================
+                                CATEGORIES API
+================================================================================
+
+BASE URL: /api/categories
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. CREATE CATEGORY
+   POST /api/categories
+   
+   Request Body:
+   {
+     "name": "string (required)",
+     "description": "string (optional)",
+     "image": {
+       "src": "string (optional)",
+       "alt": "string (optional)"
+     },
+     "parent": "ObjectId (optional)",
+     "storeId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)",
+     "isActive": "boolean (default: true)",
+     "menuOrder": "number (default: 0)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "slug": "string (auto-generated)",
+       "description": "string",
+       "image": {
+         "src": "string",
+         "alt": "string"
+       },
+       "parent": "ObjectId",
+       "wooCommerceId": "number (null initially)",
+       "storeId": "ObjectId",
+       "organizationId": "ObjectId",
+       "isActive": "boolean",
+       "menuOrder": "number",
+       "productCount": "number (default: 0)",
+       "syncStatus": "string (synced|pending|failed)",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL CATEGORIES
+   GET /api/categories
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - storeId: ObjectId (optional)
+   - organizationId: ObjectId (optional)
+   - parent: ObjectId or "null" (optional)
+   - isActive: boolean (optional)
+   - sortBy: string (default: "name")
+   - sortOrder: "asc" | "desc" (default: "asc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "slug": "string",
+         "description": "string",
+         "image": {
+           "src": "string",
+           "alt": "string"
+         },
+         "parent": {
+           "_id": "ObjectId",
+           "name": "string",
+           "slug": "string"
+         },
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "isActive": "boolean",
+         "menuOrder": "number",
+         "productCount": "number",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET CATEGORY BY ID
+   GET /api/categories/:id
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "slug": "string",
+       "description": "string",
+       "image": {
+         "src": "string",
+         "alt": "string"
+       },
+       "parent": {
+         "_id": "ObjectId",
+         "name": "string",
+         "slug": "string"
+       },
+       "wooCommerceId": "number",
+       "storeId": {
+         "_id": "ObjectId",
+         "name": "string",
+         "url": "string"
+       },
+       "organizationId": "ObjectId",
+       "isActive": "boolean",
+       "menuOrder": "number",
+       "productCount": "number",
+       "syncStatus": "string",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE CATEGORY
+   PUT /api/categories/:id
+   
+   Request Body: (all fields optional)
+   {
+     "name": "string",
+     "description": "string",
+     "image": {
+       "src": "string",
+       "alt": "string"
+     },
+     "parent": "ObjectId",
+     "isActive": "boolean",
+     "menuOrder": "number"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated category object
+     }
+   }
+
+5. DELETE CATEGORY
+   DELETE /api/categories/:id
+   
+   Response:
+   {
+     "success": true,
+     "message": "Category deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. GET CATEGORIES BY STORE
+   GET /api/categories/store/:storeId
+   
+   Query Parameters:
+   - tree: boolean (default: false) - Returns hierarchical tree structure
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       // Array of categories for the store
+     ]
+   }
+
+7. SYNC CATEGORIES WITH WOOCOMMERCE
+   POST /api/categories/sync/:storeId
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Category sync completed",
+     "data": {
+       "created": "number",
+       "updated": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
+   }
+
+================================================================================
+                                CUSTOMERS API
+================================================================================
+
+BASE URL: /api/customers
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. CREATE CUSTOMER
+   POST /api/customers
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "first_name": "string (required)",
+     "last_name": "string (required)",
+     "username": "string (optional)",
+     "role": "string (default: 'customer')",
+     "billing": {
+       "first_name": "string",
+       "last_name": "string",
+       "company": "string",
+       "address_1": "string",
+       "address_2": "string",
+       "city": "string",
+       "state": "string",
+       "postcode": "string",
+       "country": "string",
+       "email": "string",
+       "phone": "string"
+     },
+     "shipping": {
+       "first_name": "string",
+       "last_name": "string",
+       "company": "string",
+       "address_1": "string",
+       "address_2": "string",
+       "city": "string",
+       "state": "string",
+       "postcode": "string",
+       "country": "string"
+     },
+     "is_paying_customer": "boolean (default: false)",
+     "avatar_url": "string (optional)",
+     "meta_data": ["object (optional)"],
+     "storeId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "email": "string",
+       "first_name": "string",
+       "last_name": "string",
+       "username": "string",
+       "role": "string",
+       "billing": "object",
+       "shipping": "object",
+       "is_paying_customer": "boolean",
+       "avatar_url": "string",
+       "meta_data": ["object"],
+       "wooCommerceId": "number (null initially)",
+       "storeId": "ObjectId",
+       "organizationId": "ObjectId",
+       "syncStatus": "string",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL CUSTOMERS
+   GET /api/customers
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - storeId: ObjectId (optional)
+   - organizationId: ObjectId (optional)
+   - role: string (optional)
+   - is_paying_customer: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "email": "string",
+         "first_name": "string",
+         "last_name": "string",
+         "username": "string",
+         "role": "string",
+         "billing": "object",
+         "shipping": "object",
+         "is_paying_customer": "boolean",
+         "avatar_url": "string",
+         "meta_data": ["object"],
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET CUSTOMER BY ID
+   GET /api/customers/:id
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Customer object with populated store information
+     }
+   }
+
+4. UPDATE CUSTOMER
+   PUT /api/customers/:id
+   
+   Request Body: (all fields optional)
+   {
+     "email": "string",
+     "first_name": "string",
+     "last_name": "string",
+     "username": "string",
+     "role": "string",
+     "billing": "object",
+     "shipping": "object",
+     "is_paying_customer": "boolean",
+     "avatar_url": "string",
+     "meta_data": ["object"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated customer object
+     }
+   }
+
+5. DELETE CUSTOMER
+   DELETE /api/customers/:id
+   
+   Response:
+   {
+     "success": true,
+     "message": "Customer deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. GET CUSTOMERS BY STORE
+   GET /api/customers/store/:storeId
+   
+   Query Parameters: (same as GET ALL CUSTOMERS)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       // Array of customers for the store
+     ],
+     "pagination": "object"
+   }
+
+7. SYNC CUSTOMERS WITH WOOCOMMERCE
+   POST /api/customers/sync/:storeId
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Customer sync completed",
+     "data": {
+       "created": "number",
+       "updated": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
+   }
+
+================================================================================
+                                ORDERS API
+================================================================================
+
+BASE URL: /api/orders
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. CREATE ORDER
+   POST /api/orders
+   
+   Request Body:
+   {
+     "customer_id": "ObjectId (optional)",
+     "status": "string (default: 'pending')",
+     "currency": "string (default: 'USD')",
+     "prices_include_tax": "boolean (default: false)",
+     "discount_total": "string (default: '0')",
+     "discount_tax": "string (default: '0')",
+     "shipping_total": "string (default: '0')",
+     "shipping_tax": "string (default: '0')",
+     "cart_tax": "string (default: '0')",
+     "total": "string (required)",
+     "total_tax": "string (default: '0')",
+     "customer_note": "string (optional)",
+     "billing": "object (required)",
+     "shipping": "object (optional)",
+     "payment_method": "string (optional)",
+     "payment_method_title": "string (optional)",
+     "transaction_id": "string (optional)",
+     "customer_ip_address": "string (optional)",
+     "customer_user_agent": "string (optional)",
+     "created_via": "string (default: 'rest-api')",
+     "line_items": [
+       {
+         "product_id": "ObjectId (required)",
+         "name": "string (required)",
+         "quantity": "number (required)",
+         "tax_class": "string (optional)",
+         "subtotal": "string (required)",
+         "subtotal_tax": "string (default: '0')",
+         "total": "string (required)",
+         "total_tax": "string (default: '0')",
+         "meta_data": ["object (optional)"]
+       }
+     ],
+     "shipping_lines": [
+       {
+         "method_title": "string (required)",
+         "method_id": "string (required)",
+         "total": "string (required)",
+         "total_tax": "string (default: '0')",
+         "meta_data": ["object (optional)"]
+       }
+     ],
+     "meta_data": ["object (optional)"],
+     "order_key": "string (optional)",
+     "cart_hash": "string (optional)",
+     "version": "string (default: '3.0.0')",
+     "storeId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "customer_id": "ObjectId",
+       "status": "string",
+       "currency": "string",
+       "prices_include_tax": "boolean",
+       "discount_total": "string",
+       "discount_tax": "string",
+       "shipping_total": "string",
+       "shipping_tax": "string",
+       "cart_tax": "string",
+       "total": "string",
+       "total_tax": "string",
+       "customer_note": "string",
+       "billing": "object",
+       "shipping": "object",
+       "payment_method": "string",
+       "payment_method_title": "string",
+       "transaction_id": "string",
+       "customer_ip_address": "string",
+       "customer_user_agent": "string",
+       "created_via": "string",
+       "line_items": ["object"],
+       "shipping_lines": ["object"],
+       "meta_data": ["object"],
+       "order_key": "string",
+       "cart_hash": "string",
+       "version": "string",
+       "wooCommerceId": "number (null initially)",
+       "storeId": "ObjectId",
+       "organizationId": "ObjectId",
+       "syncStatus": "string",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL ORDERS
+   GET /api/orders
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - storeId: ObjectId (optional)
+   - organizationId: ObjectId (optional)
+   - status: string (optional)
+   - customer_id: ObjectId (optional)
+   - date_from: string (ISO date, optional)
+   - date_to: string (ISO date, optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "customer_id": "ObjectId",
+         "status": "string",
+         "currency": "string",
+         "total": "string",
+         "billing": "object",
+         "shipping": "object",
+         "payment_method": "string",
+         "payment_method_title": "string",
+         "line_items": ["object"],
+         "shipping_lines": ["object"],
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET ORDER BY ID
+   GET /api/orders/:id
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Order object with populated customer and store information
+     }
+   }
+
+4. UPDATE ORDER
+   PUT /api/orders/:id
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "currency": "string",
+     "prices_include_tax": "boolean",
+     "discount_total": "string",
+     "discount_tax": "string",
+     "shipping_total": "string",
+     "shipping_tax": "string",
+     "cart_tax": "string",
+     "total": "string",
+     "total_tax": "string",
+     "customer_note": "string",
+     "billing": "object",
+     "shipping": "object",
+     "payment_method": "string",
+     "payment_method_title": "string",
+     "transaction_id": "string",
+     "line_items": ["object"],
+     "shipping_lines": ["object"],
+     "meta_data": ["object"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated order object
+     }
+   }
+
+5. DELETE ORDER
+   DELETE /api/orders/:id
+   
+   Response:
+   {
+     "success": true,
+     "message": "Order deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. GET ORDERS BY STORE
+   GET /api/orders/store/:storeId
+   
+   Query Parameters: (same as GET ALL ORDERS)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       // Array of orders for the store
+     ],
+     "pagination": "object"
+   }
+
+7. SYNC ORDERS WITH WOOCOMMERCE
+   POST /api/orders/sync/:storeId
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Order sync completed",
+     "data": {
+       "created": "number",
+       "updated": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
+   }
+
+================================================================================
+                              INVENTORY/PRODUCTS API
+================================================================================
+
+BASE URL: /api/products
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. CREATE PRODUCT
+   POST /api/products
+   
+   Request Body (multipart/form-data):
+   {
+     "storeId": "ObjectId (required)",
+     "name": "string (required)",
+     "slug": "string (required)",
+     "type": "string (default: 'simple')",
+     "status": "string (default: 'publish')",
+     "featured": "boolean (default: false)",
+     "catalog_visibility": "string (default: 'visible')",
+     "description": "string (optional)",
+     "short_description": "string (optional)",
+     "sku": "string (required)",
+     "price": "string (optional)",
+     "regular_price": "string (required)",
+     "sale_price": "string (optional)",
+     "date_on_sale_from": "string (ISO date, optional)",
+     "date_on_sale_to": "string (ISO date, optional)",
+     "on_sale": "boolean (default: false)",
+     "purchasable": "boolean (default: true)",
+     "total_sales": "number (default: 0)",
+     "virtual": "boolean (default: false)",
+     "downloadable": "boolean (default: false)",
+     "download_limit": "number (default: -1)",
+     "download_expiry": "number (default: -1)",
+     "external_url": "string (optional)",
+     "button_text": "string (optional)",
+     "tax_status": "string (default: 'taxable')",
+     "tax_class": "string (optional)",
+     "manage_stock": "boolean (default: false)",
+     "stock_quantity": "number (optional)",
+     "stock_status": "string (default: 'instock')",
+     "backorders": "string (default: 'no')",
+     "backorders_allowed": "boolean (default: false)",
+     "backordered": "boolean (default: false)",
+     "sold_individually": "boolean (default: false)",
+     "weight": "string (optional)",
+     "dimensions": {
+       "length": "string (optional)",
+       "width": "string (optional)",
+       "height": "string (optional)"
+     },
+     "shipping_required": "boolean (default: true)",
+     "shipping_taxable": "boolean (default: true)",
+     "shipping_class": "string (optional)",
+     "shipping_class_id": "number (default: 0)",
+     "reviews_allowed": "boolean (default: true)",
+     "average_rating": "string (default: '0.00')",
+     "rating_count": "number (default: 0)",
+     "related_ids": ["number (optional)"],
+     "upsell_ids": ["number (optional)"],
+     "cross_sell_ids": ["number (optional)"],
+     "parent_id": "number (default: 0)",
+     "purchase_note": "string (optional)",
+     "categories": [
+       {
+         "id": "number (WooCommerce ID)",
+         "name": "string",
+         "slug": "string"
+       }
+     ],
+     "tags": [
+       {
+         "name": "string"
+       }
+     ],
+     "attributes": ["object (optional)"],
+     "default_attributes": ["object (optional)"],
+     "variations": ["object (optional)"],
+     "grouped_products": ["number (optional)"],
+     "menu_order": "number (default: 0)",
+     "meta_data": ["object (optional)"],
+     "syncToWooCommerce": "boolean (default: false)",
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)",
+     "images": "File[] (optional) - Multiple image files"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "storeId": "ObjectId",
+       "name": "string",
+       "slug": "string",
+       "type": "string",
+       "status": "string",
+       "featured": "boolean",
+       "catalog_visibility": "string",
+       "description": "string",
+       "short_description": "string",
+       "sku": "string",
+       "price": "string",
+       "regular_price": "string",
+       "sale_price": "string",
+       "date_on_sale_from": "string",
+       "date_on_sale_to": "string",
+       "on_sale": "boolean",
+       "purchasable": "boolean",
+       "total_sales": "number",
+       "virtual": "boolean",
+       "downloadable": "boolean",
+       "download_limit": "number",
+       "download_expiry": "number",
+       "external_url": "string",
+       "button_text": "string",
+       "tax_status": "string",
+       "tax_class": "string",
+       "manage_stock": "boolean",
+       "stock_quantity": "number",
+       "stock_status": "string",
+       "backorders": "string",
+       "backorders_allowed": "boolean",
+       "backordered": "boolean",
+       "sold_individually": "boolean",
+       "weight": "string",
+       "dimensions": "object",
+       "shipping_required": "boolean",
+       "shipping_taxable": "boolean",
+       "shipping_class": "string",
+       "shipping_class_id": "number",
+       "reviews_allowed": "boolean",
+       "average_rating": "string",
+       "rating_count": "number",
+       "related_ids": ["number"],
+       "upsell_ids": ["number"],
+       "cross_sell_ids": ["number"],
+       "parent_id": "number",
+       "purchase_note": "string",
+       "categories": ["object"],
+       "tags": ["object"],
+       "images": [
+         {
+           "id": "number",
+           "date_created": "string",
+           "src": "string (Cloudinary URL)",
+           "alt": "string"
+         }
+       ],
+       "attributes": ["object"],
+       "default_attributes": ["object"],
+       "variations": ["object"],
+       "grouped_products": ["number"],
+       "menu_order": "number",
+       "meta_data": ["object"],
+       "wooCommerceId": "number (null initially)",
+       "organizationId": "ObjectId",
+       "syncStatus": "string",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL PRODUCTS
+   GET /api/products
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - storeId: ObjectId (optional)
+   - organizationId: ObjectId (optional)
+   - type: string (optional)
+   - status: string (optional)
+   - featured: boolean (optional)
+   - category: string (optional)
+   - min_price: number (optional)
+   - max_price: number (optional)
+   - in_stock: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "storeId": "ObjectId",
+         "name": "string",
+         "slug": "string",
+         "type": "string",
+         "status": "string",
+         "featured": "boolean",
+         "sku": "string",
+         "price": "string",
+         "regular_price": "string",
+         "sale_price": "string",
+         "on_sale": "boolean",
+         "manage_stock": "boolean",
+         "stock_quantity": "number",
+         "stock_status": "string",
+         "weight": "string",
+         "dimensions": "object",
+         "categories": ["object"],
+         "tags": ["object"],
+         "images": ["object"],
+         "wooCommerceId": "number",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET PRODUCT BY ID
+   GET /api/products/:id
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Product object with populated store information
+     }
+   }
+
+4. UPDATE PRODUCT
+   PUT /api/products/:id
+   
+   Request Body: (all fields optional, same structure as CREATE)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated product object
+     }
+   }
+
+5. DELETE PRODUCT
+   DELETE /api/products/:id
+   
+   Response:
+   {
+     "success": true,
+     "message": "Product deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. GET PRODUCTS BY STORE
+   GET /api/products/store/:storeId
+   
+   Query Parameters: (same as GET ALL PRODUCTS)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       // Array of products for the store
+     ],
+     "pagination": "object"
+   }
+
+7. SYNC PRODUCTS WITH WOOCOMMERCE
+   POST /api/products/sync/:storeId
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Product sync completed",
+     "data": {
+       "created": "number",
+       "updated": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
+   }
+
+8. GET PRODUCT METRICS
+   GET /api/products/metrics/:organizationId
+   
+   Query Parameters:
+   - storeId: ObjectId (optional)
+   - date_from: string (ISO date, optional)
+   - date_to: string (ISO date, optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalProducts": "number",
+       "activeProducts": "number",
+       "draftProducts": "number",
+       "featuredProducts": "number",
+       "onSaleProducts": "number",
+       "outOfStockProducts": "number",
+       "lowStockProducts": "number",
+       "totalCategories": "number",
+       "totalTags": "number",
+       "averagePrice": "number",
+       "totalValue": "number",
+       "syncStatus": {
+         "synced": "number",
+         "pending": "number",
+         "failed": "number"
+       }
+     }
+   }
+
+================================================================================
+                                ERROR RESPONSES
+================================================================================
+
+All endpoints may return the following error responses:
+
+1. Authentication Error (401):
+   {
+     "success": false,
+     "message": "Access denied. No token provided."
+   }
+
+2. Validation Error (400):
+   {
+     "success": false,
+     "message": "Validation failed",
+     "errors": [
+       {
+         "field": "string",
+         "message": "string"
+       }
+     ]
+   }
+
+3. Not Found Error (404):
+   {
+     "success": false,
+     "message": "Resource not found"
+   }
+
+4. Server Error (500):
+   {
+     "success": false,
+     "message": "Internal server error",
+     "error": "string"
+   }
+
+================================================================================
+                                NOTES
+================================================================================
+
+1. All timestamps are in ISO 8601 format
+2. ObjectId fields are MongoDB ObjectId strings
+3. File uploads use multipart/form-data
+4. Images are automatically uploaded to Cloudinary
+5. WooCommerce sync is optional and requires valid store credentials
+6. Pagination is included in list endpoints
+7. Search functionality supports text search across relevant fields
+8. All endpoints require valid authentication token
+9. Organization and store context is maintained throughout
+10. Audit logging is automatically performed for all operations
+
+================================================================================
+                                VERSION
+================================================================================
+
+API Version: 1.0
+Last Updated: 2024
+Documentation Version: 1.0
+
+================================================================================ 

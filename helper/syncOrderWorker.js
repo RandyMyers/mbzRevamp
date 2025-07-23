@@ -92,7 +92,7 @@ const syncOrderJob = async (jobData) => {
         billing: order.billing,
         shipping: order.shipping,
         order_id: order.id.toString(),
-        number: order.number,
+        number: order.id.toString(), // Set number to WooCommerce order ID
         status: order.status,
         currency: order.currency,
         version: order.version,
@@ -132,6 +132,11 @@ const syncOrderJob = async (jobData) => {
         date_paid_gmt: order.date_paid_gmt,
         currency_symbol: order.currency_symbol,
         _links: order._links,
+        // WooCommerce sync fields
+        wooCommerceId: order.id, // Set wooCommerceId to WooCommerce order ID
+        lastWooCommerceSync: new Date(),
+        syncStatus: 'synced',
+        syncError: null
       };
 
       if (existingOrder) {
