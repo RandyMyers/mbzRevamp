@@ -988,6 +988,100 @@ Authentication: All endpoints require authentication via authMiddleware
      }
    }
 
+9. INVENTORY METRICS ENDPOINTS
+   
+   All metrics endpoints require authentication and return count/value data for the specified organization.
+   
+   a) GET TOTAL PRODUCTS COUNT
+      GET /api/inventory/metrics/total-products/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   b) GET IN-STOCK ITEMS COUNT
+      GET /api/inventory/metrics/in-stock/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   c) GET LOW-STOCK ITEMS COUNT
+      GET /api/inventory/metrics/low-stock/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   d) GET OUT-OF-STOCK ITEMS COUNT
+      GET /api/inventory/metrics/out-of-stock/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   e) GET CATEGORY COUNT
+      GET /api/inventory/metrics/category-count/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   f) GET STORE COUNT
+      GET /api/inventory/metrics/store-count/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   g) GET TOTAL INVENTORY VALUE
+      GET /api/inventory/metrics/total-value/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "totalValue": "number"
+      }
+   
+   h) GET AVERAGE PRODUCT PRICE
+      GET /api/inventory/metrics/avg-price/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "avgPrice": "number"
+      }
+   
+   i) GET ON-SALE PRODUCTS COUNT
+      GET /api/inventory/metrics/on-sale/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "count": "number"
+      }
+   
+   j) GET AVERAGE PRODUCT RATING
+      GET /api/inventory/metrics/avg-rating/:organizationId
+      
+      Response:
+      {
+        "success": true,
+        "avgRating": "number"
+      }
+
 ================================================================================
                                 ERROR RESPONSES
 ================================================================================
