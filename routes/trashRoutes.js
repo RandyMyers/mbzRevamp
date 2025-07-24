@@ -20,4 +20,4 @@ router.post("/restore/:trashId", protect, restoreFromTrash);
 // Permanently delete from trash
 router.delete("/:trashId", protect, deleteFromTrash);
 
-module.exports = router; 
+module.exports = router;  

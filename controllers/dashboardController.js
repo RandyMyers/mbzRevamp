@@ -244,16 +244,57 @@ exports.getTopProducts = async (req, res) => {
       return await Order.aggregate(pipeline);
     }, []);
 
-    // Transform data for frontend
-    const transformedProducts = topProducts.map((product, index) => ({
-      id: product._id?.toString() || `product-${index}`,
-      name: product.name || 'Unknown Product',
-      sales: product.totalSales || 0,
-      quantity: product.quantity || 0,
-      orders: product.orders || 0,
-      color: `#${Math.floor(Math.random()*16777215).toString(16)}`, // Random color
-      image: '/placeholder.svg'
-    }));
+    // Transform data for frontend with actual product images
+    const transformedProducts = await Promise.all(
+      topProducts.map(async (product, index) => {
+        try {
+          let inventoryProduct = null;
+          let image = '/placeholder.svg';
+          
+          // Try to find the product in inventory using multiple methods
+          if (product._id && mongoose.Types.ObjectId.isValid(product._id)) {
+            // First try by _id if it's a valid ObjectId
+            inventoryProduct = await Inventory.findById(product._id).lean();
+          }
+          
+          // If not found by _id, try by other fields
+          if (!inventoryProduct) {
+            inventoryProduct = await Inventory.findOne({
+              $or: [
+                { product_Id: product._id },
+                { sku: product._id },
+                { name: product.name }
+              ]
+            }).lean();
+          }
+          
+          if (inventoryProduct && inventoryProduct.images && inventoryProduct.images.length > 0) {
+            image = inventoryProduct.images[0].src;
+          }
+          
+          return {
+            id: product._id?.toString() || `product-${index}`,
+            name: product.name || 'Unknown Product',
+            sales: product.totalSales || 0,
+            quantity: product.quantity || 0,
+            orders: product.orders || 0,
+            color: `#${Math.floor(Math.random()*16777215).toString(16)}`, // Random color
+            image: image
+          };
+        } catch (error) {
+          console.error(`Error fetching product details for ${product._id}:`, error);
+          return {
+            id: product._id?.toString() || `product-${index}`,
+            name: product.name || 'Unknown Product',
+            sales: product.totalSales || 0,
+            quantity: product.quantity || 0,
+            orders: product.orders || 0,
+            color: `#${Math.floor(Math.random()*16777215).toString(16)}`, // Random color
+            image: '/placeholder.svg'
+          };
+        }
+      })
+    );
 
     res.json({
       success: true,

@@ -4,6 +4,7 @@ const inventoryController = require("../controllers/inventoryControllers");
 
 // Product CRUD Operations
 router.post("/create", inventoryController.createProduct);
+router.get("/all", inventoryController.getAllProducts);
 router.get("/organization/:organizationId", inventoryController.getAllProductsByOrganization);
 router.get("/:productId", inventoryController.getProductById);
 router.patch("/:productId", inventoryController.updateProduct);

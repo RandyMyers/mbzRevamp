@@ -667,12 +667,12 @@ Authentication: All endpoints require authentication via authMiddleware
                               INVENTORY/PRODUCTS API
 ================================================================================
 
-BASE URL: /api/products
+BASE URL: /api/inventory
 
 Authentication: All endpoints require authentication via authMiddleware
 
 1. CREATE PRODUCT
-   POST /api/products
+   POST /api/inventory/create
    
    Request Body (multipart/form-data):
    {
@@ -829,28 +829,12 @@ Authentication: All endpoints require authentication via authMiddleware
    }
 
 2. GET ALL PRODUCTS
-   GET /api/products
-   
-   Query Parameters:
-   - page: number (default: 1)
-   - limit: number (default: 10)
-   - search: string (optional)
-   - storeId: ObjectId (optional)
-   - organizationId: ObjectId (optional)
-   - type: string (optional)
-   - status: string (optional)
-   - featured: boolean (optional)
-   - category: string (optional)
-   - min_price: number (optional)
-   - max_price: number (optional)
-   - in_stock: boolean (optional)
-   - sortBy: string (default: "createdAt")
-   - sortOrder: "asc" | "desc" (default: "desc")
+   GET /api/inventory/all
    
    Response:
    {
      "success": true,
-     "data": [
+     "products": [
        {
          "_id": "ObjectId",
          "storeId": "ObjectId",
@@ -879,41 +863,73 @@ Authentication: All endpoints require authentication via authMiddleware
          "createdAt": "Date",
          "updatedAt": "Date"
        }
-     ],
-     "pagination": {
-       "page": "number",
-       "limit": "number",
-       "total": "number",
-       "pages": "number"
-     }
+     ]
    }
 
-3. GET PRODUCT BY ID
-   GET /api/products/:id
+3. GET PRODUCTS BY ORGANIZATION
+   GET /api/inventory/organization/:organizationId
    
    Response:
    {
      "success": true,
-     "data": {
+     "products": [
+       {
+         "_id": "ObjectId",
+         "storeId": "ObjectId",
+         "name": "string",
+         "slug": "string",
+         "type": "string",
+         "status": "string",
+         "featured": "boolean",
+         "sku": "string",
+         "price": "string",
+         "regular_price": "string",
+         "sale_price": "string",
+         "on_sale": "boolean",
+         "manage_stock": "boolean",
+         "stock_quantity": "number",
+         "stock_status": "string",
+         "weight": "string",
+         "dimensions": "object",
+         "categories": ["object"],
+         "tags": ["object"],
+         "images": ["object"],
+         "wooCommerceId": "number",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+4. GET PRODUCT BY ID
+   GET /api/inventory/:productId
+   
+   Response:
+   {
+     "success": true,
+     "product": {
        // Product object with populated store information
      }
    }
 
-4. UPDATE PRODUCT
-   PUT /api/products/:id
+5. UPDATE PRODUCT
+   PATCH /api/inventory/:productId
    
    Request Body: (all fields optional, same structure as CREATE)
    
    Response:
    {
      "success": true,
-     "data": {
+     "product": {
        // Updated product object
      }
    }
 
-5. DELETE PRODUCT
-   DELETE /api/products/:id
+6. DELETE PRODUCT
+   DELETE /api/inventory/:productId
    
    Response:
    {
@@ -922,73 +938,79 @@ Authentication: All endpoints require authentication via authMiddleware
      "id": "ObjectId"
    }
 
-6. GET PRODUCTS BY STORE
-   GET /api/products/store/:storeId
-   
-   Query Parameters: (same as GET ALL PRODUCTS)
+7. DELETE ALL PRODUCTS BY STORE
+   DELETE /api/inventory/store/:storeId
    
    Response:
    {
      "success": true,
-     "data": [
-       // Array of products for the store
-     ],
-     "pagination": "object"
+     "message": "All products for store deleted successfully"
    }
 
-7. SYNC PRODUCTS WITH WOOCOMMERCE
-   POST /api/products/sync/:storeId
+8. SYNC PRODUCTS WITH WOOCOMMERCE
+   POST /api/inventory/woocommerce/sync-products/:storeId/:organizationId
    
    Request Body:
    {
-     "userId": "ObjectId (required)",
-     "organizationId": "ObjectId (optional)"
+     "userId": "ObjectId (required)"
    }
    
    Response:
    {
      "success": true,
-     "message": "Product sync completed",
-     "data": {
-       "created": "number",
-       "updated": "number",
-       "failed": "number",
-       "errors": ["string"]
-     }
+     "message": "Product synchronization started in the background"
    }
 
-8. GET PRODUCT METRICS
-   GET /api/products/metrics/:organizationId
-   
-   Query Parameters:
-   - storeId: ObjectId (optional)
-   - date_from: string (ISO date, optional)
-   - date_to: string (ISO date, optional)
+9. SYNC SINGLE PRODUCT TO WOOCOMMERCE
+   POST /api/inventory/woocommerce/sync/:productId
    
    Response:
    {
      "success": true,
-     "data": {
-       "totalProducts": "number",
-       "activeProducts": "number",
-       "draftProducts": "number",
-       "featuredProducts": "number",
-       "onSaleProducts": "number",
-       "outOfStockProducts": "number",
-       "lowStockProducts": "number",
-       "totalCategories": "number",
-       "totalTags": "number",
-       "averagePrice": "number",
-       "totalValue": "number",
-       "syncStatus": {
-         "synced": "number",
-         "pending": "number",
-         "failed": "number"
-       }
-     }
+     "message": "Product sync completed"
    }
 
-9. INVENTORY METRICS ENDPOINTS
+10. RETRY PRODUCT WOOCOMMERCE SYNC
+    POST /api/inventory/woocommerce/retry-sync/:productId
+    
+    Response:
+    {
+      "success": true,
+      "message": "Product sync retry completed"
+    }
+
+11. GET PRODUCT METRICS
+    GET /api/inventory/metrics/:organizationId
+    
+    Query Parameters:
+    - storeId: ObjectId (optional)
+    - date_from: string (ISO date, optional)
+    - date_to: string (ISO date, optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "totalProducts": "number",
+        "activeProducts": "number",
+        "draftProducts": "number",
+        "featuredProducts": "number",
+        "onSaleProducts": "number",
+        "outOfStockProducts": "number",
+        "lowStockProducts": "number",
+        "totalCategories": "number",
+        "totalTags": "number",
+        "averagePrice": "number",
+        "totalValue": "number",
+        "syncStatus": {
+          "synced": "number",
+          "pending": "number",
+          "failed": "number"
+        }
+      }
+    }
+
+12. INVENTORY METRICS ENDPOINTS
    
    All metrics endpoints require authentication and return count/value data for the specified organization.
    
@@ -1142,4 +1164,5 @@ API Version: 1.0
 Last Updated: 2024
 Documentation Version: 1.0
 
+================================================================================ 
 ================================================================================ 

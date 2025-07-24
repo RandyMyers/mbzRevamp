@@ -576,13 +576,27 @@ exports.createProduct = async (req, res) => {
 // GET all products for a specific organization
 exports.getAllProductsByOrganization = async (req, res) => {
   const { organizationId } = req.params;
+  console.log('🔍 Backend: getAllProductsByOrganization called with organizationId:', organizationId);
+  console.log('🔍 Backend: organizationId type:', typeof organizationId);
+  
   try {
-    const products = await Inventory.find({ organizationId })
+    // Convert organizationId to ObjectId if it's a valid ObjectId string
+    let query = { organizationId };
+    if (mongoose.Types.ObjectId.isValid(organizationId)) {
+      query.organizationId = new mongoose.Types.ObjectId(organizationId);
+      console.log('🔍 Backend: Converted to ObjectId:', query.organizationId);
+    } else {
+      console.log('🔍 Backend: organizationId is not a valid ObjectId, using as string');
+    }
+    
+    const products = await Inventory.find(query)
       .populate("storeId userId organizationId", "name") // Populate relevant fields
       .exec();
+    console.log('📦 Backend: Found products:', products.length);
+    console.log('📦 Backend: Products:', products);
     res.status(200).json({ success: true, products });
   } catch (error) {
-    console.error(error);
+    console.error('❌ Backend: Error in getAllProductsByOrganization:', error);
     res.status(500).json({ success: false, message: "Failed to retrieve products" });
   }
 };
@@ -604,12 +618,15 @@ exports.getAllProductsByStore = async (req, res) => {
 // GET all products in the system
 exports.getAllProducts = async (req, res) => {
   try {
+    console.log('🔍 Backend: getAllProducts called');
     const products = await Inventory.find()
       .populate("storeId userId organizationId", "name") // Populate relevant fields
       .exec();
+    console.log('📦 Backend: Total products in system:', products.length);
+    console.log('📦 Backend: Sample products:', products.slice(0, 3));
     res.status(200).json({ success: true, products });
   } catch (error) {
-    console.error(error);
+    console.error('❌ Backend: Error in getAllProducts:', error);
     res.status(500).json({ success: false, message: "Failed to retrieve products" });
   }
 };

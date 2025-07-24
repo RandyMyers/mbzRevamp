@@ -293,7 +293,7 @@ const orderSchema = new mongoose.Schema({
   },
   syncStatus: {
     type: String,
-    enum: ['pending', 'synced', 'failed'],
+    enum: ['pending', 'synced', 'failed', 'not_synced'],
     default: 'pending'
   },
   syncError: {
