@@ -1,6 +1,7 @@
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Inventory = require('../models/inventory');
+const currencyUtils = require('../utils/currencyUtils');
 const mongoose = require('mongoose');
 
 // Helper: get date range for period
@@ -35,32 +36,29 @@ const buildDateFilter = (period) => {
 // 1. Total Revenue by period
 exports.totalRevenueByPeriod = async (req, res) => {
   try {
-    const { organizationId, period } = req.query;
+    const { organizationId, period, userId, displayCurrency } = req.query;
     const dateFilter = buildDateFilter(period);
-    const pipeline = [
-      { $match: {
-        organizationId: new mongoose.Types.ObjectId(organizationId),
-        ...dateFilter,
-        status: { $nin: ['cancelled', 'refunded'] },
-        total: { $exists: true, $ne: "" }
-      }},
-      { $addFields: {
-        numericTotal: {
-          $cond: [
-            { $eq: [{ $type: "$total" }, "string"] },
-            { $toDouble: "$total" },
-            "$total"
-          ]
-        }
-      }},
-      { $group: {
-        _id: null,
-        totalRevenue: { $sum: "$numericTotal" }
-      }}
-    ];
-    const result = await Order.aggregate(pipeline);
-    res.json({ success: true, data: { totalRevenue: result[0]?.totalRevenue || 0 } });
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+
+    // Multi-currency revenue aggregation with time filter
+    const revenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
+      organizationId, 
+      targetCurrency, 
+      { ...dateFilter, status: { $nin: ['cancelled', 'refunded'] } }
+    );
+    const revenueResults = await Order.aggregate(revenuePipeline);
+    const revenueSummary = await currencyUtils.processMultiCurrencyResults(revenueResults, targetCurrency, organizationId);
+
+    res.json({ 
+      success: true, 
+      data: { 
+        totalRevenue: revenueSummary.totalConverted,
+        currency: revenueSummary.targetCurrency,
+        currencyBreakdown: revenueSummary.currencyBreakdown
+      } 
+    });
   } catch (error) {
+    console.error('Total Revenue by Period Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -68,8 +66,10 @@ exports.totalRevenueByPeriod = async (req, res) => {
 // 2. Revenue by Product
 exports.revenueByProduct = async (req, res) => {
   try {
-    const { organizationId, period } = req.query;
+    const { organizationId, period, userId, displayCurrency } = req.query;
     const dateFilter = buildDateFilter(period);
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+
     const pipeline = [
       { $match: {
         organizationId: new mongoose.Types.ObjectId(organizationId),
@@ -80,7 +80,8 @@ exports.revenueByProduct = async (req, res) => {
       { $group: {
         _id: "$line_items.inventoryId",
         sales: { $sum: { $multiply: ["$line_items.quantity", { $toDouble: "$line_items.subtotal" }] } },
-        quantity: { $sum: "$line_items.quantity" }
+        quantity: { $sum: "$line_items.quantity" },
+        currency: { $first: "$currency" }
       }},
       { $lookup: {
         from: "inventories",
@@ -92,13 +93,41 @@ exports.revenueByProduct = async (req, res) => {
       { $project: {
         name: "$product.name",
         sales: 1,
-        quantity: 1
+        quantity: 1,
+        currency: 1
       }},
       { $sort: { sales: -1 } }
     ];
-    const result = await Order.aggregate(pipeline);
-    res.json({ success: true, data: result });
+    
+    const products = await Order.aggregate(pipeline);
+
+    // Convert sales amounts to target currency
+    const convertedProducts = await Promise.all(
+      products.map(async (product) => {
+        const convertedSales = await currencyUtils.convertCurrency(
+          product.sales,
+          product.currency || 'USD',
+          targetCurrency,
+          organizationId
+        );
+        
+        return {
+          ...product,
+          sales: convertedSales,
+          originalSales: product.sales,
+          originalCurrency: product.currency,
+          convertedCurrency: targetCurrency
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      data: convertedProducts,
+      currency: targetCurrency
+    });
   } catch (error) {
+    console.error('Revenue by Product Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -197,17 +226,61 @@ exports.acquisitionSources = async (req, res) => {
 // Customer Lifetime Value (LTV)
 exports.customerLifetimeValue = async (req, res) => {
   try {
-    const { organizationId, period } = req.query;
+    const { organizationId, period, userId, displayCurrency } = req.query;
     const dateFilter = buildDateFilter(period);
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+
     const pipeline = [
       { $match: { organizationId: new mongoose.Types.ObjectId(organizationId), ...dateFilter, status: { $nin: ['cancelled', 'refunded'] } } },
-      { $addFields: { numericTotal: { $cond: [ { $eq: [{ $type: "$total" }, "string"] }, { $toDouble: "$total" }, "$total" ] } } },
-      { $group: { _id: "$customerId", totalSpent: { $sum: "$numericTotal" } } },
-      { $group: { _id: null, averageLTV: { $avg: "$totalSpent" } } }
+      { $addFields: { 
+        numericTotal: { $cond: [ { $eq: [{ $type: "$total" }, "string"] }, { $toDouble: "$total" }, "$total" ] },
+        orderCurrency: { $ifNull: ["$currency", "USD"] }
+      } },
+      { $group: { 
+        _id: {
+          customerId: '$customerId',
+          currency: '$orderCurrency'
+        }, 
+        totalSpent: { $sum: "$numericTotal" } 
+      } },
+      { $group: { 
+        _id: "$_id.customerId",
+        spendingByCurrency: {
+          $push: {
+            currency: "$_id.currency",
+            amount: "$totalSpent"
+          }
+        }
+      } }
     ];
+    
     const result = await Order.aggregate(pipeline);
-    res.json({ success: true, data: { lifetimeValue: result[0]?.averageLTV || 0 } });
+    
+    // Convert each customer's spending to target currency
+    let totalConvertedLTV = 0;
+    const customerCount = result.length;
+
+    for (const customer of result) {
+      const convertedTotal = await currencyUtils.convertMultipleCurrencies(
+        customer.spendingByCurrency,
+        targetCurrency,
+        organizationId
+      );
+      totalConvertedLTV += convertedTotal;
+    }
+
+    const averageLTV = customerCount > 0 ? totalConvertedLTV / customerCount : 0;
+
+    res.json({ 
+      success: true, 
+      data: { 
+        lifetimeValue: averageLTV,
+        currency: targetCurrency,
+        customerCount
+      } 
+    });
   } catch (error) {
+    console.error('Customer Lifetime Value Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -348,8 +421,10 @@ exports.abandonedCartRate = async (req, res) => {
 // 6. Best Sellers
 exports.bestSellers = async (req, res) => {
   try {
-    const { organizationId, period } = req.query;
+    const { organizationId, period, userId, displayCurrency } = req.query;
     const dateFilter = buildDateFilter(period);
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+
     const pipeline = [
       { $match: {
         organizationId: new mongoose.Types.ObjectId(organizationId),
@@ -360,7 +435,8 @@ exports.bestSellers = async (req, res) => {
       { $group: {
         _id: "$line_items.inventoryId",
         quantity: { $sum: "$line_items.quantity" },
-        sales: { $sum: { $multiply: ["$line_items.quantity", { $toDouble: "$line_items.subtotal" }] } }
+        sales: { $sum: { $multiply: ["$line_items.quantity", { $toDouble: "$line_items.subtotal" }] } },
+        currency: { $first: "$currency" }
       }},
       { $lookup: {
         from: "inventories",
@@ -372,13 +448,133 @@ exports.bestSellers = async (req, res) => {
       { $project: {
         name: "$product.name",
         sales: 1,
-        quantity: 1
+        quantity: 1,
+        currency: 1
       }},
       { $sort: { quantity: -1 } }
     ];
-    const result = await Order.aggregate(pipeline);
-    res.json({ success: true, data: result });
+    
+    const products = await Order.aggregate(pipeline);
+
+    // Convert sales amounts to target currency
+    const convertedProducts = await Promise.all(
+      products.map(async (product) => {
+        const convertedSales = await currencyUtils.convertCurrency(
+          product.sales,
+          product.currency || 'USD',
+          targetCurrency,
+          organizationId
+        );
+        
+        return {
+          ...product,
+          sales: convertedSales,
+          originalSales: product.sales,
+          originalCurrency: product.currency,
+          convertedCurrency: targetCurrency
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      data: convertedProducts,
+      currency: targetCurrency
+    });
   } catch (error) {
+    console.error('Best Sellers Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 8. Abandoned Cart Rate
+exports.abandonedCartRate = async (req, res) => {
+  try {
+    const { organizationId, period } = req.query;
+    const dateFilter = buildDateFilter(period);
+    const totalCarts = await Order.countDocuments({
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      ...dateFilter,
+      status: { $in: ['draft', 'pending', 'completed'] }
+    });
+    const completed = await Order.countDocuments({
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      ...dateFilter,
+      status: 'completed'
+    });
+    const abandoned = totalCarts - completed;
+    const rate = totalCarts > 0 ? (abandoned / totalCarts) * 100 : 0;
+    res.json({ success: true, data: { abandoned, totalCarts, rate: rate.toFixed(1) } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 6. Best Sellers
+exports.bestSellers = async (req, res) => {
+  try {
+    const { organizationId, period, userId, displayCurrency } = req.query;
+    const dateFilter = buildDateFilter(period);
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+
+    const pipeline = [
+      { $match: {
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        ...dateFilter,
+        status: { $nin: ['cancelled', 'refunded'] }
+      }},
+      { $unwind: "$line_items" },
+      { $group: {
+        _id: "$line_items.inventoryId",
+        quantity: { $sum: "$line_items.quantity" },
+        sales: { $sum: { $multiply: ["$line_items.quantity", { $toDouble: "$line_items.subtotal" }] } },
+        currency: { $first: "$currency" }
+      }},
+      { $lookup: {
+        from: "inventories",
+        localField: "_id",
+        foreignField: "_id",
+        as: "product"
+      }},
+      { $unwind: "$product" },
+      { $project: {
+        name: "$product.name",
+        sales: 1,
+        quantity: 1,
+        currency: 1
+      }},
+      { $sort: { quantity: -1 } }
+    ];
+    
+    const products = await Order.aggregate(pipeline);
+
+    // Convert sales amounts to target currency
+    const convertedProducts = await Promise.all(
+      products.map(async (product) => {
+        const convertedSales = await currencyUtils.convertCurrency(
+          product.sales,
+          product.currency || 'USD',
+          targetCurrency,
+          organizationId
+        );
+        
+        return {
+          ...product,
+          sales: convertedSales,
+          originalSales: product.sales,
+          originalCurrency: product.currency,
+          convertedCurrency: targetCurrency
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      data: convertedProducts,
+      currency: targetCurrency
+    });
+  } catch (error) {
+    console.error('Best Sellers Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

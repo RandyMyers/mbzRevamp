@@ -13,9 +13,9 @@ const EmailLogsSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['queued', 'sent', 'failed', 'bounced', 'unsubscribed', 'received'],
+      enum: ['queued', 'sent', 'failed', 'bounced', 'unsubscribed', 'received','unread'],
       default: 'queued',
-    },
+    }, 
     bounceReason: {
       type: String, // Stores the reason for the bounce if the email fails
     },

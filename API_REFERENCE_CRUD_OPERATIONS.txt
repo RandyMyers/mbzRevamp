@@ -399,7 +399,32 @@ Authentication: All endpoints require authentication via authMiddleware
      "pagination": "object"
    }
 
-7. SYNC CUSTOMERS WITH WOOCOMMERCE
+7. DELETE ALL CUSTOMERS BY STORE
+   DELETE /api/customers/store/:storeId
+   
+   Request Body:
+   {
+     "syncToWooCommerce": "boolean (optional, default: false)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Successfully deleted X customers from store",
+     "data": {
+       "deletedCount": "number",
+       "totalCustomers": "number",
+       "storeId": "string"
+     },
+     "wooCommerceSync": {
+       "total": "number",
+       "synced": "number",
+       "failed": "number",
+       "errors": ["object"]
+     }
+   }
+
+8. SYNC CUSTOMERS WITH WOOCOMMERCE
    POST /api/customers/sync/:storeId
    
    Request Body:
@@ -642,7 +667,32 @@ Authentication: All endpoints require authentication via authMiddleware
      "pagination": "object"
    }
 
-7. SYNC ORDERS WITH WOOCOMMERCE
+7. DELETE ALL ORDERS BY STORE
+   DELETE /api/orders/store/:storeId
+   
+   Request Body:
+   {
+     "syncToWooCommerce": "boolean (optional, default: false)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Successfully deleted X orders from store",
+     "data": {
+       "deletedCount": "number",
+       "totalOrders": "number",
+       "storeId": "string"
+     },
+     "wooCommerceSync": {
+       "total": "number",
+       "synced": "number",
+       "failed": "number",
+       "errors": ["object"]
+     }
+   }
+
+8. SYNC ORDERS WITH WOOCOMMERCE
    POST /api/orders/sync/:storeId
    
    Request Body:
@@ -660,6 +710,49 @@ Authentication: All endpoints require authentication via authMiddleware
        "updated": "number",
        "failed": "number",
        "errors": ["string"]
+     }
+   }
+
+9. GET ALL ORDERS BY ORGANIZATION
+   GET /api/orders/organization/:organizationId
+   
+   Query Parameters:
+   - userId: ObjectId (optional) - User ID for currency preferences
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "orders": [
+       // Array of ALL orders for the organization (including cancelled/refunded)
+       {
+         "_id": "ObjectId",
+         "customer_id": "ObjectId",
+         "status": "string",
+         "currency": "string",
+         "total": "string",
+         "billing": "object",
+         "shipping": "object",
+         "payment_method": "string",
+         "payment_method_title": "string",
+         "line_items": ["object"],
+         "shipping_lines": ["object"],
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "summary": {
+       "totalOrders": "number (valid orders only, excluding cancelled/refunded)",
+       "totalRevenue": "number (valid orders only, with currency conversion)",
+       "currency": "string (display currency)",
+       "totalAllOrders": "number (all orders including cancelled/refunded)",
+       "cancelledOrders": "number (count of cancelled orders)",
+       "refundedOrders": "number (count of refunded orders)"
      }
    }
 
@@ -1105,6 +1198,208 @@ Authentication: All endpoints require authentication via authMiddleware
       }
 
 ================================================================================
+                              STORE OVERVIEW API
+================================================================================
+
+BASE URL: /api/store-overview
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. GET STORE STATS
+   GET /api/store-overview/stats/:organizationId
+   
+   Query Parameters:
+   - userId: ObjectId (optional) - User ID for currency preferences
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "storeCount": { "current": number, "previous": 0, "growth": 0 },
+       "activeStores": { "current": number, "previous": 0, "growth": 0 },
+       "totalRevenue": { "current": number, "previous": 0, "growth": 0, "currency": string },
+       "totalOrders": { "current": number, "previous": 0, "growth": 0 },
+       "totalCustomers": { "current": number, "previous": 0, "growth": 0 },
+       "totalProducts": { "current": number, "previous": 0, "growth": 0 }
+     }
+   }
+   
+   Note: This endpoint now returns all-time statistics (no time-based filtering).
+   Previous period and growth calculations are set to 0 as data represents all-time totals.
+
+2. GET STORE ALERTS
+   GET /api/store-overview/alerts/:organizationId
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "type": "string (sync_warning|sync_error|low_stock|inactive_store)",
+         "severity": "string (low|medium|high)",
+         "message": "string",
+         "storeId": "ObjectId (optional)",
+         "storeName": "string (optional)",
+         "lastSyncDate": "Date (optional)",
+         "productCount": "number (optional)",
+         "products": ["object (optional)"],
+         "errorCount": "number (optional)"
+       }
+     ]
+   }
+
+3. GET STORE PERFORMANCE COMPARISON (Time Series Line Chart Data)
+   GET /api/store-overview/performance/:organizationId
+   
+   Query Parameters:
+   - timeRange: string (7d, 30d, 90d, 12m, default: 30d) - Time range for performance data
+   - userId: ObjectId (optional) - User ID for currency preferences
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "date": "string (YYYY-MM-DD)",
+         "Store Name 1": "number (sales amount)",
+         "Store Name 2": "number (sales amount)",
+         "Store Name 3": "number (sales amount)"
+         // ... one property per store
+       }
+     ],
+     "summary": {
+       "totalStores": "number",
+       "dateRange": {
+         "start": "string (YYYY-MM-DD)",
+         "end": "string (YYYY-MM-DD)"
+       },
+       "stores": [
+         {
+           "storeId": "ObjectId",
+           "storeName": "string",
+           "totalSales": "number (rounded to 2 decimal places)",
+           "totalOrders": "number",
+           "platformType": "string",
+           "isActive": "boolean"
+         }
+       ],
+       "currency": "string"
+     }
+   }
+
+4. GET STORE REVENUE TRENDS
+   GET /api/store-overview/revenue-trends/:organizationId
+   
+   Query Parameters:
+   - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+   - userId: ObjectId (optional)
+   - displayCurrency: string (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "daily": [
+         {
+           "date": "string (YYYY-MM-DD)",
+           "revenue": "number",
+           "orders": "number"
+         }
+       ],
+       "monthly": [
+         {
+           "month": "string (YYYY-MM)",
+           "revenue": "number",
+           "orders": "number"
+         }
+       ]
+     }
+   }
+
+================================================================================
+                              CURRENCY CONVERSION & EXCHANGE RATES
+================================================================================
+
+The application supports multi-currency operations with automatic currency conversion
+using the Exchange Rate API (exchangerate-api.com).
+
+1. EXCHANGE RATE API INTEGRATION
+   
+   The system automatically fetches and caches exchange rates from the Exchange Rate API.
+   Rates are cached for 1 hour by default and updated via background cron jobs.
+   
+   Environment Variables Required:
+   - EXCHANGE_RATE_API_KEY: Your API key from exchangerate-api.com
+   - EXCHANGE_RATE_API_URL: API base URL (default: https://v6.exchangerate-api.com/v6)
+   - EXCHANGE_RATE_CACHE_TTL: Cache duration in seconds (default: 3600)
+   
+2. CURRENCY CONVERSION IN STATS
+   
+   All revenue calculations automatically convert multi-currency orders to the user's
+   preferred display currency using the following fallback chain:
+   
+   1. Organization-specific exchange rates (if configured)
+   2. Global/system exchange rates (cached from API)
+   3. Fresh API rates (if cache is expired)
+   4. Fallback to expired cached rates (if API is unavailable)
+   
+3. SUPPORTED CURRENCIES
+   
+   The system supports all currencies available through the Exchange Rate API,
+   including but not limited to: USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, etc.
+   
+4. CURRENCY PREFERENCES
+   
+   Users can set their preferred display currency, which is used for:
+   - Revenue calculations in dashboard stats
+   - Order totals display
+   - Financial reporting
+   - Store performance metrics
+   - Analytics revenue calculations
+   - Product performance metrics
+   - Customer lifetime value calculations
+
+================================================================================
+                              ANALYTICS API UPDATES
+================================================================================
+
+The Analytics API has been enhanced to support multi-currency operations and provide
+accurate revenue calculations across all analytics endpoints.
+
+1. UPDATED ENDPOINTS WITH CURRENCY SUPPORT
+   
+   The following analytics endpoints now accept currency parameters:
+   - GET /api/analytics/total-revenue
+   - GET /api/analytics/average-order-value
+   - GET /api/analytics/lifetime-value
+   - GET /api/analytics/product-performance
+   - GET /api/analytics/regional-sales
+   - GET /api/advanced-analytics/sales/total-revenue
+   - GET /api/advanced-analytics/sales/revenue-by-product
+   - GET /api/advanced-analytics/products/best-sellers
+   
+2. NEW QUERY PARAMETERS
+   
+   All revenue-related analytics endpoints now accept:
+   - userId: ObjectId (optional) - User ID for currency preferences
+   - displayCurrency: string (optional) - Preferred display currency
+   
+3. ENHANCED RESPONSE FORMAT
+   
+   Revenue-related analytics responses now include:
+   - currency: string - The display currency used for calculations
+   - currencyBreakdown: object - Breakdown of revenue by original currency
+   - originalCurrency: string - Original currency of the data
+   - convertedCurrency: string - Currency the data was converted to
+   
+4. CONSISTENT ORDER FILTERING
+   
+   All analytics endpoints now consistently exclude cancelled and refunded orders
+   from revenue calculations while maintaining accurate order counts where appropriate.
+
+================================================================================
                                 ERROR RESPONSES
 ================================================================================
 
@@ -1155,14 +1450,170 @@ All endpoints may return the following error responses:
 8. All endpoints require valid authentication token
 9. Organization and store context is maintained throughout
 10. Audit logging is automatically performed for all operations
+11. Currency conversion is automatic for multi-currency orders
+12. Store overview stats show all-time data (no time-based filtering)
+13. Orders API returns all orders but stats exclude cancelled/refunded orders
+14. Exchange Rate API integration provides real-time currency conversion
+15. Background services automatically sync exchange rates
 
 ================================================================================
                                 VERSION
 ================================================================================
 
-API Version: 1.0
+API Version: 1.2
 Last Updated: 2024
-Documentation Version: 1.0
+Documentation Version: 1.2
+
+Recent Updates:
+- Added multi-currency support with Exchange Rate API integration
+- Updated Store Overview stats to show all-time data
+- Enhanced Orders API with comprehensive order breakdown
+- Added currency conversion for accurate revenue calculations
+- Implemented background exchange rate synchronization
+- Updated Analytics controllers to support multi-currency operations
+- Enhanced Analytics page with currency-aware revenue calculations
+- Added currency parameters to all revenue-related analytics endpoints
+
+================================================================================ 
+================================================================================ 
+2. CURRENCY CONVERSION IN STATS
+   
+   All revenue calculations automatically convert multi-currency orders to the user's
+   preferred display currency using the following fallback chain:
+   
+   1. Organization-specific exchange rates (if configured)
+   2. Global/system exchange rates (cached from API)
+   3. Fresh API rates (if cache is expired)
+   4. Fallback to expired cached rates (if API is unavailable)
+   
+3. SUPPORTED CURRENCIES
+   
+   The system supports all currencies available through the Exchange Rate API,
+   including but not limited to: USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, etc.
+   
+4. CURRENCY PREFERENCES
+   
+   Users can set their preferred display currency, which is used for:
+   - Revenue calculations in dashboard stats
+   - Order totals display
+   - Financial reporting
+   - Store performance metrics
+   - Analytics revenue calculations
+   - Product performance metrics
+   - Customer lifetime value calculations
+
+================================================================================
+                              ANALYTICS API UPDATES
+================================================================================
+
+The Analytics API has been enhanced to support multi-currency operations and provide
+accurate revenue calculations across all analytics endpoints.
+
+1. UPDATED ENDPOINTS WITH CURRENCY SUPPORT
+   
+   The following analytics endpoints now accept currency parameters:
+   - GET /api/analytics/total-revenue
+   - GET /api/analytics/average-order-value
+   - GET /api/analytics/lifetime-value
+   - GET /api/analytics/product-performance
+   - GET /api/analytics/regional-sales
+   - GET /api/advanced-analytics/sales/total-revenue
+   - GET /api/advanced-analytics/sales/revenue-by-product
+   - GET /api/advanced-analytics/products/best-sellers
+   
+2. NEW QUERY PARAMETERS
+   
+   All revenue-related analytics endpoints now accept:
+   - userId: ObjectId (optional) - User ID for currency preferences
+   - displayCurrency: string (optional) - Preferred display currency
+   
+3. ENHANCED RESPONSE FORMAT
+   
+   Revenue-related analytics responses now include:
+   - currency: string - The display currency used for calculations
+   - currencyBreakdown: object - Breakdown of revenue by original currency
+   - originalCurrency: string - Original currency of the data
+   - convertedCurrency: string - Currency the data was converted to
+   
+4. CONSISTENT ORDER FILTERING
+   
+   All analytics endpoints now consistently exclude cancelled and refunded orders
+   from revenue calculations while maintaining accurate order counts where appropriate.
+
+================================================================================
+                                ERROR RESPONSES
+================================================================================
+
+All endpoints may return the following error responses:
+
+1. Authentication Error (401):
+   {
+     "success": false,
+     "message": "Access denied. No token provided."
+   }
+
+2. Validation Error (400):
+   {
+     "success": false,
+     "message": "Validation failed",
+     "errors": [
+       {
+         "field": "string",
+         "message": "string"
+       }
+     ]
+   }
+
+3. Not Found Error (404):
+   {
+     "success": false,
+     "message": "Resource not found"
+   }
+
+4. Server Error (500):
+   {
+     "success": false,
+     "message": "Internal server error",
+     "error": "string"
+   }
+
+================================================================================
+                                NOTES
+================================================================================
+
+1. All timestamps are in ISO 8601 format
+2. ObjectId fields are MongoDB ObjectId strings
+3. File uploads use multipart/form-data
+4. Images are automatically uploaded to Cloudinary
+5. WooCommerce sync is optional and requires valid store credentials
+6. Pagination is included in list endpoints
+7. Search functionality supports text search across relevant fields
+8. All endpoints require valid authentication token
+9. Organization and store context is maintained throughout
+10. Audit logging is automatically performed for all operations
+11. Currency conversion is automatic for multi-currency orders
+12. Store overview stats show all-time data (no time-based filtering)
+13. Orders API returns all orders but stats exclude cancelled/refunded orders
+14. Exchange Rate API integration provides real-time currency conversion
+15. Background services automatically sync exchange rates
+
+================================================================================
+                                VERSION
+================================================================================
+
+API Version: 1.2
+Last Updated: 2024
+Documentation Version: 1.2
+
+Recent Updates:
+- Added multi-currency support with Exchange Rate API integration
+- Updated Store Overview stats to show all-time data
+- Enhanced Orders API with comprehensive order breakdown
+- Added currency conversion for accurate revenue calculations
+- Implemented background exchange rate synchronization
+- Updated Analytics controllers to support multi-currency operations
+- Enhanced Analytics page with currency-aware revenue calculations
+- Added currency parameters to all revenue-related analytics endpoints
 
 ================================================================================ 
 ================================================================================ 

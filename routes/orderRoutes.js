@@ -14,6 +14,9 @@ router.get("/organization/:organizationId", orderController.getAllOrdersByOrgani
 // GET all orders for a specific store
 router.get("/store/:storeId", orderController.getOrdersByStoreId);
 
+// DELETE all orders for a specific store
+router.delete("/store/:storeId", orderController.deleteAllOrdersByStore);
+
 // GET a specific order by ID
 router.get("/get/:orderId", orderController.getOrderById);
 

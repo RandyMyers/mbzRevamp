@@ -59,26 +59,6 @@ exports.createTask = async (req, res) => {
   }
 };
 
-// GET all tasks for an organization with subtasks
-exports.getTasksByOrganization = async (req, res) => {
-  const { organizationId } = req.params;
-
-  try {
-    const tasks = await Task.find({ organization: organizationId })
-      .populate('assignedTo createdBy organization')
-      
-
-    if (!tasks || tasks.length === 0) {
-      return res.status(404).json({ success: false, message: "No tasks found for this organization" });
-    }
-    res.status(200).json({ success: true, tasks });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to retrieve tasks" });
-  }
-};
-
-
 // GET all tasks for an organization
 exports.getTasksByOrganization = async (req, res) => {
   const { organizationId } = req.params;
@@ -359,6 +339,68 @@ exports.addComment = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to add comment" });
+  }
+};
+
+// UPDATE a comment
+exports.updateComment = async (req, res) => {
+  const { taskId, commentId } = req.params;
+  const { text, user } = req.body;
+
+  try {
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    const comment = task.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    // Check if user owns the comment
+    if (comment.user.toString() !== user) {
+      return res.status(403).json({ success: false, message: "You can only edit your own comments" });
+    }
+
+    comment.text = text;
+    comment.updatedAt = Date.now();
+
+    const updatedTask = await task.save();
+    res.status(200).json({ success: true, task: updatedTask });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to update comment" });
+  }
+};
+
+// DELETE a comment
+exports.deleteComment = async (req, res) => {
+  const { taskId, commentId } = req.params;
+  const { user } = req.body;
+
+  try {
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    const comment = task.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    // Check if user owns the comment or is task creator
+    if (comment.user.toString() !== user && task.createdBy.toString() !== user) {
+      return res.status(403).json({ success: false, message: "You can only delete your own comments or be the task creator" });
+    }
+
+    comment.remove();
+    const updatedTask = await task.save();
+    res.status(200).json({ success: true, task: updatedTask });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to delete comment" });
   }
 };
 

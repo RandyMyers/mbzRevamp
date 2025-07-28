@@ -36,6 +36,9 @@ const customerRoutes = require('./routes/customerRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
 const inboxRoutes = require('./routes/inboxRoutes');
+const archivedRoutes = require('./routes/archivedRoutes');
+const draftRoutes = require('./routes/draftRoutes');
+const trashRoutes = require('./routes/trashRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 //const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
@@ -67,6 +70,7 @@ const chatIntegrationRoutes = require('./routes/chatIntegrationRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const overviewRoutes = require('./routes/overviewRoutes');
+const storeOverviewRoutes = require('./routes/storeOverviewRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const wooCommerceReportsRoutes = require('./routes/wooCommerceReportsRoutes');
 //const exportRoutes = require('./routes/exportRoutes');
@@ -141,6 +145,9 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/email/templates', emailTemplateRoutes);
 app.use('/api/inbox', inboxRoutes);
+app.use('/api/archived', archivedRoutes);
+app.use('/api/drafts', draftRoutes);
+app.use('/api/trash', trashRoutes);
 app.use('/api/receivers', receiverRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/orders', orderRoutes);
@@ -168,15 +175,24 @@ app.use('/api/chat-integrations', chatIntegrationRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/overview', overviewRoutes);
+app.use('/api/store-overview', storeOverviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/woocommerce', wooCommerceReportsRoutes);
 //app.use('/api/export', exportRoutes);
 app.use('/api/contact', contactRoutes);
 
 //Start the cron job for receiver emails
-receiverEvent.scheduleReceiverEmails();
-// Start the cron job to update exchange rates
+receiverEvent.scheduleEmailSync();
 
+// Initialize Exchange Rate Sync Service
+const rateSyncService = require('./services/rateSyncService');
+rateSyncService.initialize()
+  .then(() => {
+    console.log('✅ Exchange Rate Sync Service initialized');
+  })
+  .catch((error) => {
+    console.error('❌ Failed to initialize Exchange Rate Sync Service:', error);
+  });
 
 // Start the server
 const PORT = process.env.PORT || 8800;

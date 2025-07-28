@@ -20,4 +20,16 @@ router.delete("/delete/:receiverId", receiverController.deleteReceiver);
 // DEACTIVATE a Receiver by ID
 router.patch("/:receiverId/deactivate", receiverController.deactivateReceiver);
 
+// MANUAL TRIGGER: Check for new incoming emails for a specific receiver
+router.post("/:receiverId/check-incoming", receiverController.triggerIncomingEmailCheck);
+
+// MANUAL TRIGGER: Perform full email sync for a specific receiver
+router.post("/:receiverId/full-sync", receiverController.triggerFullEmailSync);
+
+// MANUAL TRIGGER: Custom email sync (incoming or full) for a specific receiver
+router.post("/:receiverId/custom-sync", receiverController.triggerCustomEmailSync);
+
+// LEGACY: Manual trigger for backward compatibility
+router.post("/:receiverId/fetch-emails", receiverController.triggerEmailFetch);
+
 module.exports = router;

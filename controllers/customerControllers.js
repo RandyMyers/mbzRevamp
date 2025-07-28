@@ -18,8 +18,19 @@ exports.syncCustomers = async (req, res) => {
     const organization = await Organization.findById(organizationId);
     if (!organization) return res.status(404).json({ error: 'Organization not found' });
 
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
     const worker = new Worker(path.resolve(__dirname, '../helper/syncCustomerWorker.js'), {
-      workerData: { storeId, store, organizationId, userId },
+      workerData: { storeId, store: storeData, organizationId, userId },
     });
 
     worker.on('message', (message) => {
@@ -685,6 +696,134 @@ exports.createCustomer = async (req, res) => {
     } catch (error) {
       console.error('Error retrieving customers by store ID:', error);
       res.status(500).json({ message: 'Error retrieving customers by store ID.', error });
+    }
+  };
+
+  // DELETE all customers for a specific store
+  exports.deleteAllCustomersByStore = async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const { syncToWooCommerce = false } = req.body;
+
+      console.log(`🗑️ Starting bulk customer deletion for store: ${storeId}`);
+      console.log(`🔄 WooCommerce sync enabled: ${syncToWooCommerce}`);
+
+      // Get store information for WooCommerce sync
+      let store = null;
+      if (syncToWooCommerce) {
+        store = await Store.findById(storeId);
+        if (!store) {
+          return res.status(404).json({ 
+            success: false, 
+            message: "Store not found for WooCommerce sync" 
+          });
+        }
+      }
+
+      // Get all customers for the store
+      const customers = await Customer.find({ storeId });
+      console.log(`📊 Found ${customers.length} customers to delete`);
+
+      if (customers.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "No customers found for this store" 
+        });
+      }
+
+      let wooCommerceSyncResults = {
+        total: customers.length,
+        synced: 0,
+        failed: 0,
+        errors: []
+      };
+
+      // Delete from WooCommerce if requested
+      if (syncToWooCommerce && store) {
+        console.log(`🔄 Starting WooCommerce deletion for ${customers.length} customers`);
+        
+        const WooCommerceService = require('../services/wooCommerceService');
+        const wooCommerceService = new WooCommerceService(store);
+
+        for (const customer of customers) {
+          if (customer.wooCommerceId) {
+            try {
+              const wooCommerceResult = await wooCommerceService.deleteCustomer(customer.wooCommerceId);
+              
+              if (wooCommerceResult.success) {
+                wooCommerceSyncResults.synced++;
+                console.log(`✅ WooCommerce customer deleted: ${customer.email} (ID: ${customer.wooCommerceId})`);
+              } else {
+                wooCommerceSyncResults.failed++;
+                wooCommerceSyncResults.errors.push({
+                  customerId: customer._id,
+                  email: customer.email,
+                  wooCommerceId: customer.wooCommerceId,
+                  error: wooCommerceResult.error?.message || 'WooCommerce delete failed'
+                });
+                console.error(`❌ WooCommerce delete failed for customer ${customer.email}:`, wooCommerceResult.error);
+              }
+            } catch (wooCommerceError) {
+              wooCommerceSyncResults.failed++;
+              wooCommerceSyncResults.errors.push({
+                customerId: customer._id,
+                email: customer.email,
+                wooCommerceId: customer.wooCommerceId,
+                error: wooCommerceError.message
+              });
+              console.error(`❌ WooCommerce delete error for customer ${customer.email}:`, wooCommerceError);
+            }
+          } else {
+            console.log(`⚠️ Customer ${customer.email} has no WooCommerce ID, skipping WooCommerce deletion`);
+          }
+        }
+      }
+
+      // Delete from database
+      const result = await Customer.deleteMany({ storeId });
+      console.log(`🗑️ Deleted ${result.deletedCount} customers from database`);
+
+      // Log the event
+      await logEvent({
+        action: 'delete_all_customers_by_store',
+        user: req.user?._id,
+        resource: 'Customer',
+        resourceId: storeId,
+        details: { 
+          storeId, 
+          deletedCount: result.deletedCount,
+          totalCustomers: customers.length,
+          syncToWooCommerce,
+          wooCommerceSyncResults
+        },
+        organization: req.user?.organization
+      });
+
+      const response = {
+        success: true,
+        message: `Successfully deleted ${result.deletedCount} customers from store`,
+        data: {
+          deletedCount: result.deletedCount,
+          totalCustomers: customers.length,
+          storeId: storeId
+        }
+      };
+
+      // Include WooCommerce sync results if sync was attempted
+      if (syncToWooCommerce) {
+        response.wooCommerceSync = wooCommerceSyncResults;
+      }
+
+      console.log(`✅ Bulk customer deletion completed for store ${storeId}`);
+      res.status(200).json(response);
+
+    } catch (error) {
+      console.error('❌ Error in bulk customer deletion:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error deleting customers from store', 
+        error: error.message 
+      });
     }
   };
   

@@ -10,6 +10,9 @@ router.patch('/:id', customerController.updateCustomer);
 router.delete('/:id', customerController.deleteCustomer);
 router.get('/store/:storeId', customerController.getCustomersByStoreId);
 
+// DELETE all customers for a specific store
+router.delete('/store/:storeId', customerController.deleteAllCustomersByStore);
+
 // WooCommerce sync routes
 router.post('/woocommerce/sync-customers/:storeId/:organizationId', customerController.syncCustomers);
 router.post('/woocommerce/sync/:customerId', customerController.syncCustomerToWooCommerce);

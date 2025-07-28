@@ -27,8 +27,11 @@ router.delete("/:taskId/subtasks/delete/:subtaskId", taskController.deleteSubtas
 
 // Comment routes
 router.post("/:taskId/comments", taskController.addComment);
+router.patch("/:taskId/comments/:commentId", taskController.updateComment);
+router.delete("/:taskId/comments/:commentId", taskController.deleteComment);
 
 // User-specific tasks
 router.get("/user/:userId", taskController.getTasksByUserId);
 
+module.exports = router;
 module.exports = router;

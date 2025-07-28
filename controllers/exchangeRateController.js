@@ -1,5 +1,7 @@
 const ExchangeRate = require('../models/exchangeRate');
 const mongoose = require('mongoose');
+const exchangeRateApiService = require('../services/exchangeRateApiService');
+const rateSyncService = require('../services/rateSyncService');
 
 // Get all exchange rates for an organization
 exports.getExchangeRates = async (req, res) => {
@@ -345,6 +347,294 @@ exports.convertCurrency = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to convert currency"
+    });
+  }
+};
+
+// ===== API INTEGRATION ENDPOINTS =====
+
+// Import rates from API
+exports.importApiRates = async (req, res) => {
+  try {
+    const { baseCurrency = 'USD', organizationId } = req.body;
+
+    if (!process.env.EXCHANGE_RATE_API_KEY) {
+      return res.status(400).json({
+        success: false,
+        error: "Exchange Rate API key not configured"
+      });
+    }
+
+    console.log(`🔄 Importing API rates for ${baseCurrency}...`);
+
+    // Fetch rates from API
+    const apiResponse = await exchangeRateApiService.fetchLatestRates(baseCurrency);
+    
+    // Cache rates in database
+    const cachedRates = await exchangeRateApiService.cacheRates(apiResponse, 'api');
+
+    res.json({
+      success: true,
+      data: {
+        baseCurrency,
+        importedRates: cachedRates.length,
+        lastUpdate: apiResponse.time_last_update_utc,
+        nextUpdate: apiResponse.time_next_update_utc,
+        rates: cachedRates.slice(0, 10) // Show first 10 rates
+      }
+    });
+  } catch (error) {
+    console.error('Import API Rates Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to import API rates",
+      details: error.message
+    });
+  }
+};
+
+// Get API quota information
+exports.getApiQuota = async (req, res) => {
+  try {
+    if (!process.env.EXCHANGE_RATE_API_KEY) {
+      return res.status(400).json({
+        success: false,
+        error: "Exchange Rate API key not configured"
+      });
+    }
+
+    const quota = await exchangeRateApiService.checkApiQuota();
+
+    res.json({
+      success: true,
+      data: {
+        requestsRemaining: quota.requests_remaining,
+        planQuota: quota.plan_quota,
+        usagePercentage: (quota.requests_remaining / quota.plan_quota) * 100,
+        planType: quota.plan_type || 'Free'
+      }
+    });
+  } catch (error) {
+    console.error('Get API Quota Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get API quota",
+      details: error.message
+    });
+  }
+};
+
+// Get supported currencies from API
+exports.getSupportedCurrencies = async (req, res) => {
+  try {
+    if (!process.env.EXCHANGE_RATE_API_KEY) {
+      return res.status(400).json({
+        success: false,
+        error: "Exchange Rate API key not configured"
+      });
+    }
+
+    const currencies = await exchangeRateApiService.fetchSupportedCurrencies();
+
+    res.json({
+      success: true,
+      data: {
+        totalCurrencies: currencies.length,
+        currencies: currencies.slice(0, 50) // Limit to first 50 for response size
+      }
+    });
+  } catch (error) {
+    console.error('Get Supported Currencies Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get supported currencies",
+      details: error.message
+    });
+  }
+};
+
+// Manual sync trigger
+exports.triggerManualSync = async (req, res) => {
+  try {
+    const { baseCurrency = 'USD' } = req.body;
+
+    if (!process.env.EXCHANGE_RATE_API_KEY) {
+      return res.status(400).json({
+        success: false,
+        error: "Exchange Rate API key not configured"
+      });
+    }
+
+    console.log(`🔄 Manual sync triggered for ${baseCurrency}...`);
+
+    const success = await rateSyncService.manualSync(baseCurrency);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: `Manual sync completed for ${baseCurrency}`,
+        data: {
+          baseCurrency,
+          timestamp: new Date()
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: `Manual sync failed for ${baseCurrency}`
+      });
+    }
+  } catch (error) {
+    console.error('Manual Sync Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to trigger manual sync",
+      details: error.message
+    });
+  }
+};
+
+// Get sync status
+exports.getSyncStatus = async (req, res) => {
+  try {
+    const status = await rateSyncService.getSyncStatus();
+
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('Get Sync Status Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get sync status",
+      details: error.message
+    });
+  }
+};
+
+// Get rate history
+exports.getRateHistory = async (req, res) => {
+  try {
+    const { baseCurrency, targetCurrency, organizationId, limit = 50 } = req.query;
+
+    const filter = {};
+    
+    if (baseCurrency) filter.baseCurrency = baseCurrency;
+    if (targetCurrency) filter.targetCurrency = targetCurrency;
+    if (organizationId) {
+      filter.$or = [
+        { organizationId: new mongoose.Types.ObjectId(organizationId) },
+        { isGlobal: true }
+      ];
+    } else {
+      filter.isGlobal = true;
+    }
+
+    const history = await ExchangeRate.find(filter)
+      .sort({ updatedAt: -1 })
+      .limit(parseInt(limit))
+      .select('baseCurrency targetCurrency rate source isGlobal lastApiUpdate cacheExpiry isExpired');
+
+    res.json({
+      success: true,
+      data: {
+        total: history.length,
+        history
+      }
+    });
+  } catch (error) {
+    console.error('Get Rate History Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get rate history"
+    });
+  }
+};
+
+// Override rate manually (admin only)
+exports.overrideRate = async (req, res) => {
+  try {
+    const { baseCurrency, targetCurrency, rate, organizationId, reason } = req.body;
+
+    if (!baseCurrency || !targetCurrency || !rate) {
+      return res.status(400).json({
+        success: false,
+        error: "Base currency, target currency, and rate are required"
+      });
+    }
+
+    // Validate currency codes
+    const currencyRegex = /^[A-Z]{3}$/;
+    if (!currencyRegex.test(baseCurrency) || !currencyRegex.test(targetCurrency)) {
+      return res.status(400).json({
+        success: false,
+        error: "Currency codes must be 3 uppercase letters"
+      });
+    }
+
+    // Check if same currency
+    if (baseCurrency === targetCurrency) {
+      return res.status(400).json({
+        success: false,
+        error: "Base currency and target currency cannot be the same"
+      });
+    }
+
+    // Find existing rate
+    let existingRate = await ExchangeRate.findOne({
+      baseCurrency,
+      targetCurrency,
+      $or: [
+        { organizationId: organizationId ? new mongoose.Types.ObjectId(organizationId) : null },
+        { isGlobal: true }
+      ]
+    });
+
+    if (existingRate) {
+      // Update existing rate
+      existingRate.rate = parseFloat(rate);
+      existingRate.source = 'manual_override';
+      existingRate.isCustom = true;
+      existingRate.lastApiUpdate = new Date();
+      existingRate.cacheExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      existingRate.isExpired = false;
+      
+      if (reason) {
+        existingRate.overrideReason = reason;
+      }
+
+      await existingRate.save();
+    } else {
+      // Create new rate
+      existingRate = new ExchangeRate({
+        baseCurrency,
+        targetCurrency,
+        rate: parseFloat(rate),
+        organizationId: organizationId ? new mongoose.Types.ObjectId(organizationId) : null,
+        isGlobal: !organizationId,
+        isCustom: true,
+        source: 'manual_override',
+        isActive: true,
+        lastApiUpdate: new Date(),
+        cacheExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        isExpired: false,
+        overrideReason: reason
+      });
+
+      await existingRate.save();
+    }
+
+    res.json({
+      success: true,
+      data: existingRate,
+      message: "Rate overridden successfully"
+    });
+  } catch (error) {
+    console.error('Override Rate Error:', error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to override rate"
     });
   }
 }; 

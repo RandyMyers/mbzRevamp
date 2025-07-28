@@ -10,16 +10,16 @@ const syncProductJob = async (jobData) => {
   try {
     const { storeId, store, organizationId, userId } = workerData;
 
-    console.log(workerData);
+    console.log('Starting product sync for store:', storeId);
 
     // Connect to MongoDB
     connectDB();
 
     // Initialize WooCommerce API
     const wooCommerce = new WooCommerceRestApi({
-      url: store._doc.url,
-      consumerKey: store._doc.apiKey,
-      consumerSecret: store._doc.secretKey,
+      url: store.url,
+      consumerKey: store.apiKey,
+      consumerSecret: store.secretKey,
       version: 'wc/v3',
     });
 
@@ -42,80 +42,145 @@ const syncProductJob = async (jobData) => {
       }
     }
 
-    console.log(products);
+    console.log(`Total products to sync: ${products.length}`);
+
+    // Sync statistics
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+    let skipped = 0;
 
     // Process and sync products to the Inventory
     for (const product of products) {
-      const existingProduct = await Inventory.findOne({ product_Id: product.id.toString(), storeId });
-      const productData = {
-        storeId,
-        organizationId,
-        userId,
-        product_Id: product.id.toString(),
-        name: product.name || 'N/A',
-        sku: product.sku || 'N/A',
-        description: product.description || 'N/A',
-        short_description: product.short_description || 'N/A',
-        price: parseFloat(product.price) || 0,
-        sale_price: parseFloat(product.sale_price) || 0,
-        regular_price: parseFloat(product.regular_price) || 0,
-        date_on_sale_from: product.date_on_sale_from ? new Date(product.date_on_sale_from) : null,
-        date_on_sale_to: product.date_on_sale_to ? new Date(product.date_on_sale_to) : null,
-        on_sale: product.on_sale || false,
-        purchasable: product.purchasable || true,
-        total_sales: product.total_sales || 0,
-        status: product.status || 'N/A',
-        featured: product.featured || false,
-        catalog_visibility: product.catalog_visibility || 'visible',
-        manage_stock: product.manage_stock || false,
-        stock_quantity: product.stock_quantity || 0,
-        stock_status: product.stock_status || 'N/A',
-        backorders: product.backorders || 'no',
-        backorders_allowed: product.backorders_allowed || false,
-        weight: product.weight || null,
-        dimensions: product.dimensions || { length: null, width: null, height: null },
-        shipping_required: product.shipping_required || false,
-        shipping_taxable: product.shipping_taxable || false,
-        shipping_class: product.shipping_class || 'N/A',
-        shipping_class_id: product.shipping_class_id || 0,
-        categories: product.categories || [],
-        tags: product.tags || [],
-        images: product.images || [],
-        average_rating: product.average_rating || '0.00',
-        rating_count: product.rating_count || 0,
-        reviews_allowed: product.reviews_allowed || true,
-        permalink: product.permalink || 'N/A',
-        slug: product.slug || 'N/A',
-        type: product.type || 'N/A',
-        external_url: product.external_url || '',
-        button_text: product.button_text || '',
-        upsell_ids: product.upsell_ids || [],
-        cross_sell_ids: product.cross_sell_ids || [],
-        related_ids: product.related_ids || [],
-        purchase_note: product.purchase_note || '',
-        sold_individually: product.sold_individually || false,
-        grouped_products: product.grouped_products || [],
-        menu_order: product.menu_order || 0,
-        date_created: new Date(product.date_created),
-        date_modified: new Date(product.date_modified),
-      };
+      try {
+        const wooCommerceId = product.id;
+        
+        // Check for existing product by wooCommerceId first (primary check)
+        let existingProduct = await Inventory.findOne({
+          wooCommerceId: wooCommerceId,
+          storeId: storeId
+        });
 
-      console.log(product.manage_stock, product.stock_quantity, product.stock_status);
+        // Fallback check: if no wooCommerceId match, check by product_Id
+        if (!existingProduct && product.id) {
+          existingProduct = await Inventory.findOne({
+            product_Id: product.id.toString(),
+            storeId: storeId
+          });
+        }
 
-      if (existingProduct) {
-        await Inventory.findOneAndUpdate(
-          { product_Id: product.id.toString(), storeId },
-          { $set: productData },
-          { new: true }
-        );
-      } else {
-        await Inventory.create({ ...productData, storeId, organizationId, userId });
+        // Additional fallback: check by sku + storeId (for cases where wooCommerceId might be missing)
+        if (!existingProduct && product.sku) {
+          existingProduct = await Inventory.findOne({
+            sku: product.sku,
+            storeId: storeId
+          });
+        }
+
+        const productData = {
+          storeId,
+          organizationId,
+          userId,
+          wooCommerceId: wooCommerceId, // Primary identifier
+          product_Id: product.id.toString(),
+          name: product.name || 'N/A',
+          sku: product.sku || 'N/A',
+          description: product.description || 'N/A',
+          short_description: product.short_description || 'N/A',
+          price: parseFloat(product.price) || 0,
+          sale_price: parseFloat(product.sale_price) || 0,
+          regular_price: parseFloat(product.regular_price) || 0,
+          date_on_sale_from: product.date_on_sale_from ? new Date(product.date_on_sale_from) : null,
+          date_on_sale_to: product.date_on_sale_to ? new Date(product.date_on_sale_to) : null,
+          on_sale: product.on_sale || false,
+          purchasable: product.purchasable || true,
+          total_sales: product.total_sales || 0,
+          status: product.status || 'N/A',
+          featured: product.featured || false,
+          catalog_visibility: product.catalog_visibility || 'visible',
+          manage_stock: product.manage_stock || false,
+          stock_quantity: product.stock_quantity || 0,
+          stock_status: product.stock_status || 'N/A',
+          backorders: product.backorders || 'no',
+          backorders_allowed: product.backorders_allowed || false,
+          weight: product.weight || null,
+          dimensions: product.dimensions || { length: null, width: null, height: null },
+          shipping_required: product.shipping_required || false,
+          shipping_taxable: product.shipping_taxable || false,
+          shipping_class: product.shipping_class || 'N/A',
+          shipping_class_id: product.shipping_class_id || 0,
+          categories: product.categories || [],
+          tags: product.tags || [],
+          images: product.images || [],
+          average_rating: product.average_rating || '0.00',
+          rating_count: product.rating_count || 0,
+          reviews_allowed: product.reviews_allowed || true,
+          permalink: product.permalink || 'N/A',
+          slug: product.slug || 'N/A',
+          type: product.type || 'N/A',
+          external_url: product.external_url || '',
+          button_text: product.button_text || '',
+          upsell_ids: product.upsell_ids || [],
+          cross_sell_ids: product.cross_sell_ids || [],
+          related_ids: product.related_ids || [],
+          purchase_note: product.purchase_note || '',
+          sold_individually: product.sold_individually || false,
+          grouped_products: product.grouped_products || [],
+          menu_order: product.menu_order || 0,
+          date_created: new Date(product.date_created),
+          date_modified: new Date(product.date_modified),
+          // Sync tracking fields
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced',
+          syncError: null
+        };
+
+        if (existingProduct) {
+          // Update existing product
+          await Inventory.findOneAndUpdate(
+            { _id: existingProduct._id },
+            { $set: productData },
+            { new: true, runValidators: true }
+          );
+          updated++;
+          console.log(`Updated product: ${product.name} (WooCommerce ID: ${wooCommerceId})`);
+        } else {
+          // Create new product
+          await Inventory.create(productData);
+          created++;
+          console.log(`Created product: ${product.name} (WooCommerce ID: ${wooCommerceId})`);
+        }
+      } catch (error) {
+        failed++;
+        console.error(`Failed to sync product ${product.name} (WooCommerce ID: ${product.id}):`, error.message);
+        
+        // Log detailed error for debugging
+        console.error('Product data:', {
+          name: product.name,
+          sku: product.sku,
+          wooCommerceId: product.id,
+          storeId: storeId,
+          error: error.message
+        });
       }
     }
 
-    parentPort.postMessage({ status: 'success', message: 'Products synchronized successfully' });
+    const syncSummary = {
+      total: products.length,
+      created,
+      updated,
+      failed,
+      skipped
+    };
+
+    console.log('Product sync completed:', syncSummary);
+    parentPort.postMessage({ 
+      status: 'success', 
+      message: 'Products synchronized successfully',
+      data: syncSummary
+    });
   } catch (error) {
-    console.error(error);
+    console.error('Error in product sync job:', error);
     parentPort.postMessage({ status: 'error', message: error.message });
   }
 };

@@ -11,7 +11,7 @@ const getCustomerIdByWooCommerceId = async (woocommerceCustomerId, email, organi
       $and: [
         { organizationId },
         { storeId },
-        { $or: [{ customer_Id: woocommerceCustomerId }, { email }] },
+        { $or: [{ wooCommerceId: woocommerceCustomerId }, { customer_id: woocommerceCustomerId }, { email }] },
       ],
     });
     return customer ? customer._id : null; // Return null if customer not found
@@ -22,7 +22,7 @@ const getCustomerIdByWooCommerceId = async (woocommerceCustomerId, email, organi
       $and: [
         { organizationId },
         { storeId },
-        { $or: [{ product_Id: productId }, { sku }] },
+        { $or: [{ wooCommerceId: productId }, { product_Id: productId }, { sku }] },
       ],
     });
     return inventory ? inventory._id : null; // Return null if inventory not found
@@ -33,10 +33,12 @@ const syncOrderJob = async (jobData) => {
     const { storeId, store, organizationId, userId } = workerData;
     connectDB();
 
+    console.log('Starting order sync for store:', storeId);
+
     const wooCommerce = new WooCommerceRestApi({
-      url: store._doc.url,
-      consumerKey: store._doc.apiKey,
-      consumerSecret: store._doc.secretKey,
+      url: store.url,
+      consumerKey: store.apiKey,
+      consumerSecret: store.secretKey,
       version: 'wc/v3',
     });
 
@@ -58,8 +60,40 @@ const syncOrderJob = async (jobData) => {
       }
     }
 
+    console.log(`Total orders to sync: ${orders.length}`);
+
+    // Sync statistics
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+    let skipped = 0;
+
     for (const order of orders) {
-        const existingOrder = await Order.findOne({ order_id: order.id.toString(), storeId });
+      try {
+        const wooCommerceId = order.id;
+        
+        // Check for existing order by wooCommerceId first (primary check)
+        let existingOrder = await Order.findOne({
+          wooCommerceId: wooCommerceId,
+          storeId: storeId
+        });
+
+        // Fallback check: if no wooCommerceId match, check by order_id
+        if (!existingOrder && order.id) {
+          existingOrder = await Order.findOne({
+            order_id: order.id.toString(),
+            storeId: storeId
+          });
+        }
+
+        // Additional fallback: check by order_key + storeId (for cases where wooCommerceId might be missing)
+        if (!existingOrder && order.order_key) {
+          existingOrder = await Order.findOne({
+            order_key: order.order_key,
+            storeId: storeId
+          });
+        }
+
         const customerId = await getCustomerIdByWooCommerceId(
           order.customer_id,
           order.billing.email,
@@ -83,75 +117,108 @@ const syncOrderJob = async (jobData) => {
           })
         );
 
-      const orderData = {
-        storeId,
-        organizationId,
-        userId,
-        customerId,
-        customer_Id: order.customer_id,
-        billing: order.billing,
-        shipping: order.shipping,
-        order_id: order.id.toString(),
-        number: order.id.toString(), // Set number to WooCommerce order ID
-        status: order.status,
-        currency: order.currency,
-        version: order.version,
-        prices_include_tax: order.prices_include_tax,
-        date_created: new Date(order.date_created),
-        date_modified: new Date(order.date_modified),
-        discount_total: order.discount_total,
-        discount_tax: order.discount_tax,
-        shipping_total: order.shipping_total,
-        shipping_tax: order.shipping_tax,
-        cart_tax: order.cart_tax,
-        total: order.total,
-        total_tax: order.total_tax,
-        customer_note: order.customer_note,
-        payment_method: order.payment_method,
-        payment_method_title: order.payment_method_title,
-        transaction_id: order.transaction_id,
-        customer_ip_address: order.customer_ip_address,
-        customer_user_agent: order.customer_user_agent,
-        created_via: order.created_via,
-        date_completed: order.date_completed,
-        date_paid: order.date_paid,
-        cart_hash: order.cart_hash,
-        meta_data: order.meta_data,
-        line_items: lineItems, // Updated line items with inventory IDs
-        shipping_lines: order.shipping_lines,
-        fee_lines: order.fee_lines,
-        coupon_lines: order.coupon_lines,
-        refunds: order.refunds,
-        payment_url: order.payment_url,
-        is_editable: order.is_editable,
-        needs_payment: order.needs_payment,
-        needs_processing: order.needs_processing,
-        date_created_gmt: order.date_created_gmt,
-        date_modified_gmt: order.date_modified_gmt,
-        date_completed_gmt: order.date_completed_gmt,
-        date_paid_gmt: order.date_paid_gmt,
-        currency_symbol: order.currency_symbol,
-        _links: order._links,
-        // WooCommerce sync fields
-        wooCommerceId: order.id, // Set wooCommerceId to WooCommerce order ID
-        lastWooCommerceSync: new Date(),
-        syncStatus: 'synced',
-        syncError: null
-      };
+        const orderData = {
+          storeId,
+          organizationId,
+          userId,
+          customerId,
+          wooCommerceId: wooCommerceId, // Primary identifier
+          customer_Id: order.customer_id,
+          billing: order.billing,
+          shipping: order.shipping,
+          order_id: order.id.toString(),
+          number: order.id.toString(), // Set number to WooCommerce order ID
+          status: order.status,
+          currency: order.currency,
+          version: order.version,
+          prices_include_tax: order.prices_include_tax,
+          date_created: new Date(order.date_created),
+          date_modified: new Date(order.date_modified),
+          discount_total: order.discount_total,
+          discount_tax: order.discount_tax,
+          shipping_total: order.shipping_total,
+          shipping_tax: order.shipping_tax,
+          cart_tax: order.cart_tax,
+          total: order.total,
+          total_tax: order.total_tax,
+          customer_note: order.customer_note,
+          payment_method: order.payment_method,
+          payment_method_title: order.payment_method_title,
+          transaction_id: order.transaction_id,
+          customer_ip_address: order.customer_ip_address,
+          customer_user_agent: order.customer_user_agent,
+          created_via: order.created_via,
+          date_completed: order.date_completed,
+          date_paid: order.date_paid,
+          cart_hash: order.cart_hash,
+          meta_data: order.meta_data,
+          line_items: lineItems, // Updated line items with inventory IDs
+          shipping_lines: order.shipping_lines,
+          fee_lines: order.fee_lines,
+          coupon_lines: order.coupon_lines,
+          refunds: order.refunds,
+          payment_url: order.payment_url,
+          is_editable: order.is_editable,
+          needs_payment: order.needs_payment,
+          needs_processing: order.needs_processing,
+          date_created_gmt: order.date_created_gmt,
+          date_modified_gmt: order.date_modified_gmt,
+          date_completed_gmt: order.date_completed_gmt,
+          date_paid_gmt: order.date_paid_gmt,
+          currency_symbol: order.currency_symbol,
+          _links: order._links,
+          // Sync tracking fields
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced',
+          syncError: null
+        };
 
-      if (existingOrder) {
-        await Order.findOneAndUpdate(
-          { order_id: order.id.toString(), storeId },
-          { $set: orderData },
-          { new: true }
-        );
-      } else {
-        await Order.create(orderData);
+        if (existingOrder) {
+          // Update existing order
+          await Order.findOneAndUpdate(
+            { _id: existingOrder._id },
+            { $set: orderData },
+            { new: true, runValidators: true }
+          );
+          updated++;
+          console.log(`Updated order: ${order.id} (WooCommerce ID: ${wooCommerceId})`);
+        } else {
+          // Create new order
+          await Order.create(orderData);
+          created++;
+          console.log(`Created order: ${order.id} (WooCommerce ID: ${wooCommerceId})`);
+        }
+      } catch (error) {
+        failed++;
+        console.error(`Failed to sync order ${order.id} (WooCommerce ID: ${order.id}):`, error.message);
+        
+        // Log detailed error for debugging
+        console.error('Order data:', {
+          orderId: order.id,
+          orderKey: order.order_key,
+          wooCommerceId: order.id,
+          storeId: storeId,
+          error: error.message
+        });
       }
     }
 
-    parentPort.postMessage({ status: 'success', message: 'Orders synchronized successfully' });
+    const syncSummary = {
+      total: orders.length,
+      created,
+      updated,
+      failed,
+      skipped
+    };
+
+    console.log('Order sync completed:', syncSummary);
+    parentPort.postMessage({ 
+      status: 'success', 
+      message: 'Orders synchronized successfully',
+      data: syncSummary
+    });
   } catch (error) {
+    console.error('Error in order sync job:', error);
     parentPort.postMessage({ status: 'error', message: error.message });
   }
 };

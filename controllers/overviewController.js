@@ -47,6 +47,7 @@ const getOrganizationIdFromUserId = async (userId) => {
 exports.getOverviewStats = async (req, res) => {
   try {
     const { userId } = req.params;
+    const { displayCurrency } = req.query;
     
     if (!userId) {
       return res.status(400).json({ 
@@ -66,6 +67,9 @@ exports.getOverviewStats = async (req, res) => {
     }
 
     const orgId = new mongoose.Types.ObjectId(organizationId);
+    
+    // Determine display currency
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     // Get all orders for the organization (no date filter)
     const allOrders = await safeQuery(async () => {
@@ -110,11 +114,24 @@ exports.getOverviewStats = async (req, res) => {
       })));
     }
 
-    // Calculate total revenue with better error handling
-    const totalRevenue = allOrders.reduce((sum, order) => {
-      const orderTotal = parseFloat(order.total);
-      return sum + (isNaN(orderTotal) ? 0 : orderTotal);
-    }, 0);
+    // Calculate total revenue with multi-currency support
+    let totalRevenue = 0;
+    let revenueBreakdown = {};
+    
+    try {
+      const revenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(organizationId);
+      const revenueResults = await Order.aggregate(revenuePipeline);
+      const revenueSummary = await currencyUtils.processMultiCurrencyResults(revenueResults, targetCurrency);
+      totalRevenue = revenueSummary.totalConverted || 0;
+      revenueBreakdown = revenueSummary.currencyBreakdown || {};
+    } catch (error) {
+      console.error('Revenue calculation error:', error);
+      // Fallback to simple sum if currency conversion fails
+      totalRevenue = allOrders.reduce((sum, order) => {
+        const orderTotal = parseFloat(order.total);
+        return sum + (isNaN(orderTotal) ? 0 : orderTotal);
+      }, 0);
+    }
 
     // Calculate total orders
     const totalOrders = allOrders.length;
@@ -141,7 +158,6 @@ exports.getOverviewStats = async (req, res) => {
 
     // Calculate product categories distribution
     const categoryCounts = {};
-    const categorySales = {};
 
     allProducts.forEach(product => {
       if (product.categories && product.categories.length > 0) {
@@ -166,7 +182,6 @@ exports.getOverviewStats = async (req, res) => {
 
     // Calculate stock status distribution
     const stockStatusCounts = {};
-    const stockStatusSales = {};
 
     allProducts.forEach(product => {
       const stockStatus = product.stock_status || 'unknown';
@@ -178,58 +193,107 @@ exports.getOverviewStats = async (req, res) => {
       stockStatusCounts[stockStatus]++;
     });
 
-    // Calculate sales impact by stock status
-    allOrders.forEach(order => {
-      if (order.line_items) {
-        order.line_items.forEach(item => {
-          // Find the product in inventory
-          const product = allProducts.find(p => 
-            p._id.toString() === item.inventoryId?.toString() ||
-            p.product_Id?.toString() === item.product_id ||
-            p.sku === item.product_id
-          );
-
-          if (product) {
-            const stockStatus = product.stock_status || 'unknown';
-            if (!stockStatusSales[stockStatus]) {
-              stockStatusSales[stockStatus] = 0;
-            }
-            stockStatusSales[stockStatus] += parseFloat(item.subtotal) || 0;
-          }
-        });
-      }
+    // Calculate sales impact by stock status with multi-currency support
+    const stockStatusSales = {};
+    
+    // Create a map of product IDs to stock status for faster lookup
+    const productStockStatusMap = {};
+    allProducts.forEach(product => {
+      const stockStatus = product.stock_status || 'unknown';
+      productStockStatusMap[product._id.toString()] = stockStatus;
+      productStockStatusMap[product.product_Id?.toString()] = stockStatus;
+      productStockStatusMap[product.sku] = stockStatus;
     });
 
-    // Calculate sales by category
-    allOrders.forEach(order => {
+    // Calculate sales by stock status with currency conversion
+    for (const order of allOrders) {
       if (order.line_items) {
-        order.line_items.forEach(item => {
-          // Find the product in inventory
-          const product = allProducts.find(p => 
-            p._id.toString() === item.inventoryId?.toString() ||
-            p.product_Id?.toString() === item.product_id ||
-            p.sku === item.product_id
-          );
-
-          if (product && product.categories && product.categories.length > 0) {
-            product.categories.forEach(category => {
-              const categoryName = category.name;
-              if (!categorySales[categoryName]) {
-                categorySales[categoryName] = 0;
-              }
-              categorySales[categoryName] += parseFloat(item.subtotal) || 0;
-            });
+        for (const item of order.line_items) {
+          // Find the product stock status
+          const productId = item.inventoryId?.toString() || item.product_id?.toString();
+          const stockStatus = productStockStatusMap[productId] || 'unknown';
+          
+          if (!stockStatusSales[stockStatus]) {
+            stockStatusSales[stockStatus] = 0;
+          }
+          
+          // Convert item subtotal to target currency
+          const itemSubtotal = parseFloat(item.subtotal) || 0;
+          const orderCurrency = order.currency || 'USD';
+          
+          if (orderCurrency === targetCurrency) {
+            stockStatusSales[stockStatus] += itemSubtotal;
           } else {
-            // Handle products without categories
-            const uncategorized = 'Uncategorized';
-            if (!categorySales[uncategorized]) {
-              categorySales[uncategorized] = 0;
+            try {
+              const convertedAmount = await currencyUtils.convertCurrency(
+                itemSubtotal, 
+                orderCurrency, 
+                targetCurrency, 
+                organizationId
+              );
+              stockStatusSales[stockStatus] += convertedAmount;
+            } catch (error) {
+              console.error(`Currency conversion error for order ${order._id}:`, error);
+              // Fallback to original amount
+              stockStatusSales[stockStatus] += itemSubtotal;
             }
-            categorySales[uncategorized] += parseFloat(item.subtotal) || 0;
           }
-        });
+        }
       }
+    }
+
+    // Calculate sales by category with multi-currency support
+    const categorySales = {};
+    
+    // Create a map of product IDs to categories for faster lookup
+    const productCategoryMap = {};
+    allProducts.forEach(product => {
+      const categories = product.categories && product.categories.length > 0 
+        ? product.categories.map(cat => cat.name) 
+        : ['Uncategorized'];
+      productCategoryMap[product._id.toString()] = categories;
+      productCategoryMap[product.product_Id?.toString()] = categories;
+      productCategoryMap[product.sku] = categories;
     });
+
+    // Calculate sales by category with currency conversion
+    for (const order of allOrders) {
+      if (order.line_items) {
+        for (const item of order.line_items) {
+          // Find the product categories
+          const productId = item.inventoryId?.toString() || item.product_id?.toString();
+          const categories = productCategoryMap[productId] || ['Uncategorized'];
+          
+          // Convert item subtotal to target currency
+          const itemSubtotal = parseFloat(item.subtotal) || 0;
+          const orderCurrency = order.currency || 'USD';
+          let convertedSubtotal = itemSubtotal;
+          
+          if (orderCurrency !== targetCurrency) {
+            try {
+              convertedSubtotal = await currencyUtils.convertCurrency(
+                itemSubtotal, 
+                orderCurrency, 
+                targetCurrency, 
+                organizationId
+              );
+            } catch (error) {
+              console.error(`Currency conversion error for order ${order._id}:`, error);
+              // Fallback to original amount
+              convertedSubtotal = itemSubtotal;
+            }
+          }
+          
+          // Add to each category
+          categories.forEach(categoryName => {
+            if (!categorySales[categoryName]) {
+              categorySales[categoryName] = 0;
+            }
+            categorySales[categoryName] += convertedSubtotal;
+          });
+        }
+      }
+    }
 
     // Convert to array format for pie chart
     const productCategoriesDistribution = Object.keys(categoryCounts).map(categoryName => {
@@ -289,11 +353,12 @@ exports.getOverviewStats = async (req, res) => {
     console.log('Stock Status Counts:', stockStatusCounts);
     console.log('Stock Status Sales:', stockStatusSales);
 
-    // Get top products by sales
+    // Get top products by sales with multi-currency support
     const productSales = {};
-    allOrders.forEach(order => {
+    
+    for (const order of allOrders) {
       if (order.line_items) {
-        order.line_items.forEach(item => {
+        for (const item of order.line_items) {
           // Use inventoryId if available, otherwise fallback to product_id
           const productId = item.inventoryId || item.product_id;
           if (productId) {
@@ -307,13 +372,33 @@ exports.getOverviewStats = async (req, res) => {
               };
             }
             const quantity = parseInt(item.quantity) || 0;
-            const subtotal = parseFloat(item.subtotal);
+            const subtotal = parseFloat(item.subtotal) || 0;
+            const orderCurrency = order.currency || 'USD';
+            
             productSales[productId].quantity += quantity;
-            productSales[productId].revenue += (isNaN(subtotal) ? 0 : subtotal) * quantity;
+            
+            // Convert subtotal to target currency
+            if (orderCurrency === targetCurrency) {
+              productSales[productId].revenue += subtotal * quantity;
+            } else {
+              try {
+                const convertedSubtotal = await currencyUtils.convertCurrency(
+                  subtotal, 
+                  orderCurrency, 
+                  targetCurrency, 
+                  organizationId
+                );
+                productSales[productId].revenue += convertedSubtotal * quantity;
+              } catch (error) {
+                console.error(`Currency conversion error for product ${productId}:`, error);
+                // Fallback to original amount
+                productSales[productId].revenue += subtotal * quantity;
+              }
+            }
           }
-        });
+        }
       }
-    });
+    }
 
     // Convert to array and sort by revenue
     const topProductsArray = Object.values(productSales)
@@ -452,15 +537,17 @@ exports.getOverviewStats = async (req, res) => {
         totalOrders,
         totalCustomers,
         averageOrderValue,
+        currency: targetCurrency,
+        revenueBreakdown,
         
-                 // Charts and breakdowns
-         salesTrend,
-         orderSources,
-         orderStatusDistribution,
-         productCategoriesDistribution,
-         stockStatusDistribution,
-         topProducts,
-         recentOrders,
+        // Charts and breakdowns
+        salesTrend,
+        orderSources,
+        orderStatusDistribution,
+        productCategoriesDistribution,
+        stockStatusDistribution,
+        topProducts,
+        recentOrders,
         
         // Raw data for frontend filtering
         allOrders,

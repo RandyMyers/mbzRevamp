@@ -25,12 +25,22 @@ exports.syncProducts = async (req, res) => {
     const organization = await Organization.findById(organizationId);
     if (!organization) return res.status(404).json({ error: 'Organization not found' });
 
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
     const worker = new Worker(path.resolve(__dirname, '../helper/syncProductWorker.js'), {
-      workerData: { storeId, store, organizationId, userId },
+      workerData: { storeId, store: storeData, organizationId, userId },
     });
 
     console.log('Worker Path:', path.resolve(__dirname, '../helper/syncProductWorker.js'));
-
 
     worker.on('message', (message) => {
       if (message.status === 'success') {

@@ -304,4 +304,8 @@ const orderSchema = new mongoose.Schema({
 
 const Order = mongoose.model('Order', orderSchema);
 
+// Add unique indexes to prevent duplicates
+orderSchema.index({ wooCommerceId: 1, storeId: 1 }, { unique: true, sparse: true });
+orderSchema.index({ order_key: 1, storeId: 1, organizationId: 1 }, { unique: true, sparse: true });
+
 module.exports = Order;

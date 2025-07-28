@@ -21,7 +21,7 @@ const InboxSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["unread", "read", "archived"],
+      enum: ["unread", "read", "archived", "spam"],
       default: "unread",
     },
     receivedAt: {

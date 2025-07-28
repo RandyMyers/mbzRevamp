@@ -6,6 +6,7 @@ const Order = require('../models/order');
 const mongoose = require('mongoose');
 const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
+const currencyUtils = require('../utils/currencyUtils');
 
 // Utility function to find order by WooCommerce ID (checks both wooCommerceId and number fields)
 const findOrderByWooCommerceId = async (wooCommerceId, storeId = null) => {
@@ -43,8 +44,19 @@ exports.syncOrders = async (req, res) => {
     const organization = await Organization.findById(organizationId);
     if (!organization) return res.status(404).json({ error: 'Organization not found' });
 
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
     const worker = new Worker(path.resolve(__dirname, '../helper/syncOrderWorker.js'), {
-      workerData: { storeId, store, organizationId, userId },
+      workerData: { storeId, store: storeData, organizationId, userId },
     });
 
     worker.on('message', (message) => {
@@ -369,13 +381,74 @@ exports.getAllOrders = async (req, res) => {
 
 exports.getAllOrdersByOrganization = async (req, res) => {
   const { organizationId } = req.params;
+  const { userId, displayCurrency } = req.query;
+  
   try {
-    const orders = await Order.find({ organizationId: new mongoose.Types.ObjectId(organizationId) })
-      .populate("storeId userId organizationId customer_id", "name email") // Populate relevant fields
+    console.log('🔄 Fetching orders for organization:', organizationId);
+    
+    // Get display currency for the user/organization
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
+    console.log('💰 Target Currency:', targetCurrency);
+    
+    // Fetch ALL orders (including cancelled and refunded) for the table display
+    const orders = await Order.find({ 
+      organizationId: new mongoose.Types.ObjectId(organizationId)
+    })
+      .populate("storeId userId organizationId customer_id", "name email")
       .exec();
-    res.status(200).json({ success: true, orders });
+    
+    console.log(`📦 Found ${orders.length} total orders (including cancelled/refunded)`);
+    
+    // Calculate accurate totals using multi-currency conversion (only for valid orders)
+    let totalRevenue = 0;
+    let totalOrders = 0;
+    
+    // Count only valid orders (excluding cancelled and refunded) for stats
+    const validOrders = orders.filter(order => !['cancelled', 'refunded'].includes(order.status));
+    totalOrders = validOrders.length;
+    
+    console.log(`📊 Valid orders for stats: ${totalOrders} (excluded ${orders.length - totalOrders} cancelled/refunded orders)`);
+    
+    try {
+      console.log('🔄 Calculating multi-currency revenue...');
+      
+      const revenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
+        organizationId,
+        targetCurrency
+        // No date filter - gets all orders
+      );
+      
+      const revenueResults = await Order.aggregate(revenuePipeline);
+      const revenueSummary = await currencyUtils.processMultiCurrencyResults(
+        revenueResults, 
+        targetCurrency, 
+        organizationId
+      );
+      
+      totalRevenue = revenueSummary.totalConverted;
+      console.log(`✅ Total Revenue: ${totalRevenue} ${targetCurrency}`);
+      
+    } catch (error) {
+      console.error('❌ Error calculating multi-currency revenue:', error);
+      // Fallback to simple sum if currency conversion fails
+      totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+      console.log(`⚠️ Using fallback revenue calculation: ${totalRevenue}`);
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      orders, // All orders for table display
+      summary: {
+        totalOrders, // Only valid orders for stats
+        totalRevenue, // Only valid orders for stats
+        currency: targetCurrency,
+        totalAllOrders: orders.length, // Total including cancelled/refunded
+        cancelledOrders: orders.filter(order => order.status === 'cancelled').length,
+        refundedOrders: orders.filter(order => order.status === 'refunded').length
+      }
+    });
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error in getAllOrdersByOrganization:', error);
     res.status(500).json({ success: false, message: "Failed to retrieve orders" });
   }
 };
@@ -402,22 +475,177 @@ exports.getOrderById = async (req, res) => {
 
 // GET all orders for a specific store ID
 exports.getOrdersByStoreId = async (req, res) => {
-  const { storeId } = req.params;
   try {
-    const orders = await Order.find({ storeId })
-      .populate("storeId userId organizationId customer_id", "name email") // Populate relevant fields
-      .exec();
+    const { storeId } = req.params;
+    const { page = 1, limit = 10, status, startDate, endDate } = req.query;
 
-    if (!orders.length) {
-      return res.status(404).json({ success: false, message: "No orders found for this store" });
+    const query = { storeId };
+
+    // Add status filter if provided
+    if (status) {
+      query.status = status;
     }
 
-    res.status(200).json({ success: true, orders });
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      query.date_created = {};
+      if (startDate) query.date_created.$gte = new Date(startDate);
+      if (endDate) query.date_created.$lte = new Date(endDate);
+    }
+
+    const skip = (page - 1) * limit;
+    const orders = await Order.find(query)
+      .populate('customerId', 'first_name last_name email')
+      .sort({ date_created: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Order.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      orders,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalOrders: total,
+        hasNextPage: skip + orders.length < total,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching orders by store ID:', error);
-    res.status(500).json({ success: false, message: "Failed to retrieve orders" });
+    res.status(500).json({ success: false, message: 'Error fetching orders', error: error.message });
   }
-}
+};
+
+// DELETE all orders for a specific store
+exports.deleteAllOrdersByStore = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { syncToWooCommerce = false } = req.body;
+
+    console.log(`🗑️ Starting bulk order deletion for store: ${storeId}`);
+    console.log(`🔄 WooCommerce sync enabled: ${syncToWooCommerce}`);
+
+    // Get store information for WooCommerce sync
+    let store = null;
+    if (syncToWooCommerce) {
+      store = await Store.findById(storeId);
+      if (!store) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Store not found for WooCommerce sync" 
+        });
+      }
+    }
+
+    // Get all orders for the store
+    const orders = await Order.find({ storeId });
+    console.log(`📊 Found ${orders.length} orders to delete`);
+
+    if (orders.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "No orders found for this store" 
+      });
+    }
+
+    let wooCommerceSyncResults = {
+      total: orders.length,
+      synced: 0,
+      failed: 0,
+      errors: []
+    };
+
+    // Delete from WooCommerce if requested
+    if (syncToWooCommerce && store) {
+      console.log(`🔄 Starting WooCommerce deletion for ${orders.length} orders`);
+      
+      const WooCommerceService = require('../services/wooCommerceService');
+      const wooCommerceService = new WooCommerceService(store);
+
+      for (const order of orders) {
+        if (order.wooCommerceId) {
+          try {
+            const wooCommerceResult = await wooCommerceService.deleteOrder(order.wooCommerceId);
+            
+            if (wooCommerceResult.success) {
+              wooCommerceSyncResults.synced++;
+              console.log(`✅ WooCommerce order deleted: ${order.order_id} (ID: ${order.wooCommerceId})`);
+            } else {
+              wooCommerceSyncResults.failed++;
+              wooCommerceSyncResults.errors.push({
+                orderId: order._id,
+                orderKey: order.order_key,
+                wooCommerceId: order.wooCommerceId,
+                error: wooCommerceResult.error?.message || 'WooCommerce delete failed'
+              });
+              console.error(`❌ WooCommerce delete failed for order ${order.order_id}:`, wooCommerceResult.error);
+            }
+          } catch (wooCommerceError) {
+            wooCommerceSyncResults.failed++;
+            wooCommerceSyncResults.errors.push({
+              orderId: order._id,
+              orderKey: order.order_key,
+              wooCommerceId: order.wooCommerceId,
+              error: wooCommerceError.message
+            });
+            console.error(`❌ WooCommerce delete error for order ${order.order_id}:`, wooCommerceError);
+          }
+        } else {
+          console.log(`⚠️ Order ${order.order_id} has no WooCommerce ID, skipping WooCommerce deletion`);
+        }
+      }
+    }
+
+    // Delete from database
+    const result = await Order.deleteMany({ storeId });
+    console.log(`🗑️ Deleted ${result.deletedCount} orders from database`);
+
+    // Log the event
+    await logEvent({
+      action: 'delete_all_orders_by_store',
+      user: req.user?._id,
+      resource: 'Order',
+      resourceId: storeId,
+      details: { 
+        storeId, 
+        deletedCount: result.deletedCount,
+        totalOrders: orders.length,
+        syncToWooCommerce,
+        wooCommerceSyncResults
+      },
+      organization: req.user?.organization
+    });
+
+    const response = {
+      success: true,
+      message: `Successfully deleted ${result.deletedCount} orders from store`,
+      data: {
+        deletedCount: result.deletedCount,
+        totalOrders: orders.length,
+        storeId: storeId
+      }
+    };
+
+    // Include WooCommerce sync results if sync was attempted
+    if (syncToWooCommerce) {
+      response.wooCommerceSync = wooCommerceSyncResults;
+    }
+
+    console.log(`✅ Bulk order deletion completed for store ${storeId}`);
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error('❌ Error in bulk order deletion:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error deleting orders from store', 
+      error: error.message 
+    });
+  }
+};
 
 // UPDATE order details (e.g., status, customer_note)
 exports.updateOrder = async (req, res) => {
@@ -1283,8 +1511,8 @@ exports.getRecentOrders = async (req, res) => {
       status: order.status
     }));
 
-      res.status(200).json({ 
-        success: true, 
+    res.status(200).json({ 
+      success: true, 
       orders: formattedOrders 
     });
   } catch (error) {

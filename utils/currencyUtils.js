@@ -2,6 +2,7 @@ const ExchangeRate = require('../models/exchangeRate');
 const Organization = require('../models/organization');
 const User = require('../models/users');
 const mongoose = require('mongoose');
+const exchangeRateApiService = require('../services/exchangeRateApiService');
 
 /**
  * Get the display currency for a user or organization
@@ -11,30 +12,45 @@ const mongoose = require('mongoose');
  */
 const getDisplayCurrency = async (userId, organizationId) => {
   try {
+    console.log(`\n🔍 Getting display currency...`);
+    console.log(`   User ID: ${userId}`);
+    console.log(`   Organization ID: ${organizationId}`);
+    
     // First try to get user's preferred currency
     if (userId) {
+      console.log(`   🔍 Looking for user's preferred currency...`);
       const user = await User.findById(userId);
       if (user && user.displayCurrency) {
+        console.log(`   ✅ Found user's preferred currency: ${user.displayCurrency}`);
         return user.displayCurrency;
       }
+      console.log(`   ❌ No user preferred currency found`);
     }
 
     // Fall back to organization's analytics currency
     if (organizationId) {
+      console.log(`   🔍 Looking for organization's analytics currency...`);
       const organization = await Organization.findById(organizationId);
       if (organization && organization.analyticsCurrency) {
+        console.log(`   ✅ Found organization's analytics currency: ${organization.analyticsCurrency}`);
         return organization.analyticsCurrency;
       }
+      console.log(`   ❌ No organization analytics currency found`);
+      
       // Fall back to default currency if analytics currency not set
       if (organization && organization.defaultCurrency) {
+        console.log(`   ✅ Found organization's default currency: ${organization.defaultCurrency}`);
         return organization.defaultCurrency;
       }
+      console.log(`   ❌ No organization default currency found`);
     }
 
     // Default fallback
+    console.log(`   ✅ Using default fallback currency: USD`);
     return 'USD';
   } catch (error) {
-    console.error('Error getting display currency:', error);
+    console.error('❌ Error getting display currency:', error);
+    console.log(`   ✅ Using default fallback currency on error: USD`);
     return 'USD';
   }
 };
@@ -74,66 +90,97 @@ const getOrganizationAnalyticsCurrency = async (organizationId) => {
  */
 const getExchangeRate = async (organizationId, fromCurrency, toCurrency) => {
   try {
-    if (!organizationId || !fromCurrency || !toCurrency) {
+    console.log(`\n🔍 Looking up exchange rate: ${fromCurrency} → ${toCurrency}`);
+    console.log(`   Organization ID: ${organizationId}`);
+    
+    if (!fromCurrency || !toCurrency) {
+      console.log(`   ❌ Missing required parameters`);
       return null;
     }
 
     // If same currency, return 1
     if (fromCurrency === toCurrency) {
+      console.log(`   ✅ Same currency, rate = 1`);
       return 1;
     }
 
-    // First try to get organization-specific rate
-    let exchangeRate = await ExchangeRate.findOne({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
-      baseCurrency: fromCurrency,
-      targetCurrency: toCurrency,
-      isActive: true
-    });
+    // Step 1: Try organization-specific rate first
+    if (organizationId) {
+      console.log(`   🔍 Looking for organization-specific rate...`);
+      let exchangeRate = await ExchangeRate.findOne({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        baseCurrency: fromCurrency,
+        targetCurrency: toCurrency,
+        isActive: true,
+        isGlobal: false
+      });
 
+      if (exchangeRate && !exchangeRate.needsRefresh()) {
+        console.log(`   ✅ Found valid organization-specific rate: ${exchangeRate.rate}`);
+        return exchangeRate.rate;
+      }
+      console.log(`   ❌ No valid organization-specific rate found`);
+
+      // Try reverse organization-specific rate
+      console.log(`   🔍 Looking for reverse organization-specific rate...`);
+      exchangeRate = await ExchangeRate.findOne({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        baseCurrency: toCurrency,
+        targetCurrency: fromCurrency,
+        isActive: true,
+        isGlobal: false
+      });
+
+      if (exchangeRate && !exchangeRate.needsRefresh()) {
+        const reverseRate = 1 / exchangeRate.rate;
+        console.log(`   ✅ Found valid reverse organization-specific rate: ${exchangeRate.rate} → ${reverseRate}`);
+        return reverseRate;
+      }
+      console.log(`   ❌ No valid reverse organization-specific rate found`);
+    }
+
+    // Step 2: Try global/system rate using new model method
+    console.log(`   🔍 Looking for global/system rate...`);
+    let exchangeRate = await ExchangeRate.findValidRate(organizationId, fromCurrency, toCurrency);
+    
+    if (exchangeRate && !exchangeRate.needsRefresh()) {
+      console.log(`   ✅ Found valid global/system rate: ${exchangeRate.rate}`);
+      return exchangeRate.rate;
+    }
+    console.log(`   ❌ No valid global/system rate found`);
+
+    // Step 3: Try API service for fresh rates
+    try {
+      console.log(`   🔄 Attempting to fetch fresh rate from API...`);
+      const apiResponse = await exchangeRateApiService.fetchPairRate(fromCurrency, toCurrency);
+      
+      if (apiResponse && apiResponse.conversion_rate) {
+        console.log(`   ✅ Successfully fetched API rate: ${apiResponse.conversion_rate}`);
+        
+        // Cache the new rate globally
+        await exchangeRateApiService.cacheRates({
+          base_code: fromCurrency,
+          conversion_rates: { [toCurrency]: apiResponse.conversion_rate },
+          time_last_update_utc: apiResponse.time_last_update_utc,
+          time_next_update_utc: apiResponse.time_next_update_utc
+        }, 'api');
+        
+        return apiResponse.conversion_rate;
+      }
+    } catch (apiError) {
+      console.log(`   ⚠️  API fetch failed: ${apiError.message}`);
+    }
+
+    // Step 4: Use expired cached rate as fallback
     if (exchangeRate) {
+      console.log(`   ⚠️  Using expired cached rate: ${exchangeRate.rate}`);
       return exchangeRate.rate;
     }
 
-    // Try reverse rate
-    exchangeRate = await ExchangeRate.findOne({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
-      baseCurrency: toCurrency,
-      targetCurrency: fromCurrency,
-      isActive: true
-    });
-
-    if (exchangeRate) {
-      return 1 / exchangeRate.rate;
-    }
-
-    // If no organization-specific rate, try global/system rates
-    exchangeRate = await ExchangeRate.findOne({
-      organizationId: null, // Global/system rates
-      baseCurrency: fromCurrency,
-      targetCurrency: toCurrency,
-      isActive: true
-    });
-
-    if (exchangeRate) {
-      return exchangeRate.rate;
-    }
-
-    // Try reverse global rate
-    exchangeRate = await ExchangeRate.findOne({
-      organizationId: null,
-      baseCurrency: toCurrency,
-      targetCurrency: fromCurrency,
-      isActive: true
-    });
-
-    if (exchangeRate) {
-      return 1 / exchangeRate.rate;
-    }
-
+    console.log(`   ❌ No exchange rate found for ${fromCurrency} → ${toCurrency}`);
     return null;
   } catch (error) {
-    console.error('Error getting exchange rate:', error);
+    console.error('❌ Error getting exchange rate:', error);
     return null;
   }
 };
@@ -148,22 +195,33 @@ const getExchangeRate = async (organizationId, fromCurrency, toCurrency) => {
  */
 const convertCurrency = async (amount, fromCurrency, toCurrency, organizationId = null) => {
   try {
+    console.log(`\n🔄 Converting ${amount} ${fromCurrency} to ${toCurrency}`);
+    console.log(`   Organization ID: ${organizationId}`);
+    
     // If same currency, return original amount
     if (fromCurrency === toCurrency) {
+      console.log(`   ✅ Same currency, no conversion needed: ${amount} ${fromCurrency}`);
       return amount;
     }
 
     const rate = await getExchangeRate(organizationId, fromCurrency, toCurrency);
+    console.log(`   💱 Exchange rate: ${rate}`);
     
     if (rate === null) {
       // If no exchange rate found, return original amount with warning
-      console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency} for organization ${organizationId}`);
+      console.warn(`⚠️  No exchange rate found for ${fromCurrency} to ${toCurrency} for organization ${organizationId}`);
+      console.log(`   ⚠️  Returning original amount: ${amount} ${fromCurrency}`);
       return amount;
     }
 
-    return amount * rate;
+    const convertedAmount = amount * rate;
+    console.log(`   📊 Calculation: ${amount} × ${rate} = ${convertedAmount} ${toCurrency}`);
+    console.log(`   ✅ Conversion complete: ${convertedAmount} ${toCurrency}`);
+    
+    return convertedAmount;
   } catch (error) {
-    console.error('Error converting currency:', error);
+    console.error('❌ Error converting currency:', error);
+    console.log(`   ⚠️  Returning original amount on error: ${amount} ${fromCurrency}`);
     return amount; // Return original amount on error
   }
 };
@@ -249,6 +307,11 @@ const createMultiCurrencyRevenuePipeline = (organizationId, targetCurrency, addi
  */
 const processMultiCurrencyResults = async (aggregationResults, targetCurrency, organizationId = null) => {
   try {
+    console.log('🔄 Processing multi-currency results...');
+    console.log('📊 Input aggregation results:', JSON.stringify(aggregationResults, null, 2));
+    console.log('💰 Target currency:', targetCurrency);
+    console.log('🏢 Organization ID:', organizationId);
+    
     let totalConverted = 0;
     let totalOrders = 0;
     const currencyBreakdown = {};
@@ -256,7 +319,13 @@ const processMultiCurrencyResults = async (aggregationResults, targetCurrency, o
     for (const result of aggregationResults) {
       const { _id: currency, totalAmount, orderCount } = result;
       
+      console.log(`\n💱 Processing currency: ${currency}`);
+      console.log(`   Original amount: ${totalAmount} ${currency}`);
+      console.log(`   Order count: ${orderCount}`);
+      
       const convertedAmount = await convertCurrency(totalAmount, currency, targetCurrency, organizationId);
+      console.log(`   Converted amount: ${convertedAmount} ${targetCurrency}`);
+      
       totalConverted += convertedAmount;
       totalOrders += orderCount;
       
@@ -265,7 +334,13 @@ const processMultiCurrencyResults = async (aggregationResults, targetCurrency, o
         convertedAmount,
         orderCount
       };
+      
+      console.log(`   Running total: ${totalConverted} ${targetCurrency}`);
     }
+
+    console.log('\n📋 Final currency breakdown:', JSON.stringify(currencyBreakdown, null, 2));
+    console.log(`✅ Total converted: ${totalConverted} ${targetCurrency}`);
+    console.log(`📦 Total orders: ${totalOrders}`);
 
     return {
       totalConverted,
@@ -274,7 +349,7 @@ const processMultiCurrencyResults = async (aggregationResults, targetCurrency, o
       currencyBreakdown
     };
   } catch (error) {
-    console.error('Error processing multi-currency results:', error);
+    console.error('❌ Error processing multi-currency results:', error);
     return {
       totalConverted: 0,
       totalOrders: 0,
