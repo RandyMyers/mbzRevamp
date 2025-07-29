@@ -4735,6 +4735,10 @@ AUDIT LOGGING: All overview operations are automatically logged for security and
 - Severity levels: info (data access)
 - Organization context is maintained for all audit entries
 
+OPTIMIZATION: The overview statistics endpoint has been optimized to return only calculated statistics
+and chart data, removing raw data arrays (allOrders, allCustomers, allProducts) to improve
+performance and reduce payload size. Only aggregated statistics and chart-ready data are returned.
+
 1. GET OVERVIEW STATISTICS
    GET /api/overview/stats/:userId
    
@@ -4751,9 +4755,13 @@ AUDIT LOGGING: All overview operations are automatically logged for security and
        "averageOrderValue": "number",
        "currency": "string",
        "revenueBreakdown": "object",
-       "allOrders": "array",
-       "allCustomers": "array",
-       "allProducts": "array"
+       "salesTrend": "array",
+       "orderSources": "array",
+       "orderStatusDistribution": "array",
+       "productCategoriesDistribution": "array",
+       "stockStatusDistribution": "array",
+       "topProducts": "array",
+       "recentOrders": "array"
      }
    }
 
@@ -5993,7 +6001,7 @@ EMAIL INTEGRATION: All invitations automatically trigger email notifications:
 - Automatic resend functionality with new tokens
 
 1. CREATE INVITATION
-   POST /api/invitations/create
+   POST /api/invitations
    
    Headers: Authorization: Bearer JWT_TOKEN
    
