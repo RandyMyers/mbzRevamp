@@ -15,6 +15,9 @@ router.get("/status/:status", emailController.getEmailsByStatus);
 router.get("/analytics/delivery-stats", emailLogsController.getDeliveryStats);
 router.get("/analytics/device-stats", emailLogsController.getDeviceStats);
 router.get("/analytics/geo-stats", emailLogsController.getGeoStats);
+router.get("/analytics/performance", emailLogsController.getEmailPerformance);
+router.get("/analytics/engagement", emailLogsController.getEmailEngagement);
+router.get("/analytics/real-time", emailLogsController.getRealTimeTracking);
 router.post("/analytics/log", emailController.logEmailAnalytics);
 // --- End analytics endpoints ---
 

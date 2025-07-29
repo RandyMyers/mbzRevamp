@@ -1,6 +1,7 @@
 const Email = require("../models/emails"); // Import the Email model
 const EmailLogs = require("../models/emailLogs");
 const logEvent = require('../helper/logEvent');
+const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
 
 // CREATE a new email
 exports.createEmail = async (req, res) => {
@@ -18,6 +19,27 @@ exports.createEmail = async (req, res) => {
     });
 
     const savedEmail = await newEmail.save();
+    
+    // ✅ AUDIT LOG: Email Created
+    await createAuditLog({
+      action: 'Email Created',
+      user: req.user?._id,
+      resource: 'email',
+      resourceId: savedEmail._id,
+      details: {
+        recipient: savedEmail.recipient,
+        subject: savedEmail.subject,
+        status: savedEmail.status,
+        organization: savedEmail.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || savedEmail.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
     await logEvent({
       action: 'create_email',
       user: req.user._id,
@@ -103,13 +125,25 @@ exports.updateEmail = async (req, res) => {
       return res.status(404).json({ success: false, message: "Email not found" });
     }
 
-    await logEvent({
-      action: 'update_email',
-      user: req.user._id,
-      resource: 'Email',
+    // ✅ AUDIT LOG: Email Updated
+    await createAuditLog({
+      action: 'Email Updated',
+      user: req.user?._id,
+      resource: 'email',
       resourceId: updatedEmail._id,
-      details: { to: updatedEmail.recipient, subject: updatedEmail.subject },
-      organization: req.user.organization
+      details: {
+        recipient: updatedEmail.recipient,
+        subject: updatedEmail.subject,
+        status: updatedEmail.status,
+        updatedFields: Object.keys(req.body),
+        organization: updatedEmail.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || updatedEmail.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
     });
 
     res.status(200).json({ success: true, email: updatedEmail });
@@ -123,18 +157,32 @@ exports.updateEmail = async (req, res) => {
 exports.deleteEmail = async (req, res) => {
   const { emailId } = req.params;
   try {
-    const deletedEmail = await Email.findByIdAndDelete(emailId);
-    if (!deletedEmail) {
+    const emailToDelete = await Email.findById(emailId);
+    if (!emailToDelete) {
       return res.status(404).json({ success: false, message: "Email not found" });
     }
-    await logEvent({
-      action: 'delete_email',
-      user: req.user._id,
-      resource: 'Email',
-      resourceId: deletedEmail._id,
-      details: { to: deletedEmail.recipient, subject: deletedEmail.subject },
-      organization: req.user.organization
+
+    // ✅ AUDIT LOG: Email Deleted
+    await createAuditLog({
+      action: 'Email Deleted',
+      user: req.user?._id,
+      resource: 'email',
+      resourceId: emailId,
+      details: {
+        recipient: emailToDelete.recipient,
+        subject: emailToDelete.subject,
+        status: emailToDelete.status,
+        organization: emailToDelete.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || emailToDelete.organization,
+      severity: 'warning',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
     });
+
+    await Email.findByIdAndDelete(emailId);
     res.status(200).json({ success: true, message: "Email deleted successfully" });
   } catch (error) {
     console.error(error);

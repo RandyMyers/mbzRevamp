@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
 const currencyUtils = require('../utils/currencyUtils');
+const { createAuditLog, logCRUDOperation, logStatusChange } = require('../helpers/auditLogHelper');
 
 // Utility function to find order by WooCommerce ID (checks both wooCommerceId and number fields)
 const findOrderByWooCommerceId = async (wooCommerceId, storeId = null) => {
@@ -332,6 +333,34 @@ exports.createOrder = async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
+    
+    // ✅ AUDIT LOG: Order Created
+    await createAuditLog({
+      action: 'Order Created',
+      user: req.user?._id || userId,
+      resource: 'order',
+      resourceId: savedOrder._id,
+      details: {
+        orderId: savedOrder.order_id,
+        orderNumber: savedOrder.number,
+        status: savedOrder.status,
+        total: savedOrder.total,
+        currency: savedOrder.currency,
+        customerId: savedOrder.customer_id,
+        storeId: savedOrder.storeId,
+        organizationId: savedOrder.organizationId,
+        syncToWooCommerce,
+        syncStatus,
+        wooCommerceId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
     await logEvent({
       action: 'create_order',
       user: req.user?._id || userId,
@@ -909,6 +938,30 @@ exports.updateOrder = async (req, res) => {
       { new: true, runValidators: true } // return the updated order and run validators
     );
 
+    // ✅ AUDIT LOG: Order Updated
+    await createAuditLog({
+      action: 'Order Updated',
+      user: req.user?._id,
+      resource: 'order',
+      resourceId: updatedOrder._id,
+      details: {
+        orderId: updatedOrder.order_id,
+        orderNumber: updatedOrder.number,
+        oldStatus: currentOrder.status,
+        newStatus: updatedOrder.status,
+        updatedFields: Object.keys(sanitizedData),
+        syncToWooCommerce,
+        syncStatus: sanitizedData.syncStatus,
+        wooCommerceId: sanitizedData.wooCommerceId || currentOrder.wooCommerceId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || currentOrder.organizationId,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     await logEvent({
       action: 'update_order',
       user: req.user?._id,
@@ -996,6 +1049,32 @@ exports.deleteOrder = async (req, res) => {
         console.error('WooCommerce delete error:', wooCommerceError);
       }
     }
+
+    // ✅ AUDIT LOG: Order Deleted
+    await createAuditLog({
+      action: 'Order Deleted',
+      user: req.user?._id,
+      resource: 'order',
+      resourceId: orderToDelete._id,
+      details: {
+        orderId: orderToDelete.order_id,
+        orderNumber: orderToDelete.number,
+        status: orderToDelete.status,
+        total: orderToDelete.total,
+        currency: orderToDelete.currency,
+        customerId: orderToDelete.customer_id,
+        storeId: orderToDelete.storeId,
+        organizationId: orderToDelete.organizationId,
+        syncToWooCommerce,
+        wooCommerceId: orderToDelete.wooCommerceId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || orderToDelete.organizationId,
+      severity: 'warning', // Deletion is more critical
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     const deletedOrder = await Order.findByIdAndDelete(orderId);
 

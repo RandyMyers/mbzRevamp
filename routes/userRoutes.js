@@ -28,4 +28,16 @@ router.delete('/delete/:userId', userController.deleteUser);
 // Update profile picture (authenticated user)
 router.patch('/:userId/profile-picture',  userController.updateProfilePicture);
 
+// Regional settings routes
+router.get('/:userId/regional-settings', userController.getUserRegionalSettings);
+router.patch('/:userId/regional-settings', userController.updateUserRegionalSettings);
+
+// Profile picture routes
+router.post('/:userId/avatar', userController.uploadProfilePicture);
+router.delete('/:userId/avatar', userController.removeProfilePicture);
+
+// Session management routes
+router.get('/:userId/sessions', userController.getUserSessions);
+router.delete('/:userId/sessions/:sessionId', userController.terminateSession);
+
 module.exports = router;

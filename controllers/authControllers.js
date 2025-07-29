@@ -4,6 +4,7 @@ const nodemailer = require("nodemailer");
 const User = require("../models/users");
 const Organization = require("../models/organization");
 const Role = require("../models/role");
+const { createAuditLog, logSecurityEvent } = require("../helpers/auditLogHelper");
 
 // SMTP Configuration for system emails
 const smtpConfig = {
@@ -73,6 +74,25 @@ exports.registerSuperAdmin = async (req, res) => {
     // Save the user
     await newSuperAdmin.save();
 
+    // ✅ AUDIT LOG: Super Admin Created
+    await createAuditLog({
+      action: 'Super Admin Created',
+      user: newSuperAdmin._id,
+      resource: 'user',
+      resourceId: newSuperAdmin._id,
+      details: {
+        username: newSuperAdmin.username,
+        email: newSuperAdmin.email,
+        role: newSuperAdmin.role,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: null, // Super admin doesn't belong to organization
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     // Email sending temporarily disabled
     // try {
     //   await sendSystemEmail(
@@ -129,6 +149,20 @@ exports.loginSuperAdmin = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      // ✅ AUDIT LOG: Failed Login Attempt
+      await logSecurityEvent(
+        'Failed Login Attempt',
+        null,
+        {
+          attemptedUsername: username,
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          reason: 'Invalid credentials'
+        },
+        null,
+        'warning'
+      );
+      
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid credentials' 
@@ -139,6 +173,21 @@ exports.loginSuperAdmin = async (req, res) => {
       { userId: user._id, role: user.role }, 
       process.env.JWT_SECRET, 
       { expiresIn: '1h' }
+    );
+
+    // ✅ AUDIT LOG: Successful Login
+    await logSecurityEvent(
+      'User Login',
+      user._id,
+      {
+        username: user.username,
+        role: user.role,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        loginMethod: 'username'
+      },
+      null,
+      'info'
     );
 
     res.status(200).json({
@@ -214,6 +263,27 @@ exports.registerOrganizationUser = async (req, res) => {
 
     // Save the user
     await newUser.save();
+
+    // ✅ AUDIT LOG: Organization User Created
+    await createAuditLog({
+      action: 'Organization User Created',
+      user: newUser._id,
+      resource: 'user',
+      resourceId: newUser._id,
+      details: {
+        fullName: newUser.fullName,
+        email: newUser.email,
+        role: newUser.role,
+        organizationName: newOrganization.name,
+        organizationCode: newOrganization.organizationCode,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: newOrganization._id,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     // Email sending temporarily disabled
     // try {
@@ -297,6 +367,20 @@ exports.loginOrganizationUser = async (req, res) => {
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      // ✅ AUDIT LOG: Failed Login Attempt
+      await logSecurityEvent(
+        'Failed Login Attempt',
+        null,
+        {
+          attemptedEmail: email,
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          reason: 'Invalid credentials'
+        },
+        organization._id,
+        'warning'
+      );
+      
       return res.status(400).json({ 
         success: false, 
         message: "Invalid credentials" 
@@ -308,6 +392,23 @@ exports.loginOrganizationUser = async (req, res) => {
       { userId: user._id, role: user.role }, 
       process.env.JWT_SECRET, 
       { expiresIn: "1h" }
+    );
+
+    // ✅ AUDIT LOG: Successful Login
+    await logSecurityEvent(
+      'User Login',
+      user._id,
+      {
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        organizationName: organization.name,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        loginMethod: 'email'
+      },
+      organization._id,
+      'info'
     );
 
     res.status(200).json({
@@ -369,6 +470,26 @@ exports.registerAffiliate = async (req, res) => {
 
     // Save the user
     await newAffiliate.save();
+
+    // ✅ AUDIT LOG: Affiliate User Created
+    await createAuditLog({
+      action: 'Affiliate User Created',
+      user: newAffiliate._id,
+      resource: 'user',
+      resourceId: newAffiliate._id,
+      details: {
+        fullName: newAffiliate.fullName,
+        email: newAffiliate.email,
+        role: newAffiliate.role,
+        referralCode: newAffiliate.affiliateData?.referralCode,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: null, // Affiliates don't belong to specific organization
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     // Email sending temporarily disabled
     // try {

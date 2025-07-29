@@ -1,4 +1,5 @@
 const EmailTemplate = require("../models/emailTemplate"); // Import the EmailTemplate model
+const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
 
 // CREATE a new email template
 exports.createEmailTemplate = async (req, res) => {
@@ -22,6 +23,26 @@ exports.createEmailTemplate = async (req, res) => {
     const newEmailTemplate = new EmailTemplate(emailTemplateData);
 
     const savedEmailTemplate = await newEmailTemplate.save();
+    
+    // ✅ AUDIT LOG: Email Template Created
+    await createAuditLog({
+      action: 'Email Template Created',
+      user: req.user?._id,
+      resource: 'emailTemplate',
+      resourceId: savedEmailTemplate._id,
+      details: {
+        name: savedEmailTemplate.name,
+        subject: savedEmailTemplate.subject,
+        organization: savedEmailTemplate.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || savedEmailTemplate.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
     res.status(201).json({ success: true, emailTemplate: savedEmailTemplate });
   } catch (error) {
     console.error(error);
@@ -96,6 +117,26 @@ exports.updateEmailTemplate = async (req, res) => {
       return res.status(404).json({ success: false, message: "Email template not found" });
     }
 
+    // ✅ AUDIT LOG: Email Template Updated
+    await createAuditLog({
+      action: 'Email Template Updated',
+      user: req.user?._id,
+      resource: 'emailTemplate',
+      resourceId: updatedEmailTemplate._id,
+      details: {
+        name: updatedEmailTemplate.name,
+        subject: updatedEmailTemplate.subject,
+        updatedFields: Object.keys(req.body),
+        organization: updatedEmailTemplate.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || updatedEmailTemplate.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     res.status(200).json({ success: true, emailTemplate: updatedEmailTemplate });
   } catch (error) {
     console.error(error);
@@ -107,10 +148,31 @@ exports.updateEmailTemplate = async (req, res) => {
 exports.deleteEmailTemplate = async (req, res) => {
   const { emailTemplateId } = req.params;
   try {
-    const deletedEmailTemplate = await EmailTemplate.findByIdAndDelete(emailTemplateId);
-    if (!deletedEmailTemplate) {
+    const emailTemplateToDelete = await EmailTemplate.findById(emailTemplateId);
+    if (!emailTemplateToDelete) {
       return res.status(404).json({ success: false, message: "Email template not found" });
     }
+
+    // ✅ AUDIT LOG: Email Template Deleted
+    await createAuditLog({
+      action: 'Email Template Deleted',
+      user: req.user?._id,
+      resource: 'emailTemplate',
+      resourceId: emailTemplateId,
+      details: {
+        name: emailTemplateToDelete.name,
+        subject: emailTemplateToDelete.subject,
+        organization: emailTemplateToDelete.organization,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || emailTemplateToDelete.organization,
+      severity: 'warning',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    await EmailTemplate.findByIdAndDelete(emailTemplateId);
     res.status(200).json({ success: true, message: "Email template deleted successfully" });
   } catch (error) {
     console.error(error);

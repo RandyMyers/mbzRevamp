@@ -91,6 +91,60 @@ const UserSchema = new Schema({
       type: String,
       default: null,
     },
+    // Regional settings
+    language: {
+      type: String,
+      enum: ['en', 'es', 'fr'],
+      default: 'en'
+    },
+    timezone: {
+      type: String,
+      enum: ['UTC', 'EST', 'PST', 'GMT', 'CET'],
+      default: 'UTC'
+    },
+    dateFormat: {
+      type: String,
+      enum: ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'],
+      default: 'MM/DD/YYYY'
+    },
+    timeFormat: {
+      type: String,
+      enum: ['12', '24'],
+      default: '12'
+    },
+    // Notification settings
+    notificationSettings: {
+      type: Object,
+      default: {
+        email: {
+          enabled: true,
+          categories: {
+            system: true,
+            orders: true,
+            inventory: true,
+            customers: true,
+            security: true
+          }
+        },
+        inApp: {
+          enabled: true,
+          categories: {
+            system: true,
+            orders: true,
+            inventory: true,
+            customers: true,
+            security: true
+          }
+        },
+        frequency: 'immediate', // immediate, daily, weekly
+        quietHours: {
+          enabled: false,
+          start: '22:00',
+          end: '08:00',
+          timezone: 'UTC'
+        }
+      }
+    },
     createdAt: {
       type: Date,
       default: Date.now,

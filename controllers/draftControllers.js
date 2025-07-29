@@ -2,44 +2,32 @@ const Draft = require("../models/draft");
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');
 
-// Create a new draft
+// CREATE a new draft email
 exports.createDraft = async (req, res) => {
   try {
-    const {
-      sender,
-      subject,
-      body,
-      recipients,
-      cc,
-      bcc,
-      attachments,
-      organization,
-      user
-    } = req.body;
+    const { recipient, subject, body, variables, emailTemplate, organization, user } = req.body;
 
-    const draft = new Draft({
-      sender,
+    const newDraft = new Draft({
+      recipient,
       subject,
       body,
-      recipients,
-      cc,
-      bcc,
-      attachments,
+      variables,
+      emailTemplate,
       organization,
-      user
+      user,
     });
 
-    const savedDraft = await draft.save();
-
+    const savedDraft = await newDraft.save();
+    
     await logEvent({
       action: 'create_draft',
       user: req.user._id,
       resource: 'Draft',
       resourceId: savedDraft._id,
-      details: { subject: savedDraft.subject },
+      details: { to: savedDraft.recipient, subject: savedDraft.subject },
       organization: req.user.organization
     });
-
+    
     res.status(201).json({ success: true, draft: savedDraft });
   } catch (error) {
     console.error(error);
@@ -47,12 +35,11 @@ exports.createDraft = async (req, res) => {
   }
 };
 
-// Get all drafts
+// GET all draft emails
 exports.getDrafts = async (req, res) => {
   try {
-    const drafts = await Draft.find({ organization: req.user.organization })
-      .populate("user organization", "name email")
-      .sort({ lastSavedAt: -1 })
+    const drafts = await Draft.find()
+      .populate("user organization emailTemplate", "name emailTemplateName")
       .exec();
     res.status(200).json({ success: true, drafts });
   } catch (error) {
@@ -61,17 +48,32 @@ exports.getDrafts = async (req, res) => {
   }
 };
 
-// Get a single draft
-exports.getDraftById = async (req, res) => {
+// GET draft emails by organization
+exports.getDraftsByOrganization = async (req, res) => {
+  const { organizationId } = req.params;
+  
   try {
-    const draft = await Draft.findById(req.params.draftId)
-      .populate("user organization", "name email")
+    const drafts = await Draft.find({ organization: organizationId })
+      .populate("user organization emailTemplate", "name emailTemplateName")
       .exec();
+    
+    res.status(200).json({ success: true, drafts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to retrieve drafts by organization" });
+  }
+};
 
+// GET a single draft email by ID
+exports.getDraftById = async (req, res) => {
+  const { draftId } = req.params;
+  try {
+    const draft = await Draft.findById(draftId)
+      .populate("user organization emailTemplate", "name emailTemplateName")
+      .exec();
     if (!draft) {
       return res.status(404).json({ success: false, message: "Draft not found" });
     }
-
     res.status(200).json({ success: true, draft });
   } catch (error) {
     console.error(error);
@@ -79,42 +81,28 @@ exports.getDraftById = async (req, res) => {
   }
 };
 
-// Update a draft
+// UPDATE a draft email
 exports.updateDraft = async (req, res) => {
+  const { draftId } = req.params;
+  const { recipient, subject, body, variables, emailTemplate } = req.body;
+
   try {
-    const {
-      sender,
-      subject,
-      body,
-      recipients,
-      cc,
-      bcc,
-      attachments
-    } = req.body;
+    const updatedDraft = await Draft.findByIdAndUpdate(
+      draftId,
+      { recipient, subject, body, variables, emailTemplate, updatedAt: Date.now() },
+      { new: true }
+    );
 
-    const draft = await Draft.findById(req.params.draftId);
-
-    if (!draft) {
+    if (!updatedDraft) {
       return res.status(404).json({ success: false, message: "Draft not found" });
     }
-
-    draft.sender = sender || draft.sender;
-    draft.subject = subject || draft.subject;
-    draft.body = body || draft.body;
-    draft.recipients = recipients || draft.recipients;
-    draft.cc = cc || draft.cc;
-    draft.bcc = bcc || draft.bcc;
-    draft.attachments = attachments || draft.attachments;
-    draft.lastSavedAt = Date.now();
-
-    const updatedDraft = await draft.save();
 
     await logEvent({
       action: 'update_draft',
       user: req.user._id,
       resource: 'Draft',
       resourceId: updatedDraft._id,
-      details: { subject: updatedDraft.subject },
+      details: { to: updatedDraft.recipient, subject: updatedDraft.subject },
       organization: req.user.organization
     });
 
@@ -125,23 +113,21 @@ exports.updateDraft = async (req, res) => {
   }
 };
 
-// Delete a draft
+// DELETE a draft email
 exports.deleteDraft = async (req, res) => {
+  const { draftId } = req.params;
   try {
-    const draft = await Draft.findById(req.params.draftId);
-
-    if (!draft) {
+    const deletedDraft = await Draft.findByIdAndDelete(draftId);
+    if (!deletedDraft) {
       return res.status(404).json({ success: false, message: "Draft not found" });
     }
-
-    await Draft.findByIdAndDelete(req.params.draftId);
 
     await logEvent({
       action: 'delete_draft',
       user: req.user._id,
       resource: 'Draft',
-      resourceId: draft._id,
-      details: { subject: draft.subject },
+      resourceId: draftId,
+      details: { to: deletedDraft.recipient, subject: deletedDraft.subject },
       organization: req.user.organization
     });
 
@@ -152,44 +138,43 @@ exports.deleteDraft = async (req, res) => {
   }
 };
 
-// Send draft as email
+// SEND a draft email
 exports.sendDraft = async (req, res) => {
+  const { draftId } = req.params;
   try {
-    const draft = await Draft.findById(req.params.draftId);
-
+    const draft = await Draft.findById(draftId);
     if (!draft) {
       return res.status(404).json({ success: false, message: "Draft not found" });
     }
 
-    // Create new email from draft
-    const email = new Email({
-      sender: draft.sender,
+    // Create a new email from the draft
+    const newEmail = new Email({
+      recipient: draft.recipient,
       subject: draft.subject,
       body: draft.body,
-      recipients: draft.recipients,
-      cc: draft.cc,
-      bcc: draft.bcc,
-      attachments: draft.attachments,
+      variables: draft.variables,
+      emailTemplate: draft.emailTemplate,
       organization: draft.organization,
       user: draft.user,
-      status: 'sent'
+      status: 'sent',
+      sentAt: new Date()
     });
 
-    await email.save();
+    const savedEmail = await newEmail.save();
 
-    // Delete the draft
-    await Draft.findByIdAndDelete(req.params.draftId);
+    // Delete the draft after sending
+    await Draft.findByIdAndDelete(draftId);
 
     await logEvent({
       action: 'send_draft',
       user: req.user._id,
-      resource: 'Draft',
-      resourceId: draft._id,
-      details: { subject: draft.subject },
+      resource: 'Email',
+      resourceId: savedEmail._id,
+      details: { to: savedEmail.recipient, subject: savedEmail.subject },
       organization: req.user.organization
     });
 
-    res.status(200).json({ success: true, message: "Draft sent successfully", email });
+    res.status(200).json({ success: true, email: savedEmail, message: "Draft sent successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to send draft" });

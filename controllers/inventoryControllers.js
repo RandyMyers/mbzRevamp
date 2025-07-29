@@ -8,6 +8,7 @@ const cloudinary = require('cloudinary').v2;
 const logEvent = require('../helper/logEvent');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
+const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
 
 //const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 
@@ -428,6 +429,28 @@ exports.createProduct = async (req, res) => {
     console.log('💾 Saving product to database...');
     const savedProduct = await newProduct.save();
     console.log('✅ Product saved to database with ID:', savedProduct._id);
+
+    // ✅ AUDIT LOG: Product Created
+    await createAuditLog({
+      action: 'Product Created',
+      user: userId,
+      resource: 'product',
+      resourceId: savedProduct._id,
+      details: {
+        productName: name,
+        sku: sku,
+        price: price,
+        storeId: storeId,
+        organizationId: organizationId,
+        syncToWooCommerce: syncToWooCommerce,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     let wooCommerceId = null;
     let syncStatus = savedProduct.syncStatus;
@@ -966,6 +989,28 @@ exports.updateProduct = async (req, res) => {
       { new: true, runValidators: true } // return the updated product and run validators
     );
 
+    // ✅ AUDIT LOG: Product Updated
+    await createAuditLog({
+      action: 'Product Updated',
+      user: req.user?._id || existingProduct.userId,
+      resource: 'product',
+      resourceId: updatedProduct._id,
+      details: {
+        productName: updatedProduct.name,
+        sku: updatedProduct.sku,
+        updatedFields: Object.keys(sanitizedData),
+        syncToWooCommerce,
+        syncStatus: sanitizedData.syncStatus,
+        wooCommerceId: sanitizedData.product_Id || existingProduct.product_Id,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || existingProduct.organizationId,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     // Log the event
     await logEvent({
       action: 'update_inventory_product',
@@ -1001,10 +1046,34 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   const { productId } = req.params;
   try {
-    const deletedProduct = await Inventory.findByIdAndDelete(productId);
-    if (!deletedProduct) {
+    // Get the product before deletion for audit logging
+    const productToDelete = await Inventory.findById(productId);
+    if (!productToDelete) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
+
+    // ✅ AUDIT LOG: Product Deleted
+    await createAuditLog({
+      action: 'Product Deleted',
+      user: req.user?._id || productToDelete.userId,
+      resource: 'product',
+      resourceId: productId,
+      details: {
+        productName: productToDelete.name,
+        sku: productToDelete.sku,
+        price: productToDelete.price,
+        storeId: productToDelete.storeId,
+        organizationId: productToDelete.organizationId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || productToDelete.organizationId,
+      severity: 'warning', // Deletion is more critical
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    const deletedProduct = await Inventory.findByIdAndDelete(productId);
     res.status(200).json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
     console.error(error);
@@ -1016,10 +1085,33 @@ exports.deleteProduct = async (req, res) => {
 exports.deleteAllProductsByStore = async (req, res) => {
   const { storeId } = req.params;
   try {
-    const result = await Inventory.deleteMany({ storeId });
-    if (result.deletedCount === 0) {
+    // Get products before deletion for audit logging
+    const productsToDelete = await Inventory.find({ storeId });
+    if (productsToDelete.length === 0) {
       return res.status(404).json({ success: false, message: "No products found for this store" });
     }
+
+    // ✅ AUDIT LOG: All Products Deleted for Store
+    await createAuditLog({
+      action: 'All Products Deleted for Store',
+      user: req.user?._id,
+      resource: 'product',
+      resourceId: storeId,
+      details: {
+        storeId: storeId,
+        numberOfProducts: productsToDelete.length,
+        productNames: productsToDelete.map(p => p.name),
+        organizationId: productsToDelete[0]?.organizationId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization || productsToDelete[0]?.organizationId,
+      severity: 'critical', // Bulk deletion is very critical
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    const result = await Inventory.deleteMany({ storeId });
     res.status(200).json({ success: true, message: "All products deleted successfully" });
   } catch (error) {
     console.error(error);

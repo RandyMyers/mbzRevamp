@@ -9,6 +9,13 @@ const AuditLogSchema = new Schema({
   details: { type: Object, default: {} },
   timestamp: { type: Date, default: Date.now },
   organization: { type: Schema.Types.ObjectId, ref: 'Organization' },
+  severity: { 
+    type: String, 
+    enum: ['info', 'warning', 'error', 'critical'], 
+    default: 'info' 
+  },
+  ip: { type: String },
+  userAgent: { type: String }
 });
 
 module.exports = mongoose.model('AuditLog', AuditLogSchema); 

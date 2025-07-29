@@ -7,25 +7,29 @@ const {
   getDraftById,
   updateDraft,
   deleteDraft,
+  getDraftsByOrganization,
   sendDraft
 } = require("../controllers/draftControllers");
 
-// Create a new draft
+// Create a new draft email
 router.post("/", protect, createDraft);
 
-// Get all drafts
+// Get all draft emails
 router.get("/", protect, getDrafts);
 
-// Get a single draft
+// Get draft emails by organization
+router.get("/organization/:organizationId", protect, getDraftsByOrganization);
+
+// Get a specific draft email by ID
 router.get("/:draftId", protect, getDraftById);
 
-// Update a draft
-router.put("/:draftId", protect, updateDraft);
+// Update a draft email
+router.patch("/:draftId", protect, updateDraft);
 
-// Delete a draft
+// Delete a draft email
 router.delete("/:draftId", protect, deleteDraft);
 
-// Send draft as email
+// Send a draft email
 router.post("/:draftId/send", protect, sendDraft);
 
 module.exports = router; 

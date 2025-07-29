@@ -38,6 +38,7 @@ const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
 const inboxRoutes = require('./routes/inboxRoutes');
 const archivedRoutes = require('./routes/archivedRoutes');
 const draftRoutes = require('./routes/draftRoutes');
+const sentRoutes = require('./routes/sentRoutes');
 const trashRoutes = require('./routes/trashRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -75,6 +76,10 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const wooCommerceReportsRoutes = require('./routes/wooCommerceReportsRoutes');
 //const exportRoutes = require('./routes/exportRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const notificationTemplateRoutes = require('./routes/notificationTemplateRoutes');
+const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes');
 
 dotenv.config();
 
@@ -147,6 +152,7 @@ app.use('/api/email/templates', emailTemplateRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/archived', archivedRoutes);
 app.use('/api/drafts', draftRoutes);
+app.use('/api/sent', sentRoutes);
 app.use('/api/trash', trashRoutes);
 app.use('/api/receivers', receiverRoutes);
 app.use('/api/inventory', inventoryRoutes);
@@ -180,6 +186,10 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/woocommerce', wooCommerceReportsRoutes);
 //app.use('/api/export', exportRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/notification-templates', notificationTemplateRoutes);
+app.use('/api/notification-settings', notificationSettingsRoutes);
 
 //Start the cron job for receiver emails
 receiverEvent.scheduleEmailSync();

@@ -7,6 +7,10 @@ This document covers the CRUD (Create, Read, Update, Delete) operations for:
 - Customers  
 - Orders
 - Inventory/Products
+- Email Management
+- Email Templates
+- Draft Emails
+- Sent Emails
 
 ================================================================================
                                 CATEGORIES API
@@ -15,6 +19,12 @@ This document covers the CRUD (Create, Read, Update, Delete) operations for:
 BASE URL: /api/categories
 
 Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All category operations are automatically logged for security and compliance:
+- Category creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
 
 1. CREATE CATEGORY
    POST /api/categories
@@ -225,6 +235,13 @@ Authentication: All endpoints require authentication via authMiddleware
 BASE URL: /api/customers
 
 Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All customer operations are automatically logged for security and compliance:
+- Customer creation, updates, and deletions are logged with full context
+- Bulk operations (delete all customers by store) are logged with critical severity
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete), critical (bulk delete)
+- Organization context is maintained for all audit entries
 
 1. CREATE CUSTOMER
    POST /api/customers
@@ -452,6 +469,12 @@ Authentication: All endpoints require authentication via authMiddleware
 BASE URL: /api/orders
 
 Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All order operations are automatically logged for security and compliance:
+- Order creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
 
 1. CREATE ORDER
    POST /api/orders
@@ -757,12 +780,755 @@ Authentication: All endpoints require authentication via authMiddleware
    }
 
 ================================================================================
-                              INVENTORY/PRODUCTS API
+                                EMAIL MANAGEMENT API
+================================================================================
+
+BASE URL: /api/emails
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All email operations are automatically logged for security and compliance:
+- Email creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE EMAIL
+   POST /api/emails/create
+   
+   Request Body:
+   {
+     "recipient": "string (required)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)",
+     "organization": "ObjectId (required)",
+     "user": "ObjectId (required)",
+     "status": "string (default: 'draft')",
+     "sentAt": "Date (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "email": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "string",
+       "sentAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL EMAILS
+   GET /api/emails/all
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional)
+   - organizationId: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "emails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "user": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "status": "string",
+         "sentAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+3. GET EMAIL BY ID
+   GET /api/emails/get/:emailId
+   
+   Response:
+   {
+     "success": true,
+     "email": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "string",
+       "sentAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE EMAIL
+   PATCH /api/emails/update/:emailId
+   
+   Request Body:
+   {
+     "recipient": "string (optional)",
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)",
+     "status": "string (optional)",
+     "bounceReason": "string (optional)",
+     "unsubscribed": "boolean (optional)",
+     "replied": "boolean (optional)",
+     "sentAt": "Date (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "email": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "string",
+       "sentAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE EMAIL
+   DELETE /api/emails/delete/:emailId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Email deleted successfully"
+   }
+
+6. GET EMAILS BY STATUS
+   GET /api/emails/status/:status
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - organizationId: ObjectId (optional)
+   
+   Response:
+   {
+     "success": true,
+     "emails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "status": "string",
+         "sentAt": "Date"
+       }
+     ]
+   }
+
+================================================================================
+                                EMAIL ANALYTICS API
+================================================================================
+
+BASE URL: /api/emails/analytics
+
+Authentication: All endpoints require authentication via authMiddleware
+
+1. DELIVERY STATISTICS
+   GET /api/emails/analytics/delivery-stats
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "string (status)",
+         "count": "number"
+       }
+     ]
+   }
+
+2. DEVICE STATISTICS
+   GET /api/emails/analytics/device-stats
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "string (device type)",
+         "count": "number"
+       }
+     ]
+   }
+
+3. GEOGRAPHIC STATISTICS
+   GET /api/emails/analytics/geo-stats
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "string (country)",
+         "count": "number"
+       }
+     ]
+   }
+
+4. EMAIL PERFORMANCE METRICS
+   GET /api/emails/analytics/performance
+   
+   Query Parameters:
+   - organizationId: ObjectId (optional)
+   - startDate: string (ISO date, optional)
+   - endDate: string (ISO date, optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalEmails": "number",
+       "deliveredEmails": "number",
+       "bouncedEmails": "number",
+       "openedEmails": "number",
+       "clickedEmails": "number",
+       "deliveryRate": "string (percentage)",
+       "bounceRate": "string (percentage)",
+       "openRate": "string (percentage)",
+       "clickRate": "string (percentage)"
+     }
+   }
+
+5. EMAIL ENGAGEMENT METRICS
+   GET /api/emails/analytics/engagement
+   
+   Query Parameters:
+   - organizationId: ObjectId (optional)
+   - timeRange: "7d" | "30d" | "90d" (default: "30d")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "string (date)",
+         "emailsSent": "number",
+         "emailsOpened": "number",
+         "emailsClicked": "number"
+       }
+     ]
+   }
+
+6. REAL-TIME EMAIL TRACKING
+   GET /api/emails/analytics/real-time
+   
+   Query Parameters:
+   - organizationId: ObjectId (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalSent": "number",
+       "delivered": "number",
+       "opened": "number",
+       "clicked": "number",
+       "bounced": "number"
+     }
+   }
+
+================================================================================
+                                DRAFT EMAILS API
+================================================================================
+
+BASE URL: /api/drafts
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All draft email operations are automatically logged for security and compliance:
+- Draft creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE DRAFT EMAIL
+   POST /api/drafts
+   
+   Request Body:
+   {
+     "recipient": "string (required)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)",
+     "organization": "ObjectId (required)",
+     "user": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "draft": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL DRAFT EMAILS
+   GET /api/drafts
+   
+   Response:
+   {
+     "success": true,
+     "drafts": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "user": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+3. GET DRAFT EMAILS BY ORGANIZATION
+   GET /api/drafts/organization/:organizationId
+   
+   Response:
+   {
+     "success": true,
+     "drafts": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": "ObjectId",
+         "organization": "ObjectId",
+         "user": "ObjectId",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+4. GET DRAFT EMAIL BY ID
+   GET /api/drafts/:draftId
+   
+   Response:
+   {
+     "success": true,
+     "draft": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. UPDATE DRAFT EMAIL
+   PATCH /api/drafts/:draftId
+   
+   Request Body:
+   {
+     "recipient": "string (optional)",
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "draft": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "updatedAt": "Date"
+     }
+   }
+
+6. DELETE DRAFT EMAIL
+   DELETE /api/drafts/:draftId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Draft deleted successfully"
+   }
+
+7. SEND DRAFT EMAIL
+   POST /api/drafts/:draftId/send
+   
+   Response:
+   {
+     "success": true,
+     "email": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "sent",
+       "sentAt": "Date"
+     },
+     "message": "Draft sent successfully"
+   }
+
+================================================================================
+                                SENT EMAILS API
+================================================================================
+
+BASE URL: /api/sent
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All sent email operations are automatically logged for security and compliance:
+- Sent email deletions and resends are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: warning (delete)
+- Organization context is maintained for all audit entries
+
+1. GET ALL SENT EMAILS
+   GET /api/sent
+   
+   Response:
+   {
+     "success": true,
+     "sentEmails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "user": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "status": "sent",
+         "sentAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+2. GET SENT EMAILS BY ORGANIZATION
+   GET /api/sent/organization/:organizationId
+   
+   Response:
+   {
+     "success": true,
+     "sentEmails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": "ObjectId",
+         "organization": "ObjectId",
+         "user": "ObjectId",
+         "status": "sent",
+         "sentAt": "Date"
+       }
+     ]
+   }
+
+3. GET SENT EMAIL BY ID
+   GET /api/sent/:sentEmailId
+   
+   Response:
+   {
+     "success": true,
+     "sentEmail": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "sent",
+       "sentAt": "Date"
+     }
+   }
+
+4. DELETE SENT EMAIL
+   DELETE /api/sent/:sentEmailId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Sent email deleted successfully"
+   }
+
+5. RESEND EMAIL
+   POST /api/sent/:sentEmailId/resend
+   
+   Response:
+   {
+     "success": true,
+     "email": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "status": "sent",
+       "sentAt": "Date"
+     },
+     "message": "Email resent successfully"
+   }
+
+================================================================================
+                                EMAIL TEMPLATES API
+================================================================================
+
+BASE URL: /api/email/templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All email template operations are automatically logged for security and compliance:
+- Template creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE EMAIL TEMPLATE
+   POST /api/email/templates/create
+   
+   Request Body:
+   {
+     "name": "string (required)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "variables": "object (optional)",
+     "createdBy": "ObjectId (required)",
+     "organization": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "emailTemplate": {
+       "_id": "ObjectId",
+       "name": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "createdBy": "ObjectId",
+       "organization": "ObjectId",
+       "isActive": "boolean",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL EMAIL TEMPLATES
+   GET /api/email/templates/all
+   
+   Response:
+   {
+     "success": true,
+     "emailTemplates": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "createdBy": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "isActive": "boolean",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+3. GET EMAIL TEMPLATE BY ID
+   GET /api/email/templates/get/:emailTemplateId
+   
+   Response:
+   {
+     "success": true,
+     "emailTemplate": {
+       "_id": "ObjectId",
+       "name": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "createdBy": "ObjectId",
+       "organization": "ObjectId",
+       "isActive": "boolean",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE EMAIL TEMPLATE
+   PATCH /api/email/templates/update/:emailTemplateId
+   
+   Request Body:
+   {
+     "name": "string (optional)",
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "variables": "object (optional)",
+     "isActive": "boolean (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "emailTemplate": {
+       "_id": "ObjectId",
+       "name": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "createdBy": "ObjectId",
+       "organization": "ObjectId",
+       "isActive": "boolean",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE EMAIL TEMPLATE
+   DELETE /api/email/templates/delete/:emailTemplateId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Email template deleted successfully"
+   }
+
+6. GET EMAIL TEMPLATES BY ORGANIZATION
+   GET /api/email/templates/organization/:organizationId
+   
+   Response:
+   {
+     "success": true,
+     "emailTemplates": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "createdBy": "ObjectId",
+         "organization": "ObjectId",
+         "isActive": "boolean",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+================================================================================
+                                INVENTORY/PRODUCTS API
 ================================================================================
 
 BASE URL: /api/inventory
 
 Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All inventory operations are automatically logged for security and compliance:
+- Product creation, updates, and deletions are logged with full context
+- Bulk operations (delete all products by store) are logged with critical severity
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete), critical (bulk delete)
+- Organization context is maintained for all audit entries
 
 1. CREATE PRODUCT
    POST /api/inventory/create
@@ -1400,6 +2166,1108 @@ accurate revenue calculations across all analytics endpoints.
    from revenue calculations while maintaining accurate order counts where appropriate.
 
 ================================================================================
+                                USER MANAGEMENT API
+================================================================================
+
+This section covers the complete user management system including:
+- Authentication (Login/Register/Password Management)
+- User Management (CRUD Operations)
+- Role Management (Permissions System)
+- Group Management (User Groups)
+- Invitation System (User Invitations)
+- Profile Management (User Profiles)
+
+BASE URL: /api/auth (Authentication) | /api/users (User Management) | /api/roles (Role Management) | /api/groups (Group Management) | /api/invitations (Invitation System)
+
+Authentication: All endpoints require authentication via authMiddleware except login/register endpoints
+
+AUDIT LOGGING: All user management operations are automatically logged for security and compliance:
+- User creation, updates, deletions, and status changes are logged
+- Authentication events (login success/failure) are logged
+- Role and permission changes are tracked
+- Invitation events are recorded
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete/status change), error (security events)
+
+================================================================================
+                                AUTHENTICATION API
+================================================================================
+
+BASE URL: /api/auth
+
+1. SUPER ADMIN REGISTRATION
+   POST /api/auth/register-super-admin
+   
+   Request Body:
+   {
+     "fullName": "string (required)",
+     "email": "string (required, unique)",
+     "password": "string (required, min: 6)",
+     "username": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Super admin registered successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": "super-admin",
+       "status": "active",
+       "createdAt": "Date"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+2. SUPER ADMIN LOGIN
+   POST /api/auth/login-super-admin
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "password": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Login successful",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": "super-admin",
+       "status": "active",
+       "lastLogin": "Date",
+       "createdAt": "Date"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+3. ORGANIZATION USER REGISTRATION
+   POST /api/auth/register-organization-user
+   
+   Request Body:
+   {
+     "fullName": "string (required)",
+     "email": "string (required, unique)",
+     "password": "string (required, min: 6)",
+     "username": "string (optional)",
+     "organizationId": "ObjectId (required)",
+     "role": "ObjectId (optional)",
+     "department": "string (optional)",
+     "organizationCode": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "User registered successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": "ObjectId",
+       "organization": "ObjectId",
+       "department": "string",
+       "status": "active",
+       "createdAt": "Date"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+4. ORGANIZATION USER LOGIN
+   POST /api/auth/login-organization-user
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "password": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Login successful",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string",
+         "permissions": "object"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "status": "active",
+       "lastLogin": "Date",
+       "createdAt": "Date"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+5. AFFILIATE REGISTRATION
+   POST /api/auth/register-affiliate
+   
+   Request Body:
+   {
+     "fullName": "string (required)",
+     "email": "string (required, unique)",
+     "password": "string (required, min: 6)",
+     "username": "string (optional)",
+     "trackingCode": "string (optional, auto-generated)",
+     "commissionRate": "number (optional, default: 10)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Affiliate registered successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": "affiliate",
+       "status": "active",
+       "createdAt": "Date"
+     },
+     "affiliate": {
+       "_id": "ObjectId",
+       "trackingCode": "string",
+       "commissionRate": "number",
+       "status": "pending"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+6. CHANGE PASSWORD
+   POST /api/auth/change-password
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "currentPassword": "string (required)",
+     "newPassword": "string (required, min: 6)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Password changed successfully"
+   }
+
+7. CHANGE SUPER ADMIN PASSWORD
+   POST /api/auth/change-password-super-admin
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "currentPassword": "string (required)",
+     "newPassword": "string (required, min: 6)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Password changed successfully"
+   }
+
+================================================================================
+                                USER MANAGEMENT API
+================================================================================
+
+BASE URL: /api/users
+
+1. CREATE USER
+   POST /api/users/create
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "fullName": "string (required)",
+     "email": "string (required, unique)",
+     "password": "string (required, min: 6)",
+     "username": "string (optional)",
+     "role": "ObjectId (required)",
+     "organization": "ObjectId (required)",
+     "department": "string (optional)",
+     "groups": ["ObjectId (optional)"],
+     "status": "string (optional, default: active)",
+     "profilePicture": "file (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "User created successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string",
+         "permissions": "object"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "groups": ["ObjectId"],
+       "status": "active",
+       "profilePicture": "string",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL USERS
+   GET /api/users
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - role: ObjectId (optional)
+   - department: string (optional)
+   - status: string (optional)
+   - organization: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "users": [
+       {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string",
+         "username": "string",
+         "role": {
+           "_id": "ObjectId",
+           "name": "string",
+           "permissions": "object"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "department": "string",
+         "groups": [
+           {
+             "_id": "ObjectId",
+             "name": "string"
+           }
+         ],
+         "status": "active",
+         "profilePicture": "string",
+         "lastLogin": "Date",
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalUsers": "number",
+       "hasNextPage": "boolean",
+       "hasPrevPage": "boolean"
+     }
+   }
+
+3. GET USER BY ID
+   GET /api/users/:userId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string",
+         "permissions": "object"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "groups": [
+         {
+           "_id": "ObjectId",
+           "name": "string",
+           "description": "string"
+         }
+       ],
+       "status": "active",
+       "profilePicture": "string",
+       "lastLogin": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE USER
+   PATCH /api/users/:userId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "fullName": "string (optional)",
+     "email": "string (optional)",
+     "username": "string (optional)",
+     "role": "ObjectId (optional)",
+     "department": "string (optional)",
+     "groups": ["ObjectId (optional)"],
+     "status": "string (optional)",
+     "profilePicture": "file (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "User updated successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "profilePicture": "string",
+       "displayCurrency": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE USER
+   DELETE /api/users/:userId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "User deleted successfully"
+   }
+
+6. UPDATE USER STATUS
+   PATCH /api/users/:userId/status
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "status": "string (required, active|inactive)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "User status updated successfully",
+     "user": {
+       "_id": "ObjectId",
+       "status": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+7. GET USERS BY ORGANIZATION
+   GET /api/users/organization/:organizationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - role: ObjectId (optional)
+   - department: string (optional)
+   - status: string (optional)
+   
+   Response:
+   {
+     "success": true,
+     "users": [
+       {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string",
+         "username": "string",
+         "role": {
+           "_id": "ObjectId",
+           "name": "string",
+           "permissions": "object"
+         },
+         "department": "string",
+         "groups": ["ObjectId"],
+         "status": "active",
+         "profilePicture": "string",
+         "lastLogin": "Date",
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalUsers": "number"
+     }
+   }
+
+================================================================================
+                                ROLE MANAGEMENT API
+================================================================================
+
+BASE URL: /api/roles
+
+1. CREATE ROLE
+   POST /api/roles
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "name": "string (required, unique)",
+     "description": "string (optional)",
+     "permissions": {
+       "dashboard": { "view": true, "edit": false },
+       "users": { "view": true, "create": false, "edit": false, "delete": false },
+       "products": { "view": true, "create": true, "edit": true, "delete": false },
+       "orders": { "view": true, "create": false, "edit": false, "delete": false },
+       "analytics": { "view": true, "export": false },
+       "settings": { "view": false, "edit": false }
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Role created successfully",
+     "role": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "permissions": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL ROLES
+   GET /api/roles
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - sortBy: string (default: "name")
+   - sortOrder: "asc" | "desc" (default: "asc")
+   
+   Response:
+   {
+     "success": true,
+     "roles": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "description": "string",
+         "permissions": "object",
+         "userCount": "number",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalRoles": "number"
+     }
+   }
+
+3. GET ROLE BY ID
+   GET /api/roles/:roleId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "role": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "permissions": "object",
+       "userCount": "number",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE ROLE
+   PATCH /api/roles/:roleId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "name": "string (optional)",
+     "description": "string (optional)",
+     "permissions": "object (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Role updated successfully",
+     "role": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "permissions": "object",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE ROLE
+   DELETE /api/roles/:roleId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Role deleted successfully"
+   }
+
+================================================================================
+                                GROUP MANAGEMENT API
+================================================================================
+
+BASE URL: /api/groups
+
+1. CREATE GROUP
+   POST /api/groups
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "name": "string (required, unique)",
+     "description": "string (optional)",
+     "members": ["ObjectId (optional)"],
+     "organization": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Group created successfully",
+     "group": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "members": ["ObjectId"],
+       "organization": "ObjectId",
+       "memberCount": "number",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL GROUPS
+   GET /api/groups
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - organization: ObjectId (optional)
+   - sortBy: string (default: "name")
+   - sortOrder: "asc" | "desc" (default: "asc")
+   
+   Response:
+   {
+     "success": true,
+     "groups": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "description": "string",
+         "members": [
+           {
+             "_id": "ObjectId",
+             "fullName": "string",
+             "email": "string"
+           }
+         ],
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "memberCount": "number",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalGroups": "number"
+     }
+   }
+
+3. GET GROUP BY ID
+   GET /api/groups/:groupId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "group": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "members": [
+         {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string",
+           "role": {
+             "_id": "ObjectId",
+             "name": "string"
+           }
+         }
+       ],
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "memberCount": "number",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE GROUP
+   PATCH /api/groups/:groupId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "name": "string (optional)",
+     "description": "string (optional)",
+     "members": ["ObjectId (optional)"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Group updated successfully",
+     "group": {
+       "_id": "ObjectId",
+       "name": "string",
+       "description": "string",
+       "members": ["ObjectId"],
+       "memberCount": "number",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE GROUP
+   DELETE /api/groups/:groupId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Group deleted successfully"
+   }
+
+6. ADD MEMBER TO GROUP
+   POST /api/groups/:groupId/members
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Member added to group successfully",
+     "group": {
+       "_id": "ObjectId",
+       "memberCount": "number"
+     }
+   }
+
+7. REMOVE MEMBER FROM GROUP
+   DELETE /api/groups/:groupId/members/:userId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Member removed from group successfully",
+     "group": {
+       "_id": "ObjectId",
+       "memberCount": "number"
+     }
+   }
+
+================================================================================
+                                INVITATION SYSTEM API
+================================================================================
+
+BASE URL: /api/invitations
+
+1. CREATE INVITATION
+   POST /api/invitations
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "role": "ObjectId (required)",
+     "organization": "ObjectId (required)",
+     "department": "string (optional)",
+     "groups": ["ObjectId (optional)"],
+     "message": "string (optional)",
+     "expiresAt": "Date (optional, default: 7 days)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation sent successfully",
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "groups": ["ObjectId"],
+       "status": "pending",
+       "token": "string",
+       "expiresAt": "Date",
+       "createdBy": "ObjectId",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL INVITATIONS
+   GET /api/invitations
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, pending|accepted|expired)
+   - organization: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "invitations": [
+       {
+         "_id": "ObjectId",
+         "email": "string",
+         "role": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "department": "string",
+         "groups": ["ObjectId"],
+         "status": "pending",
+         "expiresAt": "Date",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string"
+         },
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalInvitations": "number"
+     }
+   }
+
+3. GET INVITATION BY ID
+   GET /api/invitations/:invitationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string",
+         "permissions": "object"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "groups": ["ObjectId"],
+       "status": "pending",
+       "token": "string",
+       "expiresAt": "Date",
+       "createdBy": {
+         "_id": "ObjectId",
+         "fullName": "string"
+       },
+       "createdAt": "Date"
+     }
+   }
+
+4. ACCEPT INVITATION
+   POST /api/invitations/:invitationId/accept
+   
+   Request Body:
+   {
+     "fullName": "string (required)",
+     "password": "string (required, min: 6)",
+     "username": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation accepted successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": "ObjectId",
+       "organization": "ObjectId",
+       "department": "string",
+       "groups": ["ObjectId"],
+       "status": "active",
+       "createdAt": "Date"
+     },
+     "token": "JWT_TOKEN"
+   }
+
+5. DECLINE INVITATION
+   POST /api/invitations/:invitationId/decline
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation declined successfully"
+   }
+
+6. RESEND INVITATION
+   POST /api/invitations/:invitationId/resend
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation resent successfully",
+     "invitation": {
+       "_id": "ObjectId",
+       "expiresAt": "Date"
+     }
+   }
+
+7. DELETE INVITATION
+   DELETE /api/invitations/:invitationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation deleted successfully"
+   }
+
+================================================================================
+                                PROFILE MANAGEMENT API
+================================================================================
+
+BASE URL: /api/users/profile
+
+1. GET USER PROFILE
+   GET /api/users/profile
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "role": {
+         "_id": "ObjectId",
+         "name": "string",
+         "permissions": "object"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "department": "string",
+       "groups": [
+         {
+           "_id": "ObjectId",
+           "name": "string"
+         }
+       ],
+       "status": "active",
+       "profilePicture": "string",
+       "displayCurrency": "string",
+       "lastLogin": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. UPDATE USER PROFILE
+   PATCH /api/users/profile
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "fullName": "string (optional)",
+     "username": "string (optional)",
+     "department": "string (optional)",
+     "profilePicture": "file (optional)",
+     "displayCurrency": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Profile updated successfully",
+     "user": {
+       "_id": "ObjectId",
+       "fullName": "string",
+       "email": "string",
+       "username": "string",
+       "profilePicture": "string",
+       "displayCurrency": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+3. UPLOAD PROFILE PICTURE
+   POST /api/users/profile/picture
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   Content-Type: multipart/form-data
+   
+   Request Body:
+   {
+     "profilePicture": "file (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Profile picture uploaded successfully",
+     "profilePicture": "string (URL)"
+   }
+
+================================================================================
+                                ROLE-BASED ACCESS CONTROL
+================================================================================
+
+The system implements comprehensive RBAC with the following features:
+
+1. MIDDLEWARE PROTECTION:
+   - protect: Verifies JWT authentication
+   - restrictTo: Restricts routes to specific roles
+   - isOwner: Checks resource ownership
+   - isOrganizationMember: Verifies organization access
+   - authorizeRoles: Alternative role checking
+   - verifyOrganization: Organization-specific access
+
+2. PERMISSION SYSTEM:
+   - Granular permissions per role
+   - Feature-level access control
+   - Organization-based restrictions
+   - Resource ownership validation
+
+3. USER DEPARTMENTS:
+   - Customer Support
+   - IT
+   - HR
+   - Sales
+   - Marketing
+   - Finance
+   - Billing
+   - Shipping
+
+4. USER STATUS:
+   - active: Full access to assigned features
+   - inactive: No access to any features
+
+5. ORGANIZATION SCOPING:
+   - Users can only access their organization's data
+   - Super admins can access all organizations
+   - Organization-specific invitations and groups
+
+================================================================================
                                 ERROR RESPONSES
 ================================================================================
 
@@ -1460,9 +3328,9 @@ All endpoints may return the following error responses:
                                 VERSION
 ================================================================================
 
-API Version: 1.2
+API Version: 1.4
 Last Updated: 2024
-Documentation Version: 1.2
+Documentation Version: 1.4
 
 Recent Updates:
 - Added multi-currency support with Exchange Rate API integration
@@ -1473,147 +3341,913 @@ Recent Updates:
 - Updated Analytics controllers to support multi-currency operations
 - Enhanced Analytics page with currency-aware revenue calculations
 - Added currency parameters to all revenue-related analytics endpoints
-
-================================================================================ 
-================================================================================ 
-2. CURRENCY CONVERSION IN STATS
-   
-   All revenue calculations automatically convert multi-currency orders to the user's
-   preferred display currency using the following fallback chain:
-   
-   1. Organization-specific exchange rates (if configured)
-   2. Global/system exchange rates (cached from API)
-   3. Fresh API rates (if cache is expired)
-   4. Fallback to expired cached rates (if API is unavailable)
-   
-3. SUPPORTED CURRENCIES
-   
-   The system supports all currencies available through the Exchange Rate API,
-   including but not limited to: USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, etc.
-   
-4. CURRENCY PREFERENCES
-   
-   Users can set their preferred display currency, which is used for:
-   - Revenue calculations in dashboard stats
-   - Order totals display
-   - Financial reporting
-   - Store performance metrics
-   - Analytics revenue calculations
-   - Product performance metrics
-   - Customer lifetime value calculations
+- Implemented comprehensive audit logging system for security and compliance
+- Added audit logging to authentication, inventory, and order controllers
+- Enhanced audit tracking with IP address, user agent, and severity levels
+- Implemented complete email management system with draft and sent email features
+- Added enhanced email analytics with performance, engagement, and real-time tracking
+- Implemented email template management system
+- Added comprehensive audit logging to all email operations
+- Implemented complete user management system with role-based access control
+- Added comprehensive authentication system (super admin, organization users, affiliates)
+- Implemented role management with granular permissions system
+- Added group management for user organization and collaboration
+- Implemented invitation system for secure user onboarding
+- Added profile management with picture upload and currency preferences
+- Enhanced security with organization-based access restrictions
+- Implemented comprehensive RBAC middleware for route and resource protection
 
 ================================================================================
-                              ANALYTICS API UPDATES
+                              USER REGIONAL SETTINGS & PROFILE MANAGEMENT
 ================================================================================
 
-The Analytics API has been enhanced to support multi-currency operations and provide
-accurate revenue calculations across all analytics endpoints.
-
-1. UPDATED ENDPOINTS WITH CURRENCY SUPPORT
+1. GET USER REGIONAL SETTINGS
+   GET /api/users/:userId/regional-settings
    
-   The following analytics endpoints now accept currency parameters:
-   - GET /api/analytics/total-revenue
-   - GET /api/analytics/average-order-value
-   - GET /api/analytics/lifetime-value
-   - GET /api/analytics/product-performance
-   - GET /api/analytics/regional-sales
-   - GET /api/advanced-analytics/sales/total-revenue
-   - GET /api/advanced-analytics/sales/revenue-by-product
-   - GET /api/advanced-analytics/products/best-sellers
-   
-2. NEW QUERY PARAMETERS
-   
-   All revenue-related analytics endpoints now accept:
-   - userId: ObjectId (optional) - User ID for currency preferences
-   - displayCurrency: string (optional) - Preferred display currency
-   
-3. ENHANCED RESPONSE FORMAT
-   
-   Revenue-related analytics responses now include:
-   - currency: string - The display currency used for calculations
-   - currencyBreakdown: object - Breakdown of revenue by original currency
-   - originalCurrency: string - Original currency of the data
-   - convertedCurrency: string - Currency the data was converted to
-   
-4. CONSISTENT ORDER FILTERING
-   
-   All analytics endpoints now consistently exclude cancelled and refunded orders
-   from revenue calculations while maintaining accurate order counts where appropriate.
-
-================================================================================
-                                ERROR RESPONSES
-================================================================================
-
-All endpoints may return the following error responses:
-
-1. Authentication Error (401):
+   Response:
    {
-     "success": false,
-     "message": "Access denied. No token provided."
+     "success": true,
+     "data": {
+       "language": "en",
+       "timezone": "UTC",
+       "dateFormat": "MM/DD/YYYY",
+       "timeFormat": "12",
+       "organization": {
+         "name": "My Company",
+         "defaultCurrency": "USD"
+       }
+     }
    }
 
-2. Validation Error (400):
+2. UPDATE USER REGIONAL SETTINGS
+   PATCH /api/users/:userId/regional-settings
+   
+   Body:
    {
-     "success": false,
-     "message": "Validation failed",
-     "errors": [
+     "language": "es",
+     "timezone": "EST",
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "24"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Regional settings updated successfully",
+     "data": {
+       "language": "es",
+       "timezone": "EST",
+       "dateFormat": "DD/MM/YYYY",
+       "timeFormat": "24"
+     }
+   }
+
+3. UPLOAD PROFILE PICTURE
+   POST /api/users/:userId/avatar
+   
+   Form Data:
+   - profilePicture: File (image)
+   
+   Response:
+   {
+     "success": true,
+     "message": "Profile picture uploaded successfully",
+     "data": {
+       "profilePicture": "https://res.cloudinary.com/...",
+       "user": {
+         "fullName": "John Doe",
+         "email": "john@example.com"
+       }
+     }
+   }
+
+4. REMOVE PROFILE PICTURE
+   DELETE /api/users/:userId/avatar
+   
+   Response:
+   {
+     "success": true,
+     "message": "Profile picture removed successfully",
+     "data": {
+       "profilePicture": null,
+       "user": {
+         "fullName": "John Doe",
+         "email": "john@example.com"
+       }
+     }
+   }
+
+5. GET USER SESSIONS
+   GET /api/users/:userId/sessions
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "sessions": [
+         {
+           "id": "current-session",
+           "device": "Web Browser",
+           "location": "Unknown",
+           "ipAddress": "192.168.1.1",
+           "lastActive": "2024-01-15T10:30:00Z",
+           "isCurrent": true
+         }
+       ],
+       "totalSessions": 1,
+       "activeSessions": 1
+     }
+   }
+
+6. TERMINATE USER SESSION
+   DELETE /api/users/:userId/sessions/:sessionId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Session terminated successfully",
+     "data": {
+       "terminatedSessionId": "session-id"
+     }
+   }
+
+================================================================================
+                              VALIDATION RULES
+================================================================================
+
+Regional Settings Validation:
+- language: Must be one of ['en', 'es', 'fr']
+- timezone: Must be one of ['UTC', 'EST', 'PST', 'GMT', 'CET']
+- dateFormat: Must be one of ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD']
+- timeFormat: Must be one of ['12', '24']
+
+Profile Picture Validation:
+- File must be an image (jpg, png, gif, webp)
+- Maximum file size: 5MB
+- Automatic resizing to 300x300px
+- Cloudinary optimization applied
+
+================================================================================ 
+================================================================================ 
+
+================================================================================
+                              NOTIFICATIONS API
+================================================================================
+
+BASE URL: /api/notifications
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All notification operations are automatically logged for security and compliance:
+- Notification creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE NOTIFICATION
+   POST /api/notifications
+   
+   Request Body:
+   {
+     "user": "ObjectId (required)",
+     "template": "ObjectId (optional)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "type": "email|system (default: system)",
+     "status": "pending|sent|failed|read (default: pending)",
+     "organization": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "user": "ObjectId",
+       "template": "ObjectId",
+       "subject": "string",
+       "body": "string",
+       "status": "string",
+       "type": "string",
+       "deliveryAttemptCount": "number",
+       "deliveryStatus": "success|failure",
+       "sentAt": "Date",
+       "errorMessage": "string",
+       "organization": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL NOTIFICATIONS
+   GET /api/notifications
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional)
+   - type: string (optional)
+   - user: ObjectId (optional)
+   - organization: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
        {
-         "field": "string",
-         "message": "string"
+         "_id": "ObjectId",
+         "user": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string",
+           "username": "string"
+         },
+         "template": {
+           "_id": "ObjectId",
+           "templateName": "string",
+           "subject": "string"
+         },
+         "subject": "string",
+         "body": "string",
+         "status": "string",
+         "type": "string",
+         "deliveryAttemptCount": "number",
+         "deliveryStatus": "string",
+         "sentAt": "Date",
+         "errorMessage": "string",
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 100,
+       "pages": 10
+     }
+   }
+
+3. GET NOTIFICATION STATISTICS
+   GET /api/notifications/stats
+   
+   Query Parameters:
+   - organization: ObjectId (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "total": 100,
+       "pending": 5,
+       "sent": 80,
+       "read": 10,
+       "failed": 5,
+       "email": 60,
+       "system": 40
+     }
+   }
+
+4. GET NOTIFICATION BY ID
+   GET /api/notifications/:notificationId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "user": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string",
+         "username": "string"
+       },
+       "template": {
+         "_id": "ObjectId",
+         "templateName": "string",
+         "subject": "string",
+         "body": "string"
+       },
+       "subject": "string",
+       "body": "string",
+       "status": "string",
+       "type": "string",
+       "deliveryAttemptCount": "number",
+       "deliveryStatus": "string",
+       "sentAt": "Date",
+       "errorMessage": "string",
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. UPDATE NOTIFICATION
+   PATCH /api/notifications/:notificationId
+   
+   Request Body:
+   {
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "status": "pending|sent|failed|read (optional)",
+     "deliveryStatus": "success|failure (optional)",
+     "errorMessage": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "subject": "string",
+       "body": "string",
+       "status": "string",
+       "deliveryStatus": "string",
+       "errorMessage": "string",
+       "sentAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+6. DELETE NOTIFICATION
+   DELETE /api/notifications/:notificationId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification deleted successfully"
+   }
+
+7. MARK NOTIFICATION AS READ
+   PATCH /api/notifications/:notificationId/read
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification marked as read",
+     "data": {
+       "_id": "ObjectId",
+       "status": "read",
+       "updatedAt": "Date"
+     }
+   }
+
+8. GET USER NOTIFICATIONS
+   GET /api/notifications/user/:userId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional)
+   - type: string (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "template": {
+           "_id": "ObjectId",
+           "templateName": "string",
+           "subject": "string"
+         },
+         "subject": "string",
+         "body": "string",
+         "status": "string",
+         "type": "string",
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 50,
+       "pages": 5
+     },
+     "unreadCount": 5
+   }
+
+9. MARK ALL USER NOTIFICATIONS AS READ
+   PATCH /api/notifications/user/:userId/read-all
+   
+   Response:
+   {
+     "success": true,
+     "message": "All notifications marked as read",
+     "data": {
+       "updatedCount": 10
+     }
+   }
+
+================================================================================
+                           NOTIFICATION TEMPLATES API
+================================================================================
+
+BASE URL: /api/notification-templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All template operations are automatically logged for security and compliance:
+- Template creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE NOTIFICATION TEMPLATE
+   POST /api/notification-templates
+   
+   Request Body:
+   {
+     "templateName": "string (required)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "type": "email|system (default: system)",
+     "triggerEvent": "subscriptionEnd|reminder|invoiceCreated|accountUpdate|custom (default: custom)",
+     "variables": {
+       "userName": "string",
+       "orderNumber": "string"
+     },
+     "isActive": "boolean (default: true)",
+     "organization": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification template created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "templateName": "string",
+       "subject": "string",
+       "body": "string",
+       "type": "string",
+       "triggerEvent": "string",
+       "variables": "object",
+       "isActive": "boolean",
+       "createdBy": "ObjectId",
+       "organization": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL NOTIFICATION TEMPLATES
+   GET /api/notification-templates
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - type: string (optional)
+   - triggerEvent: string (optional)
+   - isActive: boolean (optional)
+   - organization: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "templateName": "string",
+         "subject": "string",
+         "body": "string",
+         "type": "string",
+         "triggerEvent": "string",
+         "variables": "object",
+         "isActive": "boolean",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string",
+           "username": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 50,
+       "pages": 5
+     }
+   }
+
+3. GET ACTIVE NOTIFICATION TEMPLATES
+   GET /api/notification-templates/active
+   
+   Query Parameters:
+   - organization: ObjectId (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "templateName": "string",
+         "subject": "string",
+         "body": "string",
+         "type": "string",
+         "triggerEvent": "string",
+         "variables": "object",
+         "isActive": "boolean",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string",
+           "username": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
        }
      ]
    }
 
-3. Not Found Error (404):
+4. GET NOTIFICATION TEMPLATE BY ID
+   GET /api/notification-templates/:templateId
+   
+   Response:
    {
-     "success": false,
-     "message": "Resource not found"
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "templateName": "string",
+       "subject": "string",
+       "body": "string",
+       "type": "string",
+       "triggerEvent": "string",
+       "variables": "object",
+       "isActive": "boolean",
+       "createdBy": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string",
+         "username": "string"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "string"
+       },
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
    }
 
-4. Server Error (500):
+5. UPDATE NOTIFICATION TEMPLATE
+   PATCH /api/notification-templates/:templateId
+   
+   Request Body:
    {
-     "success": false,
-     "message": "Internal server error",
-     "error": "string"
+     "templateName": "string (optional)",
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "type": "email|system (optional)",
+     "triggerEvent": "string (optional)",
+     "variables": "object (optional)",
+     "isActive": "boolean (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification template updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "templateName": "string",
+       "subject": "string",
+       "body": "string",
+       "type": "string",
+       "triggerEvent": "string",
+       "variables": "object",
+       "isActive": "boolean",
+       "updatedAt": "Date"
+     }
+   }
+
+6. DELETE NOTIFICATION TEMPLATE
+   DELETE /api/notification-templates/:templateId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification template deleted successfully"
+   }
+
+7. DUPLICATE NOTIFICATION TEMPLATE
+   POST /api/notification-templates/:templateId/duplicate
+   
+   Request Body:
+   {
+     "newTemplateName": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification template duplicated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "templateName": "string",
+       "subject": "string",
+       "body": "string",
+       "type": "string",
+       "triggerEvent": "string",
+       "variables": "object",
+       "isActive": "boolean",
+       "createdBy": "ObjectId",
+       "organization": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+8. GET ORGANIZATION TEMPLATES
+   GET /api/notification-templates/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - type: string (optional)
+   - triggerEvent: string (optional)
+   - isActive: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "templateName": "string",
+         "subject": "string",
+         "body": "string",
+         "type": "string",
+         "triggerEvent": "string",
+         "variables": "object",
+         "isActive": "boolean",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string",
+           "username": "string"
+         },
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 30,
+       "pages": 3
+     }
    }
 
 ================================================================================
-                                NOTES
+                           NOTIFICATION SETTINGS API
 ================================================================================
 
-1. All timestamps are in ISO 8601 format
-2. ObjectId fields are MongoDB ObjectId strings
-3. File uploads use multipart/form-data
-4. Images are automatically uploaded to Cloudinary
-5. WooCommerce sync is optional and requires valid store credentials
-6. Pagination is included in list endpoints
-7. Search functionality supports text search across relevant fields
-8. All endpoints require valid authentication token
-9. Organization and store context is maintained throughout
-10. Audit logging is automatically performed for all operations
-11. Currency conversion is automatic for multi-currency orders
-12. Store overview stats show all-time data (no time-based filtering)
-13. Orders API returns all orders but stats exclude cancelled/refunded orders
-14. Exchange Rate API integration provides real-time currency conversion
-15. Background services automatically sync exchange rates
+BASE URL: /api/notification-settings
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All settings operations are automatically logged for security and compliance:
+- Settings updates are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (update)
+- Organization context is maintained for all audit entries
+
+1. GET USER NOTIFICATION SETTINGS
+   GET /api/notification-settings/user/:userId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "userId": "ObjectId",
+       "email": "string",
+       "fullName": "string",
+       "settings": {
+         "email": {
+           "enabled": "boolean",
+           "categories": {
+             "system": "boolean",
+             "orders": "boolean",
+             "inventory": "boolean",
+             "customers": "boolean",
+             "security": "boolean"
+           }
+         },
+         "inApp": {
+           "enabled": "boolean",
+           "categories": {
+             "system": "boolean",
+             "orders": "boolean",
+             "inventory": "boolean",
+             "customers": "boolean",
+             "security": "boolean"
+           }
+         },
+         "frequency": "immediate|daily|weekly",
+         "quietHours": {
+           "enabled": "boolean",
+           "start": "string (HH:MM)",
+           "end": "string (HH:MM)",
+           "timezone": "string"
+         }
+       }
+     }
+   }
+
+2. UPDATE USER NOTIFICATION SETTINGS
+   PATCH /api/notification-settings/user/:userId
+   
+   Request Body:
+   {
+     "email": {
+       "enabled": "boolean",
+       "categories": {
+         "system": "boolean",
+         "orders": "boolean",
+         "inventory": "boolean",
+         "customers": "boolean",
+         "security": "boolean"
+       }
+     },
+     "inApp": {
+       "enabled": "boolean",
+       "categories": {
+         "system": "boolean",
+         "orders": "boolean",
+         "inventory": "boolean",
+         "customers": "boolean",
+         "security": "boolean"
+       }
+     },
+     "frequency": "immediate|daily|weekly",
+     "quietHours": {
+       "enabled": "boolean",
+       "start": "string (HH:MM)",
+       "end": "string (HH:MM)",
+       "timezone": "string"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification settings updated successfully",
+     "data": {
+       "userId": "ObjectId",
+       "settings": "object"
+     }
+   }
+
+3. UPDATE NOTIFICATION CATEGORY
+   PATCH /api/notification-settings/user/:userId/category
+   
+   Request Body:
+   {
+     "channel": "email|inApp (required)",
+     "category": "system|orders|inventory|customers|security (required)",
+     "enabled": "boolean (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification category updated successfully",
+     "data": {
+       "userId": "ObjectId",
+       "channel": "string",
+       "category": "string",
+       "enabled": "boolean"
+     }
+   }
+
+4. RESET USER NOTIFICATION SETTINGS
+   POST /api/notification-settings/user/:userId/reset
+   
+   Response:
+   {
+     "success": true,
+     "message": "Notification settings reset to defaults",
+     "data": {
+       "userId": "ObjectId",
+       "settings": "object"
+     }
+   }
+
+5. GET USERS NOTIFICATION SETTINGS
+   GET /api/notification-settings/users
+   
+   Query Parameters:
+   - organization: ObjectId (optional)
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string",
+         "notificationSettings": "object",
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         }
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 50,
+       "pages": 5
+     }
+   }
+
+6. GET NOTIFICATION SETTINGS SUMMARY
+   GET /api/notification-settings/summary
+   
+   Query Parameters:
+   - organization: ObjectId (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalUsers": 50,
+       "emailEnabled": 45,
+       "inAppEnabled": 48,
+       "categoryStats": {
+         "system": { "email": 40, "inApp": 45 },
+         "orders": { "email": 35, "inApp": 42 },
+         "inventory": { "email": 30, "inApp": 38 },
+         "customers": { "email": 25, "inApp": 35 },
+         "security": { "email": 20, "inApp": 30 }
+       },
+       "frequencyStats": {
+         "immediate": 30,
+         "daily": 15,
+         "weekly": 5
+       },
+       "quietHoursEnabled": 10
+     }
+   }
 
 ================================================================================
-                                VERSION
+                              VALIDATION RULES
 ================================================================================
 
-API Version: 1.2
-Last Updated: 2024
-Documentation Version: 1.2
+Notification Validation:
+- type: Must be 'email' or 'system'
+- status: Must be 'pending', 'sent', 'failed', or 'read'
+- deliveryStatus: Must be 'success' or 'failure'
 
-Recent Updates:
-- Added multi-currency support with Exchange Rate API integration
-- Updated Store Overview stats to show all-time data
-- Enhanced Orders API with comprehensive order breakdown
-- Added currency conversion for accurate revenue calculations
-- Implemented background exchange rate synchronization
-- Updated Analytics controllers to support multi-currency operations
-- Enhanced Analytics page with currency-aware revenue calculations
-- Added currency parameters to all revenue-related analytics endpoints
+Notification Template Validation:
+- templateName: Required, must be unique within organization
+- subject: Required
+- body: Required
+- type: Must be 'email' or 'system'
+- triggerEvent: Must be 'subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', or 'custom'
 
-================================================================================ 
-================================================================================ 
+Notification Settings Validation:
+- frequency: Must be 'immediate', 'daily', or 'weekly'
+- quietHours: If enabled, start and end times are required
+- channel: Must be 'email' or 'inApp'
+- category: Must be 'system', 'orders', 'inventory', 'customers', or 'security'
+
+================================================================================

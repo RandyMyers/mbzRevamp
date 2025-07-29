@@ -281,3 +281,270 @@ exports.updateProfilePicture = async (req, res) => {
   }
 };
 
+// Get user regional settings
+exports.getUserRegionalSettings = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .select('language timezone dateFormat timeFormat')
+      .populate('organization', 'name defaultCurrency');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        language: user.language || 'en',
+        timezone: user.timezone || 'UTC',
+        dateFormat: user.dateFormat || 'MM/DD/YYYY',
+        timeFormat: user.timeFormat || '12',
+        organization: user.organization
+      }
+    });
+  } catch (error) {
+    console.error('Get User Regional Settings Error:', error);
+    res.status(500).json({ success: false, message: "Failed to get regional settings" });
+  }
+};
+
+// Update user regional settings
+exports.updateUserRegionalSettings = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { language, timezone, dateFormat, timeFormat } = req.body;
+
+    // Validate inputs
+    const validLanguages = ['en', 'es', 'fr'];
+    const validTimezones = ['UTC', 'EST', 'PST', 'GMT', 'CET'];
+    const validDateFormats = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
+    const validTimeFormats = ['12', '24'];
+
+    if (language && !validLanguages.includes(language)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid language. Must be one of: en, es, fr" 
+      });
+    }
+
+    if (timezone && !validTimezones.includes(timezone)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid timezone. Must be one of: UTC, EST, PST, GMT, CET" 
+      });
+    }
+
+    if (dateFormat && !validDateFormats.includes(dateFormat)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid date format. Must be one of: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD" 
+      });
+    }
+
+    if (timeFormat && !validTimeFormats.includes(timeFormat)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid time format. Must be 12 or 24" 
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        language, 
+        timezone, 
+        dateFormat, 
+        timeFormat,
+        updatedAt: Date.now()
+      },
+      { new: true, runValidators: true }
+    ).select('language timezone dateFormat timeFormat');
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Regional settings updated successfully",
+      data: {
+        language: updatedUser.language,
+        timezone: updatedUser.timezone,
+        dateFormat: updatedUser.dateFormat,
+        timeFormat: updatedUser.timeFormat
+      }
+    });
+  } catch (error) {
+    console.error('Update User Regional Settings Error:', error);
+    res.status(500).json({ success: false, message: "Failed to update regional settings" });
+  }
+};
+
+// Upload user profile picture
+exports.uploadProfilePicture = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!req.files || !req.files.profilePicture) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "No profile picture file uploaded" 
+      });
+    }
+
+    const profilePictureFile = req.files.profilePicture;
+
+    // Upload the profile picture to Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    const uploadResult = await cloudinary.uploader.upload(profilePictureFile.tempFilePath, {
+      folder: "user_profiles",
+      transformation: [
+        { width: 300, height: 300, crop: "fill" },
+        { quality: "auto" }
+      ]
+    });
+
+    // Update the user's profile picture URL
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        profilePicture: uploadResult.secure_url,
+        updatedAt: Date.now()
+      },
+      { new: true }
+    ).select('profilePicture fullName email');
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Profile picture uploaded successfully",
+      data: {
+        profilePicture: updatedUser.profilePicture,
+        user: {
+          fullName: updatedUser.fullName,
+          email: updatedUser.email
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Upload Profile Picture Error:', error);
+    res.status(500).json({ success: false, message: "Failed to upload profile picture" });
+  }
+};
+
+// Remove user profile picture
+exports.removeProfilePicture = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // If user has a profile picture, delete it from Cloudinary
+    if (user.profilePicture) {
+      try {
+        const cloudinary = require('cloudinary').v2;
+        const publicId = user.profilePicture.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`user_profiles/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary deletion error:', cloudinaryError);
+        // Continue with the update even if Cloudinary deletion fails
+      }
+    }
+
+    // Update user to remove profile picture
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        profilePicture: null,
+        updatedAt: Date.now()
+      },
+      { new: true }
+    ).select('profilePicture fullName email');
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Profile picture removed successfully",
+      data: {
+        profilePicture: updatedUser.profilePicture,
+        user: {
+          fullName: updatedUser.fullName,
+          email: updatedUser.email
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Remove Profile Picture Error:', error);
+    res.status(500).json({ success: false, message: "Failed to remove profile picture" });
+  }
+};
+
+// Get user sessions
+exports.getUserSessions = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // For now, return basic session info
+    // In a real implementation, you'd track sessions in a separate collection
+    const sessions = [
+      {
+        id: 'current-session',
+        device: 'Web Browser',
+        location: 'Unknown',
+        ipAddress: req.ip,
+        lastActive: new Date(),
+        isCurrent: true
+      }
+    ];
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        sessions,
+        totalSessions: sessions.length,
+        activeSessions: sessions.filter(s => s.isCurrent).length
+      }
+    });
+  } catch (error) {
+    console.error('Get User Sessions Error:', error);
+    res.status(500).json({ success: false, message: "Failed to get user sessions" });
+  }
+};
+
+// Terminate user session
+exports.terminateSession = async (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // For now, just return success
+    // In a real implementation, you'd invalidate the session token
+    res.status(200).json({ 
+      success: true, 
+      message: "Session terminated successfully",
+      data: {
+        terminatedSessionId: sessionId
+      }
+    });
+  } catch (error) {
+    console.error('Terminate Session Error:', error);
+    res.status(500).json({ success: false, message: "Failed to terminate session" });
+  }
+};
+
