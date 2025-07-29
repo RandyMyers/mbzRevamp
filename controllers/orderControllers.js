@@ -8,6 +8,7 @@ const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
 const currencyUtils = require('../utils/currencyUtils');
 const { createAuditLog, logCRUDOperation, logStatusChange } = require('../helpers/auditLogHelper');
+const { notifyOrderCreated, notifyOrderStatusUpdated, notifyOrderCancelled } = require('../helpers/notificationHelper');
 
 // Utility function to find order by WooCommerce ID (checks both wooCommerceId and number fields)
 const findOrderByWooCommerceId = async (wooCommerceId, storeId = null) => {
@@ -374,6 +375,18 @@ exports.createOrder = async (req, res) => {
       },
       organization: req.user?.organization || organizationId
     });
+
+    // Send notification to organization admins
+    try {
+      // Get customer information for notification
+      const Customer = require('../models/customers');
+      const customer = await Customer.findOne({ customer_id: savedOrder.customer_id });
+      await notifyOrderCreated(savedOrder, customer, organizationId);
+    } catch (notificationError) {
+      console.error('Error sending order creation notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
     res.status(201).json({ 
       success: true, 
       order: savedOrder,
@@ -975,6 +988,19 @@ exports.updateOrder = async (req, res) => {
       },
       organization: req.user?.organization || currentOrder.organizationId
     });
+
+    // Send notification for status changes
+    try {
+      if (sanitizedData.status && sanitizedData.status !== currentOrder.status) {
+        // Get customer information for notification
+        const Customer = require('../models/customers');
+        const customer = await Customer.findOne({ customer_id: updatedOrder.customer_id });
+        await notifyOrderStatusUpdated(updatedOrder, currentOrder.status, sanitizedData.status, currentOrder.organizationId);
+      }
+    } catch (notificationError) {
+      console.error('Error sending order status update notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
 
     res.status(200).json({ 
       success: true, 

@@ -1,6 +1,7 @@
 const User = require('../models/users');
 const Organization = require('../models/organization');
 const currencyUtils = require('../utils/currencyUtils');
+const currencyList = require('../utils/currencyList');
 const mongoose = require('mongoose');
 
 // Get user preferences
@@ -32,9 +33,12 @@ exports.getUserPreferences = async (req, res) => {
       organizationId: organizationId ? new mongoose.Types.ObjectId(organizationId) : null
     });
 
-    // Add common currencies if not already present
-    const commonCurrencies = ['USD', 'EUR', 'GBP', 'NGN', 'CAD', 'AUD'];
-    const allCurrencies = [...new Set([...availableCurrencies, ...commonCurrencies])].sort();
+    // Get comprehensive currency list from currency.txt
+    const allSupportedCurrencies = currencyList.getSupportedCurrencies();
+    const popularCurrencies = currencyList.getPopularCurrencies();
+    
+    // Combine database currencies with comprehensive list
+    const allCurrencies = [...new Set([...availableCurrencies, ...allSupportedCurrencies.map(c => c.code)])].sort();
 
     res.json({
       success: true,
@@ -44,6 +48,8 @@ exports.getUserPreferences = async (req, res) => {
           organization: user.organization
         },
         availableCurrencies: allCurrencies,
+        popularCurrencies: popularCurrencies.map(c => ({ code: c.code, name: c.name })),
+        totalSupportedCurrencies: allSupportedCurrencies.length,
         organizationSettings: {
           defaultCurrency: user.organization?.defaultCurrency || 'USD',
           analyticsCurrency: user.organization?.analyticsCurrency || 'USD'
@@ -71,12 +77,11 @@ exports.updateDisplayCurrency = async (req, res) => {
       });
     }
 
-    // Validate currency code
-    const currencyRegex = /^[A-Z]{3}$/;
-    if (!currencyRegex.test(displayCurrency)) {
+    // Validate currency code using comprehensive list
+    if (!currencyList.isValidCurrencyCode(displayCurrency)) {
       return res.status(400).json({
         success: false,
-        error: "Currency code must be 3 uppercase letters (e.g., USD, EUR, NGN)"
+        error: "Invalid currency code. Please select from the supported currencies list."
       });
     }
 
@@ -234,7 +239,7 @@ exports.getCurrencyStats = async (req, res) => {
 // Get available currencies for organization
 exports.getAvailableCurrencies = async (req, res) => {
   try {
-    const { organizationId } = req.query;
+    const { organizationId, region } = req.query;
 
     if (!organizationId) {
       return res.status(400).json({
@@ -258,19 +263,33 @@ exports.getAvailableCurrencies = async (req, res) => {
       currency: { $exists: true, $ne: null }
     });
 
-    // Combine and deduplicate
-    const allCurrencies = [...new Set([...exchangeRateCurrencies, ...orderCurrencies])];
+    // Get comprehensive currency list
+    const allSupportedCurrencies = currencyList.getSupportedCurrencies();
+    const popularCurrencies = currencyList.getPopularCurrencies();
     
-    // Add common currencies if not present
-    const commonCurrencies = ['USD', 'EUR', 'GBP', 'NGN', 'CAD', 'AUD', 'JPY', 'CHF'];
-    const availableCurrencies = [...new Set([...allCurrencies, ...commonCurrencies])].sort();
+    // Get regional currencies if specified
+    let regionalCurrencies = [];
+    if (region) {
+      regionalCurrencies = currencyList.getCurrenciesByRegion(region);
+    }
+
+    // Combine and deduplicate
+    const allCurrencies = [...new Set([
+      ...exchangeRateCurrencies, 
+      ...orderCurrencies,
+      ...allSupportedCurrencies.map(c => c.code)
+    ])].sort();
 
     res.json({
       success: true,
       data: {
-        availableCurrencies,
+        availableCurrencies: allCurrencies,
+        popularCurrencies: popularCurrencies.map(c => ({ code: c.code, name: c.name })),
+        regionalCurrencies: regionalCurrencies.map(c => ({ code: c.code, name: c.name })),
         exchangeRateCurrencies,
-        orderCurrencies
+        orderCurrencies,
+        totalSupported: allSupportedCurrencies.length,
+        totalAvailable: allCurrencies.length
       }
     });
   } catch (error) {

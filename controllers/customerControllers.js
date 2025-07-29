@@ -6,6 +6,7 @@ const Organization = require('../models/organization');
 const WooCommerceService = require('../services/wooCommerceService.js');
 const logEvent = require('../helper/logEvent');
 const cloudinary = require('cloudinary').v2;
+const { notifyCustomerRegistered, notifyCustomerUpdated } = require('../helpers/notificationHelper');
 
 exports.syncCustomers = async (req, res) => {
   try {
@@ -284,8 +285,19 @@ exports.createCustomer = async (req, res) => {
           syncStatus,
           wooCommerceId 
         },
-        organization: req.user?.organization || organizationId
+        organization: req.user?.organization || organizationId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        severity: 'info'
       });
+
+      // Send notification to organization admins
+      try {
+        await notifyCustomerRegistered(updatedCustomer, organizationId);
+      } catch (notificationError) {
+        console.error('Error sending customer registration notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
 
       res.status(201).json({ 
         success: true,
@@ -581,8 +593,25 @@ exports.createCustomer = async (req, res) => {
           syncStatus: sanitizedUpdates.syncStatus,
           wooCommerceId: sanitizedUpdates.wooCommerceId || currentCustomer.wooCommerceId
         },
-        organization: req.user?.organization || currentCustomer.organizationId
+        organization: req.user?.organization || currentCustomer.organizationId,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        severity: 'info'
       });
+
+      // Send notification to organization admins
+      try {
+        const changes = Object.keys(sanitizedUpdates).filter(key => 
+          key !== 'lastWooCommerceSync' && 
+          key !== 'syncStatus' && 
+          key !== 'syncError' && 
+          key !== 'wooCommerceId'
+        );
+        await notifyCustomerUpdated(updatedCustomer, changes, currentCustomer.organizationId);
+      } catch (notificationError) {
+        console.error('Error sending customer update notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
 
       res.status(200).json({ 
         success: true,

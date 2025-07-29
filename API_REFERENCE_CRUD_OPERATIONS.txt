@@ -5406,3 +5406,568 @@ AUDIT LOGGING: All store operations are automatically logged for security and co
 ================================================================================
                               VALIDATION RULES
 ================================================================================
+
+================================================================================
+                              CURRENCY & USER PREFERENCES API
+================================================================================
+
+BASE URL: /api/user-preferences
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All currency preference operations are automatically logged for security and compliance:
+- Currency preference changes are logged with user context
+- User information, IP address, and user agent are captured
+- Severity levels: info (preference updates)
+- Organization context is maintained for all audit entries
+
+CURRENCY SUPPORT:
+- Comprehensive support for 161+ world currencies from currency.txt
+- Popular currencies highlighted for quick selection
+- Regional currency organization (Europe, Asia, Africa, Americas, Oceania)
+- Automatic validation against supported currency list
+- Default fallback to USD when no preference is set
+
+1. GET USER PREFERENCES
+   GET /api/user-preferences
+   
+   Query Parameters:
+   - userId: ObjectId (required) - User ID
+   - organizationId: ObjectId (optional) - Organization ID for context
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "user": {
+         "displayCurrency": "USD",
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string",
+           "defaultCurrency": "USD",
+           "analyticsCurrency": "EUR"
+         }
+       },
+       "availableCurrencies": ["AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN", "BAM", "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND", "BOB", "BRL", "BSD", "BTN", "BWP", "BYN", "BZD", "CAD", "CDF", "CHF", "CLP", "CNY", "COP", "CRC", "CUP", "CVE", "CZK", "DJF", "DKK", "DOP", "DZD", "EGP", "ERN", "ETB", "EUR", "FJD", "FKP", "FOK", "GBP", "GEL", "GGP", "GHS", "GIP", "GMD", "GNF", "GTQ", "GYD", "HKD", "HNL", "HRK", "HTG", "HUF", "IDR", "ILS", "IMP", "INR", "IQD", "IRR", "ISK", "JEP", "JMD", "JOD", "JPY", "KES", "KGS", "KHR", "KID", "KMF", "KRW", "KWD", "KYD", "KZT", "LAK", "LBP", "LKR", "LRD", "LSL", "LYD", "MAD", "MDL", "MGA", "MKD", "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK", "MXN", "MYR", "MZN", "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "OMR", "PAB", "PEN", "PGK", "PHP", "PKR", "PLN", "PYG", "QAR", "RON", "RSD", "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE", "SOS", "SRD", "SSP", "STN", "SYP", "SZL", "THB", "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TVD", "TWD", "TZS", "UAH", "UGX", "USD", "UYU", "UZS", "VES", "VND", "VUV", "WST", "XAF", "XCD", "XDR", "XOF", "XPF", "YER", "ZAR", "ZMW", "ZWL"],
+       "popularCurrencies": [
+         {"code": "USD", "name": "United States Dollar"},
+         {"code": "EUR", "name": "Euro"},
+         {"code": "GBP", "name": "Pound Sterling"},
+         {"code": "JPY", "name": "Japanese Yen"},
+         {"code": "CAD", "name": "Canadian Dollar"},
+         {"code": "AUD", "name": "Australian Dollar"},
+         {"code": "CHF", "name": "Swiss Franc"},
+         {"code": "CNY", "name": "Chinese Renminbi"},
+         {"code": "NGN", "name": "Nigerian Naira"},
+         {"code": "INR", "name": "Indian Rupee"},
+         {"code": "BRL", "name": "Brazilian Real"},
+         {"code": "MXN", "name": "Mexican Peso"},
+         {"code": "KRW", "name": "South Korean Won"},
+         {"code": "SGD", "name": "Singapore Dollar"},
+         {"code": "HKD", "name": "Hong Kong Dollar"},
+         {"code": "NZD", "name": "New Zealand Dollar"}
+       ],
+       "totalSupportedCurrencies": 196,
+       "organizationSettings": {
+         "defaultCurrency": "USD",
+         "analyticsCurrency": "EUR"
+       }
+     }
+   }
+
+2. UPDATE DISPLAY CURRENCY
+   PUT /api/user-preferences/display-currency
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "displayCurrency": "string (required) - Must be valid 3-letter currency code"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "displayCurrency": "EUR"
+     }
+   }
+
+3. UPDATE ANALYTICS CURRENCY
+   PUT /api/user-preferences/analytics-currency
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "analyticsCurrency": "string (required) - Must be valid 3-letter currency code"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "analyticsCurrency": "EUR",
+       "defaultCurrency": "USD",
+       "organizationName": "string"
+     }
+   }
+
+4. GET CURRENCY CONVERSION PREVIEW
+   GET /api/user-preferences/currency-conversion
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   - amount: number (required) - Amount to convert
+   - fromCurrency: string (required) - Source currency code
+   - toCurrency: string (required) - Target currency code
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "originalAmount": 100,
+       "originalCurrency": "USD",
+       "convertedAmount": 85.50,
+       "targetCurrency": "EUR",
+       "exchangeRate": 0.855
+     }
+   }
+
+5. GET CURRENCY STATISTICS
+   GET /api/user-preferences/currency-stats
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "USD",
+         "totalAmount": 50000,
+         "orderCount": 150
+       },
+       {
+         "_id": "EUR",
+         "totalAmount": 42000,
+         "orderCount": 120
+       }
+     ]
+   }
+
+6. GET AVAILABLE CURRENCIES
+   GET /api/user-preferences/available-currencies
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   - region: string (optional) - Filter by region (Europe, Asia, Africa, Americas, Oceania)
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "availableCurrencies": ["USD", "EUR", "GBP", "NGN", "CAD", "AUD", "JPY", "CHF", "CNY", "INR", "BRL", "MXN", "KRW", "SGD", "HKD", "NZD"],
+       "popularCurrencies": [
+         {"code": "USD", "name": "United States Dollar"},
+         {"code": "EUR", "name": "Euro"},
+         {"code": "GBP", "name": "Pound Sterling"}
+       ],
+       "regionalCurrencies": [
+         {"code": "EUR", "name": "Euro"},
+         {"code": "GBP", "name": "Pound Sterling"},
+         {"code": "CHF", "name": "Swiss Franc"}
+       ],
+       "exchangeRateCurrencies": ["USD", "EUR", "GBP"],
+       "orderCurrencies": ["USD", "EUR", "NGN"],
+       "totalSupported": 196,
+       "totalAvailable": 16
+     }
+   }
+
+CURRENCY VALIDATION RULES:
+- Currency codes must be 3 uppercase letters (e.g., USD, EUR, NGN)
+- Must be from the supported currency list (161+ currencies)
+- Default fallback to USD when no preference is set
+- Automatic validation against comprehensive currency database
+
+CURRENCY FALLBACK CHAIN:
+1. User's preferred display currency
+2. Organization's analytics currency
+3. Organization's default currency
+4. System default (USD)
+
+REGIONAL CURRENCY SUPPORT:
+- Europe: EUR, GBP, CHF, SEK, NOK, DKK, PLN, CZK, HUF, RON, BGN, HRK
+- Asia: JPY, CNY, KRW, SGD, HKD, TWD, THB, MYR, IDR, PHP, INR, VND
+- Africa: NGN, ZAR, EGP, KES, GHS, MAD, TND, UGX, TZS, ETB, DZD, SDG
+- Americas: USD, CAD, BRL, MXN, ARS, CLP, COP, PEN, UYU, PYG, BOB, GTQ
+- Oceania: AUD, NZD, FJD, PGK, WST, VUV, SBD, TOP, TVD, KID
+
+ERROR HANDLING:
+- 400: Invalid request data or currency code
+- 401: Unauthorized access
+- 404: User or organization not found
+- 500: Internal server error
+
+================================================================================
+                              EXCHANGE RATE API
+================================================================================
+
+BASE URL: /api/exchange-rates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All exchange rate operations are automatically logged for security and compliance:
+- Exchange rate creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. GET ALL EXCHANGE RATES
+   GET /api/exchange-rates
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   - baseCurrency: string (optional) - Filter by base currency
+   - targetCurrency: string (optional) - Filter by target currency
+   - isActive: boolean (optional) - Filter by active status
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "organizationId": "ObjectId",
+         "baseCurrency": "USD",
+         "targetCurrency": "EUR",
+         "rate": 0.855,
+         "isCustom": false,
+         "isGlobal": false,
+         "source": "api",
+         "isActive": true,
+         "lastApiUpdate": "Date",
+         "cacheExpiry": "Date",
+         "isExpired": false,
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ]
+   }
+
+2. GET EXCHANGE RATE BY ID
+   GET /api/exchange-rates/:id
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "baseCurrency": "USD",
+       "targetCurrency": "EUR",
+       "rate": 0.855,
+       "isCustom": false,
+       "isGlobal": false,
+       "source": "api",
+       "isActive": true,
+       "lastApiUpdate": "Date",
+       "cacheExpiry": "Date",
+       "isExpired": false,
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+3. CREATE EXCHANGE RATE
+   POST /api/exchange-rates
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "baseCurrency": "string (required) - 3-letter currency code",
+     "targetCurrency": "string (required) - 3-letter currency code",
+     "rate": "number (required) - Exchange rate value",
+     "isCustom": "boolean (optional, default: false)",
+     "source": "string (optional, default: 'user')"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "baseCurrency": "USD",
+       "targetCurrency": "EUR",
+       "rate": 0.855,
+       "isCustom": false,
+       "source": "user",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE EXCHANGE RATE
+   PUT /api/exchange-rates/:id
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "rate": "number (optional) - New exchange rate value",
+     "isActive": "boolean (optional) - Active status"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "baseCurrency": "USD",
+       "targetCurrency": "EUR",
+       "rate": 0.860,
+       "isActive": true,
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE EXCHANGE RATE
+   DELETE /api/exchange-rates/:id
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   
+   Response:
+   {
+     "success": true,
+     "message": "Exchange rate deleted successfully"
+   }
+
+6. BULK CREATE EXCHANGE RATES
+   POST /api/exchange-rates/bulk
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "rates": [
+       {
+         "baseCurrency": "USD",
+         "targetCurrency": "EUR",
+         "rate": 0.855,
+         "isCustom": false,
+         "source": "user"
+       },
+       {
+         "baseCurrency": "USD",
+         "targetCurrency": "GBP",
+         "rate": 0.750,
+         "isCustom": false,
+         "source": "user"
+       }
+     ]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "created": 2,
+       "errors": []
+     }
+   }
+
+7. CONVERT CURRENCY
+   GET /api/exchange-rates/convert
+   
+   Query Parameters:
+   - organizationId: ObjectId (required) - Organization ID
+   - amount: number (required) - Amount to convert
+   - fromCurrency: string (required) - Source currency code
+   - toCurrency: string (required) - Target currency code
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "originalAmount": 100,
+       "originalCurrency": "USD",
+       "convertedAmount": 85.50,
+       "targetCurrency": "EUR"
+     }
+   }
+
+8. IMPORT API RATES
+   POST /api/exchange-rates/api/import
+   
+   Request Body:
+   {
+     "baseCurrency": "string (optional, default: 'USD')",
+     "organizationId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "baseCurrency": "USD",
+       "importedRates": 161,
+       "lastUpdate": "Fri, 27 Mar 2020 00:00:00 +0000",
+       "nextUpdate": "Sat, 28 Mar 2020 00:00:00 +0000",
+       "rates": [...]
+     }
+   }
+
+9. GET API QUOTA
+   GET /api/exchange-rates/api/quota
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "requestsRemaining": 25000,
+       "planQuota": 30000,
+       "usagePercentage": 83.33,
+       "planType": "Pro"
+     }
+   }
+
+10. GET SUPPORTED CURRENCIES
+    GET /api/exchange-rates/api/currencies
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "totalCurrencies": 161,
+        "currencies": [
+          ["AED", "UAE Dirham"],
+          ["AFN", "Afghan Afghani"],
+          ["ALL", "Albanian Lek"],
+          ["AMD", "Armenian Dram"],
+          ["ANG", "Netherlands Antillian Guilder"],
+          ["AOA", "Angolan Kwanza"],
+          ["ARS", "Argentine Peso"],
+          ["AUD", "Australian Dollar"],
+          ["AWG", "Aruban Florin"],
+          ["AZN", "Azerbaijani Manat"]
+        ]
+      }
+    }
+
+11. TRIGGER MANUAL SYNC
+    POST /api/exchange-rates/sync/manual
+    
+    Request Body:
+    {
+      "baseCurrency": "string (optional, default: 'USD')"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "message": "Manual sync completed for USD",
+      "data": {
+        "baseCurrency": "USD",
+        "timestamp": "Date"
+      }
+    }
+
+12. GET SYNC STATUS
+    GET /api/exchange-rates/sync/status
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "isRunning": false,
+        "lastSyncTime": "Date",
+        "totalRates": 500,
+        "expiredRates": 10,
+        "quota": {
+          "remaining": 25000,
+          "total": 30000,
+          "percentage": 83.33
+        }
+      }
+    }
+
+13. GET RATE HISTORY
+    GET /api/exchange-rates/history
+    
+    Query Parameters:
+    - baseCurrency: string (optional) - Filter by base currency
+    - targetCurrency: string (optional) - Filter by target currency
+    - organizationId: ObjectId (optional) - Organization ID
+    - limit: number (optional, default: 50) - Number of records to return
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "total": 50,
+        "history": [
+          {
+            "baseCurrency": "USD",
+            "targetCurrency": "EUR",
+            "rate": 0.855,
+            "source": "api",
+            "isGlobal": true,
+            "lastApiUpdate": "Date",
+            "cacheExpiry": "Date",
+            "isExpired": false
+          }
+        ]
+      }
+    }
+
+14. OVERRIDE RATE MANUALLY
+    POST /api/exchange-rates/override
+    
+    Request Body:
+    {
+      "baseCurrency": "string (required)",
+      "targetCurrency": "string (required)",
+      "rate": "number (required)",
+      "organizationId": "ObjectId (optional)",
+      "reason": "string (optional)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "_id": "ObjectId",
+        "baseCurrency": "USD",
+        "targetCurrency": "EUR",
+        "rate": 0.860,
+        "organizationId": "ObjectId",
+        "isGlobal": false,
+        "isCustom": true,
+        "source": "manual_override",
+        "overrideReason": "Manual adjustment",
+        "createdAt": "Date",
+        "updatedAt": "Date"
+      },
+      "message": "Rate overridden successfully"
+    }
+
+EXCHANGE RATE FEATURES:
+- Real-time currency conversion using Exchange Rate API v6
+- Automatic caching with configurable TTL (default: 1 hour)
+- Organization-specific and global rate management
+- Manual rate override capabilities
+- Background sync service with daily updates
+- API quota monitoring and management
+- Comprehensive rate history tracking
+- Support for 161+ world currencies
+
+ERROR HANDLING:
+- 400: Invalid request data or currency codes
+- 401: Unauthorized access
+- 404: Exchange rate not found
+- 409: Exchange rate already exists
+- 500: Internal server error or API service unavailable

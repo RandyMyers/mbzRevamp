@@ -9,6 +9,7 @@ const logEvent = require('../helper/logEvent');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
 const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
+const { notifyProductCreated, notifyLowInventory, notifyOutOfStock } = require('../helpers/notificationHelper');
 
 //const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 
@@ -575,6 +576,14 @@ exports.createProduct = async (req, res) => {
     });
     console.log('✅ Event logged successfully');
 
+    // Send notification to organization admins
+    try {
+      await notifyProductCreated(updatedProduct, organizationId);
+    } catch (notificationError) {
+      console.error('Error sending product creation notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
     console.log('🎉 PRODUCT CREATION COMPLETE!');
     console.log('📊 Final Summary:', {
       productId: updatedProduct._id,
@@ -1026,6 +1035,21 @@ exports.updateProduct = async (req, res) => {
       },
       organization: req.user?.organization || existingProduct.organizationId
     });
+
+    // Check for inventory alerts
+    try {
+      const currentQuantity = updatedProduct.stock_quantity || 0;
+      const threshold = 10; // Low inventory threshold
+      
+      if (currentQuantity === 0) {
+        await notifyOutOfStock(updatedProduct, existingProduct.organizationId);
+      } else if (currentQuantity <= threshold) {
+        await notifyLowInventory(updatedProduct, currentQuantity, threshold, existingProduct.organizationId);
+      }
+    } catch (notificationError) {
+      console.error('Error sending inventory notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
 
     res.status(200).json({ 
       success: true, 

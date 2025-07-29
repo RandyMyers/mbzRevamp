@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const currencyList = require('../utils/currencyList');
 
 const UserSchema = new Schema({
     username: {
@@ -81,10 +82,10 @@ const UserSchema = new Schema({
       trim: true,
       validate: {
         validator: function(v) {
-          // Basic currency code validation (3 uppercase letters)
-          return /^[A-Z]{3}$/.test(v);
+          // Use comprehensive currency validation
+          return currencyList.isValidCurrencyCode(v);
         },
-        message: 'Currency code must be 3 uppercase letters (e.g., USD, EUR, NGN)'
+        message: 'Currency code must be a valid supported currency (e.g., USD, EUR, NGN). Please select from the supported currencies list.'
       }
     },
     profilePicture: {
