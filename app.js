@@ -80,6 +80,10 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const notificationTemplateRoutes = require('./routes/notificationTemplateRoutes');
 const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes');
+// Add missing route imports
+const roleRoutes = require('./routes/roleRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
 
 dotenv.config();
 
@@ -125,6 +129,9 @@ app.use(
 // Using imported routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/invitations', invitationRoutes);
 app.use('/api/affiliates', affiliateRoutes);
 //app.use('/api/sites', siteRoutes);
 //app.use('/api/triggers', triggerRoutes);
