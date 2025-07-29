@@ -244,7 +244,7 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
 - Organization context is maintained for all audit entries
 
 1. CREATE CUSTOMER
-   POST /api/customers
+   POST /api/customers/create
    
    Request Body:
    {
@@ -310,7 +310,7 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
    }
 
 2. GET ALL CUSTOMERS
-   GET /api/customers
+   GET /api/customers/all
    
    Query Parameters:
    - page: number (default: 1)
@@ -356,19 +356,86 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
      }
    }
 
-3. GET CUSTOMER BY ID
+3. GET CUSTOMERS BY ORGANIZATION
+   GET /api/customers/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - storeId: ObjectId (optional)
+   - role: string (optional)
+   - is_paying_customer: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "email": "string",
+         "first_name": "string",
+         "last_name": "string",
+         "username": "string",
+         "role": "string",
+         "billing": "object",
+         "shipping": "object",
+         "is_paying_customer": "boolean",
+         "avatar_url": "string",
+         "meta_data": ["object"],
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+4. GET CUSTOMER BY ID
    GET /api/customers/:id
    
    Response:
    {
      "success": true,
      "data": {
-       // Customer object with populated store information
+       "_id": "ObjectId",
+       "email": "string",
+       "first_name": "string",
+       "last_name": "string",
+       "username": "string",
+       "role": "string",
+       "billing": "object",
+       "shipping": "object",
+       "is_paying_customer": "boolean",
+       "avatar_url": "string",
+       "meta_data": ["object"],
+       "wooCommerceId": "number",
+       "storeId": {
+         "_id": "ObjectId",
+         "name": "string",
+         "url": "string"
+       },
+       "organizationId": "ObjectId",
+       "syncStatus": "string",
+       "lastSyncedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
      }
    }
 
-4. UPDATE CUSTOMER
-   PUT /api/customers/:id
+5. UPDATE CUSTOMER
+   PATCH /api/customers/:id
    
    Request Body: (all fields optional)
    {
@@ -392,7 +459,7 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
      }
    }
 
-5. DELETE CUSTOMER
+6. DELETE CUSTOMER
    DELETE /api/customers/:id
    
    Response:
@@ -402,65 +469,100 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
      "id": "ObjectId"
    }
 
-6. GET CUSTOMERS BY STORE
+7. GET CUSTOMERS BY STORE
    GET /api/customers/store/:storeId
    
-   Query Parameters: (same as GET ALL CUSTOMERS)
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - role: string (optional)
+   - is_paying_customer: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
    
    Response:
    {
      "success": true,
      "data": [
-       // Array of customers for the store
+       {
+         "_id": "ObjectId",
+         "email": "string",
+         "first_name": "string",
+         "last_name": "string",
+         "username": "string",
+         "role": "string",
+         "billing": "object",
+         "shipping": "object",
+         "is_paying_customer": "boolean",
+         "avatar_url": "string",
+         "meta_data": ["object"],
+         "wooCommerceId": "number",
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "syncStatus": "string",
+         "lastSyncedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
      ],
-     "pagination": "object"
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
    }
 
-7. DELETE ALL CUSTOMERS BY STORE
+8. DELETE ALL CUSTOMERS BY STORE
    DELETE /api/customers/store/:storeId
    
-   Request Body:
-   {
-     "syncToWooCommerce": "boolean (optional, default: false)"
-   }
-   
    Response:
    {
      "success": true,
-     "message": "Successfully deleted X customers from store",
-     "data": {
-       "deletedCount": "number",
-       "totalCustomers": "number",
-       "storeId": "string"
-     },
-     "wooCommerceSync": {
-       "total": "number",
-       "synced": "number",
-       "failed": "number",
-       "errors": ["object"]
-     }
+     "message": "All customers for store deleted successfully",
+     "deletedCount": "number"
    }
 
-8. SYNC CUSTOMERS WITH WOOCOMMERCE
-   POST /api/customers/sync/:storeId
+9. SYNC CUSTOMERS WITH WOOCOMMERCE
+   POST /api/customers/woocommerce/sync-customers/:storeId/:organizationId
    
    Request Body:
    {
-     "userId": "ObjectId (required)",
-     "organizationId": "ObjectId (optional)"
+     "userId": "ObjectId (required)"
    }
    
    Response:
    {
      "success": true,
-     "message": "Customer sync completed",
-     "data": {
-       "created": "number",
-       "updated": "number",
-       "failed": "number",
-       "errors": ["string"]
-     }
+     "message": "Customer synchronization started in the background"
    }
+
+10. SYNC CUSTOMER TO WOOCOMMERCE
+    POST /api/customers/woocommerce/sync/:customerId
+    
+    Response:
+    {
+      "success": true,
+      "message": "Customer synced to WooCommerce successfully",
+      "data": {
+        "wooCommerceId": "number",
+        "syncStatus": "string"
+      }
+    }
+
+11. RETRY CUSTOMER WOOCOMMERCE SYNC
+    POST /api/customers/woocommerce/retry-sync/:customerId
+    
+    Response:
+    {
+      "success": true,
+      "message": "Customer WooCommerce sync retry initiated",
+      "data": {
+        "wooCommerceId": "number",
+        "syncStatus": "string"
+      }
+    }
 
 ================================================================================
                                 ORDERS API
@@ -477,7 +579,7 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
 - Organization context is maintained for all audit entries
 
 1. CREATE ORDER
-   POST /api/orders
+   POST /api/orders/create
    
    Request Body:
    {
@@ -562,30 +664,24 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
        "order_key": "string",
        "cart_hash": "string",
        "version": "string",
-       "wooCommerceId": "number (null initially)",
        "storeId": "ObjectId",
        "organizationId": "ObjectId",
-       "syncStatus": "string",
-       "lastSyncedAt": "Date",
        "createdAt": "Date",
        "updatedAt": "Date"
      }
    }
 
 2. GET ALL ORDERS
-   GET /api/orders
+   GET /api/orders/all
    
    Query Parameters:
    - page: number (default: 1)
    - limit: number (default: 10)
    - search: string (optional)
+   - status: string (optional)
    - storeId: ObjectId (optional)
    - organizationId: ObjectId (optional)
-   - status: string (optional)
-   - customer_id: ObjectId (optional)
-   - date_from: string (ISO date, optional)
-   - date_to: string (ISO date, optional)
-   - sortBy: string (default: "createdAt")
+   - sortBy: string (default: "date_created")
    - sortOrder: "asc" | "desc" (default: "desc")
    
    Response:
@@ -600,17 +696,11 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
          "total": "string",
          "billing": "object",
          "shipping": "object",
-         "payment_method": "string",
-         "payment_method_title": "string",
          "line_items": ["object"],
-         "shipping_lines": ["object"],
-         "wooCommerceId": "number",
          "storeId": "ObjectId",
          "organizationId": "ObjectId",
-         "syncStatus": "string",
-         "lastSyncedAt": "Date",
-         "createdAt": "Date",
-         "updatedAt": "Date"
+         "date_created": "Date",
+         "date_updated": "Date"
        }
      ],
      "pagination": {
@@ -621,32 +711,160 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
      }
    }
 
-3. GET ORDER BY ID
-   GET /api/orders/:id
+3. GET ORDERS BY ORGANIZATION
+   GET /api/orders/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - status: string (optional)
+   - storeId: ObjectId (optional)
+   - sortBy: string (default: "date_created")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "customer_id": "ObjectId",
+         "status": "string",
+         "currency": "string",
+         "total": "string",
+         "billing": "object",
+         "shipping": "object",
+         "line_items": ["object"],
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "date_created": "Date",
+         "date_updated": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+4. GET ORDERS BY STORE
+   GET /api/orders/store/:storeId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - status: string (optional)
+   - sortBy: string (default: "date_created")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "customer_id": "ObjectId",
+         "status": "string",
+         "currency": "string",
+         "total": "string",
+         "billing": "object",
+         "shipping": "object",
+         "line_items": ["object"],
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "date_created": "Date",
+         "date_updated": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+5. GET ORDER BY ID
+   GET /api/orders/get/:orderId
    
    Response:
    {
      "success": true,
      "data": {
-       // Order object with populated customer and store information
+       "_id": "ObjectId",
+       "customer_id": "ObjectId",
+       "status": "string",
+       "currency": "string",
+       "prices_include_tax": "boolean",
+       "discount_total": "string",
+       "discount_tax": "string",
+       "shipping_total": "string",
+       "shipping_tax": "string",
+       "cart_tax": "string",
+       "total": "string",
+       "total_tax": "string",
+       "customer_note": "string",
+       "billing": "object",
+       "shipping": "object",
+       "payment_method": "string",
+       "payment_method_title": "string",
+       "transaction_id": "string",
+       "customer_ip_address": "string",
+       "customer_user_agent": "string",
+       "created_via": "string",
+       "line_items": ["object"],
+       "shipping_lines": ["object"],
+       "meta_data": ["object"],
+       "order_key": "string",
+       "cart_hash": "string",
+       "version": "string",
+       "storeId": "ObjectId",
+       "organizationId": "ObjectId",
+       "date_created": "Date",
+       "date_updated": "Date"
      }
    }
 
-4. UPDATE ORDER
-   PUT /api/orders/:id
+6. GET RECENT ORDERS
+   GET /api/orders/recent
+   
+   Query Parameters:
+   - limit: number (default: 10) - Number of recent orders to return
+   - organizationId: ObjectId (optional) - Filter by organization
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "customer_id": "ObjectId",
+         "status": "string",
+         "currency": "string",
+         "total": "string",
+         "billing": "object",
+         "shipping": "object",
+         "line_items": ["object"],
+         "storeId": "ObjectId",
+         "organizationId": "ObjectId",
+         "date_created": "Date",
+         "date_updated": "Date"
+       }
+     ]
+   }
+
+7. UPDATE ORDER
+   PATCH /api/orders/update/:orderId
    
    Request Body: (all fields optional)
    {
      "status": "string",
      "currency": "string",
-     "prices_include_tax": "boolean",
-     "discount_total": "string",
-     "discount_tax": "string",
-     "shipping_total": "string",
-     "shipping_tax": "string",
-     "cart_tax": "string",
      "total": "string",
-     "total_tax": "string",
      "customer_note": "string",
      "billing": "object",
      "shipping": "object",
@@ -666,8 +884,8 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
      }
    }
 
-5. DELETE ORDER
-   DELETE /api/orders/:id
+8. DELETE ORDER
+   DELETE /api/orders/delete/:orderId
    
    Response:
    {
@@ -676,108 +894,199 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
      "id": "ObjectId"
    }
 
-6. GET ORDERS BY STORE
-   GET /api/orders/store/:storeId
-   
-   Query Parameters: (same as GET ALL ORDERS)
-   
-   Response:
-   {
-     "success": true,
-     "data": [
-       // Array of orders for the store
-     ],
-     "pagination": "object"
-   }
-
-7. DELETE ALL ORDERS BY STORE
+9. DELETE ALL ORDERS BY STORE
    DELETE /api/orders/store/:storeId
    
-   Request Body:
-   {
-     "syncToWooCommerce": "boolean (optional, default: false)"
-   }
-   
    Response:
    {
      "success": true,
-     "message": "Successfully deleted X orders from store",
-     "data": {
-       "deletedCount": "number",
-       "totalOrders": "number",
-       "storeId": "string"
-     },
-     "wooCommerceSync": {
-       "total": "number",
-       "synced": "number",
-       "failed": "number",
-       "errors": ["object"]
-     }
+     "message": "All orders for store deleted successfully",
+     "deletedCount": "number"
    }
 
-8. SYNC ORDERS WITH WOOCOMMERCE
-   POST /api/orders/sync/:storeId
-   
-   Request Body:
-   {
-     "userId": "ObjectId (required)",
-     "organizationId": "ObjectId (optional)"
-   }
-   
-   Response:
-   {
-     "success": true,
-     "message": "Order sync completed",
-     "data": {
-       "created": "number",
-       "updated": "number",
-       "failed": "number",
-       "errors": ["string"]
-     }
-   }
+10. SYNC ORDERS
+    POST /api/orders/sync/:storeId/:organizationId
+    
+    Request Body:
+    {
+      "userId": "ObjectId (required)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "message": "Order synchronization started in the background"
+    }
 
-9. GET ALL ORDERS BY ORGANIZATION
-   GET /api/orders/organization/:organizationId
-   
-   Query Parameters:
-   - userId: ObjectId (optional) - User ID for currency preferences
-   - displayCurrency: string (optional) - Preferred display currency
-   
-   Response:
-   {
-     "success": true,
-     "orders": [
-       // Array of ALL orders for the organization (including cancelled/refunded)
-       {
-         "_id": "ObjectId",
-         "customer_id": "ObjectId",
-         "status": "string",
-         "currency": "string",
-         "total": "string",
-         "billing": "object",
-         "shipping": "object",
-         "payment_method": "string",
-         "payment_method_title": "string",
-         "line_items": ["object"],
-         "shipping_lines": ["object"],
-         "wooCommerceId": "number",
-         "storeId": "ObjectId",
-         "organizationId": "ObjectId",
-         "syncStatus": "string",
-         "lastSyncedAt": "Date",
-         "createdAt": "Date",
-         "updatedAt": "Date"
-       }
-     ],
-     "summary": {
-       "totalOrders": "number (valid orders only, excluding cancelled/refunded)",
-       "totalRevenue": "number (valid orders only, with currency conversion)",
-       "currency": "string (display currency)",
-       "totalAllOrders": "number (all orders including cancelled/refunded)",
-       "cancelledOrders": "number (count of cancelled orders)",
-       "refundedOrders": "number (count of refunded orders)"
-     }
-   }
+11. ANALYTICS - CROSS STORE PERFORMANCE
+    GET /api/orders/analytics/cross-store/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "storePerformance": ["object"],
+        "totalRevenue": "number",
+        "totalOrders": "number",
+        "currency": "string"
+      }
+    }
+
+12. ANALYTICS - TEMPORAL ANALYTICS
+    GET /api/orders/analytics/temporal/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "dailyTrends": ["object"],
+        "monthlyTrends": ["object"],
+        "hourlyDistribution": ["object"]
+      }
+    }
+
+13. ANALYTICS - CUSTOMER ANALYTICS
+    GET /api/orders/analytics/customers/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "customerSegments": ["object"],
+        "repeatCustomers": "number",
+        "newCustomers": "number",
+        "averageOrderValue": "number"
+      }
+    }
+
+14. ANALYTICS - PRODUCT PERFORMANCE
+    GET /api/orders/analytics/products/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "topProducts": ["object"],
+        "productCategories": ["object"],
+        "lowStockProducts": ["object"]
+      }
+    }
+
+15. ANALYTICS - FINANCIAL ANALYTICS
+    GET /api/orders/analytics/financial/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "revenue": "number",
+        "profit": "number",
+        "taxes": "number",
+        "shipping": "number",
+        "discounts": "number"
+      }
+    }
+
+16. ANALYTICS - OPERATIONAL METRICS
+    GET /api/orders/analytics/operations/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "orderStatusDistribution": ["object"],
+        "averageProcessingTime": "number",
+        "fulfillmentRate": "number",
+        "returnRate": "number"
+      }
+    }
+
+17. ANALYTICS - GEOSPATIAL ANALYTICS
+    GET /api/orders/analytics/geospatial/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "topCountries": ["object"],
+        "topCities": ["object"],
+        "regionalPerformance": ["object"]
+      }
+    }
+
+18. ANALYTICS - STATUS DISTRIBUTION
+    GET /api/orders/analytics/status/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "statusBreakdown": ["object"],
+        "statusTrends": ["object"]
+      }
+    }
+
+19. ANALYTICS - SALES FUNNEL
+    GET /api/orders/analytics/funnel/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "funnelStages": ["object"],
+        "conversionRates": ["object"],
+        "dropoffPoints": ["object"]
+      }
+    }
+
+20. ANALYTICS - CUSTOMER LTV
+    GET /api/orders/analytics/ltv/:organizationId
+    
+    Query Parameters:
+    - timeRange: string (7d, 30d, 90d, 12m, default: 30d)
+    - displayCurrency: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "averageLTV": "number",
+        "ltvSegments": ["object"],
+        "ltvTrends": ["object"]
+      }
+    }
 
 ================================================================================
                                 EMAIL MANAGEMENT API
@@ -2386,10 +2695,18 @@ BASE URL: /api/auth
    }
 
 ================================================================================
-                                USER MANAGEMENT API
+                                USERS API
 ================================================================================
 
 BASE URL: /api/users
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All user operations are automatically logged for security and compliance:
+- User creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
 
 1. CREATE USER
    POST /api/users/create
@@ -2437,7 +2754,7 @@ BASE URL: /api/users
    }
 
 2. GET ALL USERS
-   GET /api/users
+   GET /api/users/all
    
    Headers: Authorization: Bearer JWT_TOKEN
    
@@ -2493,7 +2810,7 @@ BASE URL: /api/users
    }
 
 3. GET USER BY ID
-   GET /api/users/:userId
+   GET /api/users/get/:userId
    
    Headers: Authorization: Bearer JWT_TOKEN
    
@@ -2531,7 +2848,7 @@ BASE URL: /api/users
    }
 
 4. UPDATE USER
-   PATCH /api/users/:userId
+   PATCH /api/users/update/:userId
    
    Headers: Authorization: Bearer JWT_TOKEN
    
@@ -2563,7 +2880,7 @@ BASE URL: /api/users
    }
 
 5. DELETE USER
-   DELETE /api/users/:userId
+   DELETE /api/users/delete/:userId
    
    Headers: Authorization: Bearer JWT_TOKEN
    
@@ -2574,7 +2891,7 @@ BASE URL: /api/users
    }
 
 6. UPDATE USER STATUS
-   PATCH /api/users/:userId/status
+   PATCH /api/users/change/:userId/status
    
    Headers: Authorization: Bearer JWT_TOKEN
    
@@ -2621,8 +2938,17 @@ BASE URL: /api/users
            "name": "string",
            "permissions": "object"
          },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
          "department": "string",
-         "groups": ["ObjectId"],
+         "groups": [
+           {
+             "_id": "ObjectId",
+             "name": "string"
+           }
+         ],
          "status": "active",
          "profilePicture": "string",
          "lastLogin": "Date",
@@ -2632,9 +2958,154 @@ BASE URL: /api/users
      "pagination": {
        "currentPage": "number",
        "totalPages": "number",
-       "totalUsers": "number"
+       "totalUsers": "number",
+       "hasNextPage": "boolean",
+       "hasPrevPage": "boolean"
      }
    }
+
+8. UPDATE PROFILE PICTURE
+   PATCH /api/users/:userId/profile-picture
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "profilePicture": "file (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Profile picture updated successfully",
+     "user": {
+       "_id": "ObjectId",
+       "profilePicture": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+9. GET USER REGIONAL SETTINGS
+   GET /api/users/:userId/regional-settings
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "regionalSettings": {
+       "timezone": "string",
+       "dateFormat": "string",
+       "timeFormat": "string",
+       "currency": "string",
+       "language": "string"
+     }
+   }
+
+10. UPDATE USER REGIONAL SETTINGS
+    PATCH /api/users/:userId/regional-settings
+    
+    Headers: Authorization: Bearer JWT_TOKEN
+    
+    Request Body:
+    {
+      "timezone": "string (optional)",
+      "dateFormat": "string (optional)",
+      "timeFormat": "string (optional)",
+      "currency": "string (optional)",
+      "language": "string (optional)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "message": "Regional settings updated successfully",
+      "regionalSettings": {
+        "timezone": "string",
+        "dateFormat": "string",
+        "timeFormat": "string",
+        "currency": "string",
+        "language": "string"
+      }
+    }
+
+11. UPLOAD PROFILE PICTURE
+    POST /api/users/:userId/avatar
+    
+    Headers: Authorization: Bearer JWT_TOKEN
+    
+    Request Body:
+    {
+      "avatar": "file (required)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "message": "Profile picture uploaded successfully",
+      "user": {
+        "_id": "ObjectId",
+        "profilePicture": "string",
+        "updatedAt": "Date"
+      }
+    }
+
+12. REMOVE PROFILE PICTURE
+    DELETE /api/users/:userId/avatar
+    
+    Headers: Authorization: Bearer JWT_TOKEN
+    
+    Response:
+    {
+      "success": true,
+      "message": "Profile picture removed successfully",
+      "user": {
+        "_id": "ObjectId",
+        "profilePicture": null,
+        "updatedAt": "Date"
+      }
+    }
+
+13. GET USER SESSIONS
+    GET /api/users/:userId/sessions
+    
+    Headers: Authorization: Bearer JWT_TOKEN
+    
+    Response:
+    {
+      "success": true,
+      "sessions": [
+        {
+          "_id": "ObjectId",
+          "userId": "ObjectId",
+          "deviceInfo": "string",
+          "ipAddress": "string",
+          "userAgent": "string",
+          "isActive": "boolean",
+          "lastActivity": "Date",
+          "createdAt": "Date"
+        }
+      ]
+    }
+
+14. TERMINATE USER SESSION
+    DELETE /api/users/:userId/sessions/:sessionId
+    
+    Headers: Authorization: Bearer JWT_TOKEN
+    
+    Response:
+    {
+      "success": true,
+      "message": "Session terminated successfully"
+    }
+
+ERROR HANDLING:
+- 400: Invalid request data
+- 401: Unauthorized access
+- 403: Insufficient permissions
+- 404: User not found
+- 409: Email already exists
+- 500: Internal server error
 
 ================================================================================
                                 ROLE MANAGEMENT API
@@ -4250,4 +4721,688 @@ Notification Settings Validation:
 - channel: Must be 'email' or 'inApp'
 - category: Must be 'system', 'orders', 'inventory', 'customers', or 'security'
 
+================================================================================
+                              OVERVIEW API
+================================================================================
+
+BASE URL: /api/overview
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All overview operations are automatically logged for security and compliance:
+- Overview data access is logged with user context
+- User information, IP address, and user agent are captured
+- Severity levels: info (data access)
+- Organization context is maintained for all audit entries
+
+1. GET OVERVIEW STATISTICS
+   GET /api/overview/stats/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency for conversion
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalRevenue": "number",
+       "totalOrders": "number",
+       "totalCustomers": "number", 
+       "averageOrderValue": "number",
+       "currency": "string",
+       "revenueBreakdown": "object",
+       "allOrders": "array",
+       "allCustomers": "array",
+       "allProducts": "array"
+     }
+   }
+
+2. GET SALES TREND DATA
+   GET /api/overview/sales-trend/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "month": "string (YYYY-MM)",
+         "revenue": "number",
+         "orders": "number"
+       }
+     ]
+   }
+
+3. GET ORDER SOURCES BREAKDOWN
+   GET /api/overview/order-sources/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "source": "string (manual|checkout|rest-api|etc)",
+         "count": "number",
+         "percentage": "number",
+         "revenue": "number"
+       }
+     ]
+   }
+
+4. GET TOP PRODUCTS
+   GET /api/overview/top-products/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   - limit: number (optional, default: 10) - Number of top products to return
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "name": "string",
+         "sales": "number",
+         "revenue": "number",
+         "image": "string (URL)",
+         "product_Id": "string",
+         "sku": "string",
+         "price": "number"
+       }
+     ]
+   }
+
+5. GET RECENT ORDERS
+   GET /api/overview/recent-orders/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   - limit: number (optional, default: 10) - Number of recent orders to return
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "orderNumber": "string",
+         "total": "number",
+         "status": "string (completed|processing|pending|cancelled)",
+         "currency": "string",
+         "convertedTotal": "number",
+         "customer": {
+           "firstName": "string",
+           "lastName": "string", 
+           "email": "string"
+         },
+         "date_created": "string (ISO date)",
+         "line_items": "array"
+       }
+     ]
+   }
+
+6. GET PRODUCT CATEGORIES DISTRIBUTION
+   GET /api/overview/product-categories/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "name": "string (category name)",
+         "value": "number (product count)",
+         "color": "string (hex color)",
+         "percentage": "number",
+         "revenue": "number"
+       }
+     ]
+   }
+
+7. GET STOCK STATUS DISTRIBUTION
+   GET /api/overview/stock-status/:userId
+   
+   Query Parameters:
+   - displayCurrency: string (optional) - Preferred display currency
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "name": "string (In Stock|Low Stock|Out of Stock)",
+         "value": "number (product count)",
+         "color": "string (hex color)",
+         "status": "string (in_stock|low_stock|out_of_stock)",
+         "percentage": "number",
+         "sales": "number"
+       }
+     ]
+   }
+
+8. TEST PRODUCT IMAGES (Debug Endpoint)
+   GET /api/overview/test-product-images/:userId
+   
+   Description: Debug endpoint to test product image loading and display
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "product_Id": "string",
+         "name": "string",
+         "images": "array",
+         "imageStatus": "string (valid|invalid|missing)"
+       }
+     ]
+   }
+
+================================================================================
+                              VALIDATION RULES
+================================================================================
+
+================================================================================
+                              TASKS API
+================================================================================
+
+BASE URL: /api/tasks
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All task operations are automatically logged for security and compliance:
+- Task creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE TASK
+   POST /api/tasks/create
+   
+   Request Body:
+   {
+     "title": "string (required)",
+     "description": "string (optional)",
+     "status": "string (default: 'pending')",
+     "priority": "string (default: 'medium')",
+     "dueDate": "Date (optional)",
+     "assignedTo": "ObjectId (optional)",
+     "tags": ["string (optional)"],
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "description": "string",
+       "status": "string",
+       "priority": "string",
+       "dueDate": "Date",
+       "assignedTo": "ObjectId",
+       "tags": ["string"],
+       "organizationId": "ObjectId",
+       "createdBy": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET TASKS BY ORGANIZATION
+   GET /api/tasks/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - status: string (optional)
+   - priority: string (optional)
+   - assignedTo: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "title": "string",
+         "description": "string",
+         "status": "string",
+         "priority": "string",
+         "dueDate": "Date",
+         "assignedTo": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string"
+         },
+         "tags": ["string"],
+         "organizationId": "ObjectId",
+         "createdBy": "ObjectId",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET TASK BY ID
+   GET /api/tasks/get/:taskId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "description": "string",
+       "status": "string",
+       "priority": "string",
+       "dueDate": "Date",
+       "assignedTo": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string"
+       },
+       "tags": ["string"],
+       "organizationId": "ObjectId",
+       "createdBy": "ObjectId",
+       "subtasks": ["object"],
+       "comments": ["object"],
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE TASK
+   PATCH /api/tasks/update/:taskId
+   
+   Request Body: (all fields optional)
+   {
+     "title": "string",
+     "description": "string",
+     "status": "string",
+     "priority": "string",
+     "dueDate": "Date",
+     "assignedTo": "ObjectId",
+     "tags": ["string"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated task object
+     }
+   }
+
+5. DELETE TASK
+   DELETE /api/tasks/delete/:taskId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Task deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. UPDATE TASK STATUS
+   PATCH /api/tasks/status/:taskId
+   
+   Request Body:
+   {
+     "status": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated task object
+     }
+   }
+
+7. ADD SUBTASK
+   POST /api/tasks/subtasks/create/:taskId
+   
+   Request Body:
+   {
+     "title": "string (required)",
+     "description": "string (optional)",
+     "completed": "boolean (default: false)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "description": "string",
+       "completed": "boolean",
+       "taskId": "ObjectId",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+8. UPDATE SUBTASK
+   PATCH /api/tasks/:taskId/subtasks/update/:subtaskId
+   
+   Request Body: (all fields optional)
+   {
+     "title": "string",
+     "description": "string",
+     "completed": "boolean"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated subtask object
+     }
+   }
+
+9. DELETE SUBTASK
+   DELETE /api/tasks/:taskId/subtasks/delete/:subtaskId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Subtask deleted successfully"
+   }
+
+10. ADD COMMENT
+    POST /api/tasks/:taskId/comments
+    
+    Request Body:
+    {
+      "content": "string (required)",
+      "userId": "ObjectId (required)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        "_id": "ObjectId",
+        "content": "string",
+        "taskId": "ObjectId",
+        "userId": "ObjectId",
+        "createdAt": "Date",
+        "updatedAt": "Date"
+      }
+    }
+
+11. UPDATE COMMENT
+    PATCH /api/tasks/:taskId/comments/:commentId
+    
+    Request Body:
+    {
+      "content": "string (required)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "data": {
+        // Updated comment object
+      }
+    }
+
+12. DELETE COMMENT
+    DELETE /api/tasks/:taskId/comments/:commentId
+    
+    Response:
+    {
+      "success": true,
+      "message": "Comment deleted successfully"
+    }
+
+13. GET TASKS BY USER
+    GET /api/tasks/user/:userId
+    
+    Query Parameters:
+    - page: number (default: 1)
+    - limit: number (default: 10)
+    - status: string (optional)
+    - priority: string (optional)
+    
+    Response:
+    {
+      "success": true,
+      "data": [
+        {
+          "_id": "ObjectId",
+          "title": "string",
+          "description": "string",
+          "status": "string",
+          "priority": "string",
+          "dueDate": "Date",
+          "tags": ["string"],
+          "organizationId": "ObjectId",
+          "createdAt": "Date",
+          "updatedAt": "Date"
+        }
+      ],
+      "pagination": {
+        "page": "number",
+        "limit": "number",
+        "total": "number",
+        "pages": "number"
+      }
+    }
+
+================================================================================
+                              STORES API
+================================================================================
+
+BASE URL: /api/stores
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All store operations are automatically logged for security and compliance:
+- Store creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE STORE
+   POST /api/stores/create
+   
+   Request Body:
+   {
+     "name": "string (required)",
+     "url": "string (required)",
+     "platformType": "string (required)",
+     "apiKey": "string (required)",
+     "secretKey": "string (required)",
+     "description": "string (optional)",
+     "websiteLogo": "string (optional)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "url": "string",
+       "platformType": "string",
+       "apiKey": "string",
+       "secretKey": "string",
+       "description": "string",
+       "websiteLogo": "string",
+       "organizationId": "ObjectId",
+       "isActive": "boolean",
+       "lastSyncDate": "Date",
+       "webhookSettings": "object",
+       "syncSettings": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET STORES BY ORGANIZATION
+   GET /api/stores/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - platformType: string (optional)
+   - isActive: boolean (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "url": "string",
+         "platformType": "string",
+         "description": "string",
+         "websiteLogo": "string",
+         "organizationId": "ObjectId",
+         "isActive": "boolean",
+         "lastSyncDate": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET STORE BY ID
+   GET /api/stores/get/:storeId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "url": "string",
+       "platformType": "string",
+       "apiKey": "string",
+       "secretKey": "string",
+       "description": "string",
+       "websiteLogo": "string",
+       "organizationId": "ObjectId",
+       "isActive": "boolean",
+       "lastSyncDate": "Date",
+       "webhookSettings": "object",
+       "syncSettings": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE STORE
+   PATCH /api/stores/update/:storeId
+   
+   Request Body: (all fields optional)
+   {
+     "name": "string",
+     "url": "string",
+     "platformType": "string",
+     "apiKey": "string",
+     "secretKey": "string",
+     "description": "string",
+     "websiteLogo": "string",
+     "isActive": "boolean"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       // Updated store object
+     }
+   }
+
+5. DELETE STORE
+   DELETE /api/stores/delete/:storeId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Store deleted successfully",
+     "id": "ObjectId"
+   }
+
+6. SYNC STORE WITH WOOCOMMERCE
+   PATCH /api/stores/sync/:storeId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Store sync initiated",
+     "data": {
+       "syncStatus": "string",
+       "lastSyncDate": "Date"
+     }
+   }
+
+7. CREATE STORE WEBHOOKS
+   POST /api/stores/:storeId/webhooks
+   
+   Request Body:
+   {
+     "baseUrl": "string (required)",
+     "secret": "string (required)",
+     "topics": ["string (optional)"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Webhooks created successfully",
+     "data": {
+       "webhookSettings": "object"
+     }
+   }
+
+8. GET STORE WEBHOOK STATUS
+   GET /api/stores/:storeId/webhooks/status
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "enabled": "boolean",
+       "baseUrl": "string",
+       "topics": ["string"],
+       "lastDelivery": "Date",
+       "deliveryCount": "number"
+     }
+   }
+
+================================================================================
+                              VALIDATION RULES
 ================================================================================
