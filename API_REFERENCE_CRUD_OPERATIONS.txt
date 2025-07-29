@@ -5971,3 +5971,258 @@ ERROR HANDLING:
 - 404: Exchange rate not found
 - 409: Exchange rate already exists
 - 500: Internal server error or API service unavailable
+
+================================================================================
+                              INVITATION API
+================================================================================
+
+BASE URL: /api/invitations
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All invitation operations are automatically logged for security and compliance:
+- Invitation creation, acceptance, and management are logged with user context
+- User information, IP address, and user agent are captured
+- Severity levels: info (invitation operations), error (email failures)
+- Organization context is maintained for all audit entries
+
+EMAIL INTEGRATION: All invitations automatically trigger email notifications:
+- Professional HTML email templates with organization branding
+- Fallback text-only versions for email clients
+- Email delivery tracking and error logging
+- Automatic resend functionality with new tokens
+
+1. CREATE INVITATION
+   POST /api/invitations/create
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Body:
+   {
+     "email": "user@example.com",
+     "role": "ObjectId", // Optional - role ID
+     "department": "Sales", // Optional - department name
+     "groups": ["ObjectId1", "ObjectId2"], // Optional - group IDs
+     "message": "Welcome to our team!", // Optional - personal message
+     "expiresAt": "2024-12-31T23:59:59.000Z", // Optional - default 7 days
+     "organization": "ObjectId", // Optional - uses user's organization if not provided
+     "baseUrl": "https://app.mbztechnology.com" // Required - frontend base URL for invitation links
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation sent successfully",
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "user@example.com",
+       "role": "ObjectId",
+       "department": "Sales",
+       "groups": ["ObjectId1", "ObjectId2"],
+       "status": "pending",
+       "expiresAt": "2024-12-31T23:59:59.000Z",
+       "invitedBy": {
+         "_id": "ObjectId",
+         "fullName": "John Doe",
+         "email": "admin@company.com"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "Company Name"
+       },
+       "createdAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+
+2. GET ALL INVITATIONS
+   GET /api/invitations
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - organizationId: Filter by organization (optional)
+   - status: Filter by status (pending, accepted, cancelled, expired)
+   - page: Page number for pagination
+   - limit: Number of items per page
+   
+   Response:
+   {
+     "success": true,
+     "invitations": [
+       {
+         "_id": "ObjectId",
+         "email": "user@example.com",
+         "status": "pending",
+         "expiresAt": "2024-12-31T23:59:59.000Z",
+         "invitedBy": {
+           "_id": "ObjectId",
+           "fullName": "John Doe"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "Company Name"
+         },
+         "role": {
+           "_id": "ObjectId",
+           "name": "Manager"
+         },
+         "department": "Sales",
+         "createdAt": "2024-01-01T00:00:00.000Z"
+       }
+     ],
+     "pagination": {
+       "page": 1,
+       "limit": 10,
+       "total": 25,
+       "pages": 3
+     }
+   }
+
+3. GET INVITATION BY ID
+   GET /api/invitations/:invitationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "user@example.com",
+       "status": "pending",
+       "expiresAt": "2024-12-31T23:59:59.000Z",
+       "invitedBy": {
+         "_id": "ObjectId",
+         "fullName": "John Doe",
+         "email": "admin@company.com"
+       },
+       "organization": {
+         "_id": "ObjectId",
+         "name": "Company Name"
+       },
+       "role": {
+         "_id": "ObjectId",
+         "name": "Manager"
+       },
+       "department": "Sales",
+       "groups": [
+         {
+           "_id": "ObjectId",
+           "name": "Sales Team"
+         }
+       ],
+       "message": "Welcome to our team!",
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+
+4. RESEND INVITATION
+   POST /api/invitations/:invitationId/resend
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Body:
+   {
+     "baseUrl": "https://app.mbztechnology.com" // Required - frontend base URL for invitation links
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation resent successfully",
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "user@example.com",
+       "status": "pending",
+       "expiresAt": "2024-12-31T23:59:59.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+
+5. CANCEL INVITATION
+   PATCH /api/invitations/:invitationId/cancel
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation cancelled successfully",
+     "invitation": {
+       "_id": "ObjectId",
+       "email": "user@example.com",
+       "status": "cancelled",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+
+6. ACCEPT INVITATION
+   POST /api/invitations/accept
+   
+   Body:
+   {
+     "token": "invitation_token_here",
+     "fullName": "John Doe",
+     "password": "securepassword123",
+     "username": "johndoe" // Optional
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation accepted successfully",
+     "user": {
+       "_id": "ObjectId",
+       "email": "user@example.com",
+       "fullName": "John Doe",
+       "username": "johndoe",
+       "role": "ObjectId",
+       "department": "Sales",
+       "organization": "ObjectId",
+       "status": "active"
+     },
+     "token": "JWT_TOKEN_HERE",
+     "invitation": {
+       "_id": "ObjectId",
+       "status": "accepted",
+       "organization": {
+         "_id": "ObjectId",
+         "name": "Company Name"
+       }
+     }
+   }
+
+7. DELETE INVITATION
+   DELETE /api/invitations/:invitationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invitation deleted successfully"
+   }
+
+VALIDATION RULES:
+- Email must be valid format and not already registered
+- Password must be at least 6 characters long
+- Username must be unique if provided
+- Role and groups must exist in the system
+- Only admin and super-admin users can create/resend invitations
+- Invitations expire after 7 days by default
+- Cannot resend already accepted invitations
+- Base URL is required for invitation links
+
+ERROR RESPONSES:
+- 400: Invalid email format, duplicate invitation, weak password
+- 403: Unauthorized to send invitations
+- 404: Invitation not found or expired
+- 500: Server error with detailed message in development
+
+EMAIL TEMPLATES:
+- Professional HTML design with organization branding
+- Includes invitation details, role, department, and expiration
+- Personal message from inviter (optional)
+- Clear call-to-action button and fallback link
+- Mobile-responsive design

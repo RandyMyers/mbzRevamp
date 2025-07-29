@@ -547,12 +547,7 @@ exports.getOverviewStats = async (req, res) => {
         productCategoriesDistribution,
         stockStatusDistribution,
         topProducts,
-        recentOrders,
-        
-        // Raw data for frontend filtering
-        allOrders,
-        allCustomers,
-        allProducts
+        recentOrders
       }
     });
   } catch (error) {

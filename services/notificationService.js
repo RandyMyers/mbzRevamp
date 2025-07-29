@@ -9,11 +9,11 @@ const sendEmailNotification = async (notification, user) => {
     // Import nodemailer dynamically to avoid issues if not installed
     const nodemailer = require('nodemailer');
     
-    // Create transporter (you'll need to configure this with your SMTP settings)
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: false, // true for 465, false for other ports
+    // Create transporter - Using MBZTECH SMTP settings
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'mbztechnology.com',
+      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465,
+      secure: true, // SSL for port 465
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -22,7 +22,7 @@ const sendEmailNotification = async (notification, user) => {
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"MBZTECH" <noreply@mbztech.com>',
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: notification.subject,
       html: notification.body,
