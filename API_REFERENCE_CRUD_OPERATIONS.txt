@@ -517,11 +517,19 @@ AUDIT LOGGING: All customer operations are automatically logged for security and
 8. DELETE ALL CUSTOMERS BY STORE
    DELETE /api/customers/store/:storeId
    
+   Query Parameters:
+   - syncToWooCommerce: boolean (optional, default: false) - Whether to sync deletion to WooCommerce
+   
    Response:
    {
      "success": true,
      "message": "All customers for store deleted successfully",
-     "deletedCount": "number"
+     "deletedCount": "number",
+     "wooCommerceSync": {
+       "synced": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
    }
 
 9. SYNC CUSTOMERS WITH WOOCOMMERCE
@@ -897,11 +905,19 @@ AUDIT LOGGING: All order operations are automatically logged for security and co
 9. DELETE ALL ORDERS BY STORE
    DELETE /api/orders/store/:storeId
    
+   Query Parameters:
+   - syncToWooCommerce: boolean (optional, default: false) - Whether to sync deletion to WooCommerce
+   
    Response:
    {
      "success": true,
      "message": "All orders for store deleted successfully",
-     "deletedCount": "number"
+     "deletedCount": "number",
+     "wooCommerceSync": {
+       "synced": "number",
+       "failed": "number",
+       "errors": ["string"]
+     }
    }
 
 10. SYNC ORDERS
@@ -1105,16 +1121,18 @@ AUDIT LOGGING: All email operations are automatically logged for security and co
 1. CREATE EMAIL
    POST /api/emails/create
    
+   Headers: Authorization: Bearer JWT_TOKEN
+   
    Request Body:
    {
-     "recipient": "string (required)",
-     "subject": "string (required)",
-     "body": "string (required)",
-     "variables": "object (optional)",
+     "recipient": "string (required, valid email format)",
+     "subject": "string (required, max 200 characters)",
+     "body": "string (required, HTML content)",
+     "variables": "object (optional, key-value pairs)",
      "emailTemplate": "ObjectId (optional)",
      "organization": "ObjectId (required)",
      "user": "ObjectId (required)",
-     "status": "string (default: 'draft')",
+     "status": "string (default: 'drafts', options: drafts|sent|failed)",
      "sentAt": "Date (optional)"
    }
    
@@ -1674,6 +1692,206 @@ AUDIT LOGGING: All sent email operations are automatically logged for security a
    }
 
 ================================================================================
+                                ARCHIVED EMAILS API
+================================================================================
+
+BASE URL: /api/archived
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All archived email operations are automatically logged for security and compliance:
+- Archived email creation, updates, and deletions are logged with full context
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. CREATE ARCHIVED EMAIL
+   POST /api/archived
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "recipient": "string (required)",
+     "subject": "string (required)",
+     "body": "string (required)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)",
+     "organization": "ObjectId (required)",
+     "user": "ObjectId (required)",
+     "archivedAt": "Date (optional, default: current date)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "archivedEmail": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "archivedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL ARCHIVED EMAILS
+   GET /api/archived
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - organizationId: ObjectId (optional)
+   - search: string (optional)
+   - sortBy: string (default: "archivedAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "archivedEmails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "organization": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "user": {
+           "_id": "ObjectId",
+           "name": "string"
+         },
+         "archivedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET ARCHIVED EMAILS BY ORGANIZATION
+   GET /api/archived/organization/:organizationId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - search: string (optional)
+   - sortBy: string (default: "archivedAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "archivedEmails": [
+       {
+         "_id": "ObjectId",
+         "recipient": "string",
+         "subject": "string",
+         "body": "string",
+         "variables": "object",
+         "emailTemplate": "ObjectId",
+         "organization": "ObjectId",
+         "user": "ObjectId",
+         "archivedAt": "Date",
+         "createdAt": "Date",
+         "updatedAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+4. GET ARCHIVED EMAIL BY ID
+   GET /api/archived/:archivedEmailId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "archivedEmail": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "archivedAt": "Date",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. UPDATE ARCHIVED EMAIL
+   PATCH /api/archived/:archivedEmailId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Request Body:
+   {
+     "recipient": "string (optional)",
+     "subject": "string (optional)",
+     "body": "string (optional)",
+     "variables": "object (optional)",
+     "emailTemplate": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "archivedEmail": {
+       "_id": "ObjectId",
+       "recipient": "string",
+       "subject": "string",
+       "body": "string",
+       "variables": "object",
+       "emailTemplate": "ObjectId",
+       "organization": "ObjectId",
+       "user": "ObjectId",
+       "archivedAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+6. DELETE ARCHIVED EMAIL
+   DELETE /api/archived/:archivedEmailId
+   
+   Headers: Authorization: Bearer JWT_TOKEN
+   
+   Response:
+   {
+     "success": true,
+     "message": "Archived email deleted successfully"
+   }
+
+================================================================================
                                 EMAIL TEMPLATES API
 ================================================================================
 
@@ -1690,12 +1908,14 @@ AUDIT LOGGING: All email template operations are automatically logged for securi
 1. CREATE EMAIL TEMPLATE
    POST /api/email/templates/create
    
+   Headers: Authorization: Bearer JWT_TOKEN
+   
    Request Body:
    {
-     "name": "string (required)",
-     "subject": "string (required)",
-     "body": "string (required)",
-     "variables": "object (optional)",
+     "name": "string (required, max 100 characters, unique)",
+     "subject": "string (required, max 200 characters)",
+     "body": "string (required, HTML content)",
+     "variables": "object (optional, key-value pairs for template variables)",
      "createdBy": "ObjectId (required)",
      "organization": "ObjectId (optional)"
    }
@@ -2300,7 +2520,7 @@ Authentication: All endpoints require authentication via authMiddleware
      }
    }
    
-   Note: This endpoint now returns all-time statistics (no time-based filtering).
+   Note: This endpoint returns all-time statistics (no time-based filtering).
    Previous period and growth calculations are set to 0 as data represents all-time totals.
 
 2. GET STORE ALERTS
@@ -3799,26 +4019,26 @@ All endpoints may return the following error responses:
                                 VERSION
 ================================================================================
 
-API Version: 1.4
+API Version: 1.5
 Last Updated: 2024
-Documentation Version: 1.4
+Documentation Version: 1.5
 
 Recent Updates:
-- Added multi-currency support with Exchange Rate API integration
-- Updated Store Overview stats to show all-time data
-- Enhanced Orders API with comprehensive order breakdown
-- Added currency conversion for accurate revenue calculations
-- Implemented background exchange rate synchronization
-- Updated Analytics controllers to support multi-currency operations
-- Enhanced Analytics page with currency-aware revenue calculations
-- Added currency parameters to all revenue-related analytics endpoints
-- Implemented comprehensive audit logging system for security and compliance
-- Added audit logging to authentication, inventory, and order controllers
+- Added Store Overview API with real-time analytics (Store Stats, Store Alerts, Store Performance Chart, Revenue Trend Chart)
+- Implemented time-series line chart data for store performance comparison
+- Enhanced delete by store functionality with optional WooCommerce sync for customers and orders
+- Improved email management with better validation and error handling
+- Added comprehensive archived emails API with full CRUD operations
+- Enhanced email template management with improved validation
+- Added authentication headers to all email endpoints
+- Implemented better error messages and validation for email creation
+- Added support for email variables as key-value pairs
+- Enhanced audit logging for all email operations
+- Updated store overview to show all-time statistics
+- Added multi-currency support for store performance analytics
+- Implemented comprehensive RBAC middleware for route and resource protection
+- Added comprehensive audit logging system for security and compliance
 - Enhanced audit tracking with IP address, user agent, and severity levels
-- Implemented complete email management system with draft and sent email features
-- Added enhanced email analytics with performance, engagement, and real-time tracking
-- Implemented email template management system
-- Added comprehensive audit logging to all email operations
 - Implemented complete user management system with role-based access control
 - Added comprehensive authentication system (super admin, organization users, affiliates)
 - Implemented role management with granular permissions system
@@ -3826,7 +4046,6 @@ Recent Updates:
 - Implemented invitation system for secure user onboarding
 - Added profile management with picture upload and currency preferences
 - Enhanced security with organization-based access restrictions
-- Implemented comprehensive RBAC middleware for route and resource protection
 
 ================================================================================
                               USER REGIONAL SETTINGS & PROFILE MANAGEMENT

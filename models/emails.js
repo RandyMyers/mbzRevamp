@@ -50,7 +50,7 @@ const EmailSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["trash", "drafts", "scheduled","sent"], // Allowed values
-      default: "Draft", // Default value if none is provided
+      default: "drafts", // Default value if none is provided
       required: true,
     },
   },

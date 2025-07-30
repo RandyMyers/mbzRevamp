@@ -6,7 +6,27 @@ const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper'
 // CREATE a new email
 exports.createEmail = async (req, res) => {
   try {
-    const { recipient, subject, body, variables, emailTemplate, createdBy, organization } = req.body;
+    const { recipient, subject, body, variables, emailTemplate, createdBy, organization, user } = req.body;
+    
+    // Handle both 'createdBy' and 'user' field names for compatibility
+    const userId = createdBy || user;
+    
+    // Validate required fields
+    if (!recipient || !subject || !body) {
+      return res.status(400).json({
+        success: false,
+        message: "Recipient, subject, and body are required fields"
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipient)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format for recipient"
+      });
+    }
 
     const newEmail = new Email({
       recipient,
@@ -14,7 +34,7 @@ exports.createEmail = async (req, res) => {
       body,
       variables,
       emailTemplate,
-      createdBy,
+      createdBy: userId,
       organization,
     });
 
@@ -40,17 +60,38 @@ exports.createEmail = async (req, res) => {
       userAgent: req.headers['user-agent']
     });
     
-    await logEvent({
-      action: 'create_email',
-      user: req.user._id,
-      resource: 'Email',
-      resourceId: savedEmail._id,
-      details: { to: savedEmail.recipient, subject: savedEmail.subject },
-      organization: req.user.organization
-    });
+    // Only log event if user is authenticated
+    if (req.user && req.user._id) {
+      await logEvent({
+        action: 'create_email',
+        user: req.user._id,
+        resource: 'Email',
+        resourceId: savedEmail._id,
+        details: { to: savedEmail.recipient, subject: savedEmail.subject },
+        organization: req.user.organization
+      });
+    }
+    
     res.status(201).json({ success: true, email: savedEmail });
   } catch (error) {
-    console.error(error);
+    console.error('Email creation error:', error);
+    
+    // Provide more specific error messages
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation error", 
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Duplicate email entry" 
+      });
+    }
+    
     res.status(500).json({ success: false, message: "Failed to create email" });
   }
 };

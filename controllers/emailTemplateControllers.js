@@ -6,14 +6,34 @@ exports.createEmailTemplate = async (req, res) => {
   try {
     const { name, subject, body, variables, createdBy, organization } = req.body;
     console.log(req.body);
+    
+    // Validate required fields
+    if (!name || !subject || !body) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, subject, and body are required fields"
+      });
+    }
+    
+    // Validate template name format
+    if (name.length < 3 || name.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Template name must be between 3 and 100 characters"
+      });
+    }
 
     const emailTemplateData = {
       name,
       subject,
       body,
-      variables,
       createdBy,
     };
+
+    // Only add variables if provided and not empty
+    if (variables && Object.keys(variables).length > 0) {
+      emailTemplateData.variables = variables;
+    }
 
     // Only add the organization field if it's provided
     if (organization) {
@@ -45,7 +65,24 @@ exports.createEmailTemplate = async (req, res) => {
     
     res.status(201).json({ success: true, emailTemplate: savedEmailTemplate });
   } catch (error) {
-    console.error(error);
+    console.error('Email template creation error:', error);
+    
+    // Provide more specific error messages
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation error", 
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Template name already exists" 
+      });
+    }
+    
     res.status(500).json({ success: false, message: "Failed to create email template" });
   }
 };

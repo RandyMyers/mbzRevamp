@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const emailTemplateController = require("../controllers/emailTemplateControllers");
+const { protect } = require('../middleware/authMiddleware');
 
-router.post("/create", emailTemplateController.createEmailTemplate);
-router.get("/all", emailTemplateController.getAllEmailTemplates);
-router.get("/get/:emailTemplateId", emailTemplateController.getEmailTemplateById);
-router.patch("/update/:emailTemplateId", emailTemplateController.updateEmailTemplate);
-router.delete("/delete/:emailTemplateId", emailTemplateController.deleteEmailTemplate);
-router.get("/organization/:organizationId", emailTemplateController.getEmailTemplatesByOrganization);
+router.post("/create", protect, emailTemplateController.createEmailTemplate);
+router.get("/all", protect, emailTemplateController.getAllEmailTemplates);
+router.get("/get/:emailTemplateId", protect, emailTemplateController.getEmailTemplateById);
+router.patch("/update/:emailTemplateId", protect, emailTemplateController.updateEmailTemplate);
+router.delete("/delete/:emailTemplateId", protect, emailTemplateController.deleteEmailTemplate);
+router.get("/organization/:organizationId", protect, emailTemplateController.getEmailTemplatesByOrganization);
 
 
 module.exports = router;

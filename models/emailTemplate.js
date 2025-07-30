@@ -16,12 +16,10 @@ const EmailTemplateSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    variables: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Variable", // References Variable model
-      },
-    ],
+    variables: {
+      type: Map,
+      of: String, // Key-value pairs for dynamic variables (e.g., { userName: "John Doe" })
+    },
     isActive: {
       type: Boolean,
       default: true,
