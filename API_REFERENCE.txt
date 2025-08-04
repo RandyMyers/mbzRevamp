@@ -24,8 +24,9 @@
 19. Call Scheduler
 20. Payment Gateways
 21. Chat Integrations
-22. Templates
-23. Draft/Trash/Archive Management
+22. Email Templates
+23. Templates
+24. Draft/Trash/Archive Management
 24. Affiliate Marketing Materials
 25. Payouts
 26. Commissions
@@ -3552,7 +3553,195 @@
 }
 ```
 
-## 14. WEBSITE MANAGEMENT
+## 14. EMAIL TEMPLATES
+
+### POST /email/templates/create
+**Description:** Create a new email template
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Body:**
+```json
+{
+  "name": "Welcome Email Template",
+  "subject": "Welcome to {{companyName}} - Get Started Today!",
+  "body": "<html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}</style></head><body><div style='max-width:600px;margin:0 auto;padding:20px'><h1 style='color:#2c5aa0'>Welcome {{firstName}}!</h1><p>Thank you for joining <strong>{{companyName}}</strong>. We're excited to have you on board.</p><div style='background:#f4f4f4;padding:15px;border-radius:5px;margin:20px 0'><h3>Getting Started:</h3><ul><li>Complete your profile setup</li><li>Explore our dashboard features</li><li>Contact support if you need help</li></ul></div><p>Best regards,<br>The {{companyName}} Team</p><footer style='margin-top:30px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#666'><p>This email was sent to {{email}}. If you have questions, contact us at support@{{companyDomain}}</p></footer></div></body></html>",
+  "variables": {
+    "firstName": "User's first name",
+    "companyName": "Organization name",
+    "email": "User's email address",
+    "companyDomain": "Organization domain"
+  },
+  "createdBy": "67f504af91eae487185de082",
+  "organization": "67f504af91eae487185de080"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "emailTemplate": {
+    "_id": "template_id",
+    "name": "Welcome Email Template",
+    "subject": "Welcome to {{companyName}} - Get Started Today!",
+    "body": "<html>...</html>",
+    "variables": {
+      "firstName": "User's first name",
+      "companyName": "Organization name",
+      "email": "User's email address",
+      "companyDomain": "Organization domain"
+    },
+    "createdBy": "67f504af91eae487185de082",
+    "organization": "67f504af91eae487185de080",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+### GET /email/templates/all
+**Description:** Get all email templates
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Response:**
+```json
+{
+  "success": true,
+  "emailTemplates": [
+    {
+      "_id": "template_id",
+      "name": "Welcome Email Template",
+      "subject": "Welcome to {{companyName}} - Get Started Today!",
+      "body": "<html>...</html>",
+      "variables": {
+        "firstName": "User's first name",
+        "companyName": "Organization name"
+      },
+      "createdBy": {
+        "_id": "67f504af91eae487185de082",
+        "name": "John Doe"
+      },
+      "organization": {
+        "_id": "67f504af91eae487185de080",
+        "name": "My Company"
+      },
+      "isActive": true,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /email/templates/get/:emailTemplateId
+**Description:** Get email template by ID
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Response:**
+```json
+{
+  "success": true,
+  "emailTemplate": {
+    "_id": "template_id",
+    "name": "Welcome Email Template",
+    "subject": "Welcome to {{companyName}} - Get Started Today!",
+    "body": "<html>...</html>",
+    "variables": {
+      "firstName": "User's first name",
+      "companyName": "Organization name",
+      "email": "User's email address",
+      "companyDomain": "Organization domain"
+    },
+    "createdBy": "67f504af91eae487185de082",
+    "organization": "67f504af91eae487185de080",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+### PATCH /email/templates/update/:emailTemplateId
+**Description:** Update an email template
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Body:**
+```json
+{
+  "name": "Updated Welcome Email Template",
+  "subject": "Welcome to {{companyName}} - Get Started Today!",
+  "body": "<html>...</html>",
+  "variables": {
+    "firstName": "User's first name",
+    "companyName": "Organization name"
+  },
+  "isActive": true
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "emailTemplate": {
+    "_id": "template_id",
+    "name": "Updated Welcome Email Template",
+    "subject": "Welcome to {{companyName}} - Get Started Today!",
+    "body": "<html>...</html>",
+    "variables": {
+      "firstName": "User's first name",
+      "companyName": "Organization name"
+    },
+    "createdBy": "67f504af91eae487185de082",
+    "organization": "67f504af91eae487185de080",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T12:00:00Z"
+  }
+}
+```
+
+### DELETE /email/templates/delete/:emailTemplateId
+**Description:** Delete an email template
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Email template deleted successfully"
+}
+```
+
+### GET /email/templates/organization/:organizationId
+**Description:** Get email templates by organization
+**Headers:** Authorization: Bearer JWT_TOKEN
+**Response:**
+```json
+{
+  "success": true,
+  "emailTemplates": [
+    {
+      "_id": "template_id",
+      "name": "Welcome Email Template",
+      "subject": "Welcome to {{companyName}} - Get Started Today!",
+      "body": "<html>...</html>",
+      "variables": {
+        "firstName": "User's first name",
+        "companyName": "Organization name"
+      },
+      "createdBy": {
+        "_id": "67f504af91eae487185de082",
+        "name": "John Doe"
+      },
+      "isActive": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+- 400: "Name, subject, and body are required fields"
+- 400: "Template name must be between 3 and 100 characters"
+- 400: "Template name already exists"
+- 500: "Failed to create email template"
+
+## 15. WEBSITE MANAGEMENT
 
 ### POST /websites/create
 **Description:** Create a new website

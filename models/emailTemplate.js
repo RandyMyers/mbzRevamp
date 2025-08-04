@@ -17,8 +17,8 @@ const EmailTemplateSchema = new mongoose.Schema(
       required: true,
     },
     variables: {
-      type: Map,
-      of: String, // Key-value pairs for dynamic variables (e.g., { userName: "John Doe" })
+      type: mongoose.Schema.Types.Mixed, // Allow both Map and Object
+      default: {},
     },
     isActive: {
       type: Boolean,

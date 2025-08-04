@@ -5,7 +5,9 @@ const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper'
 exports.createEmailTemplate = async (req, res) => {
   try {
     const { name, subject, body, variables, createdBy, organization } = req.body;
-    console.log(req.body);
+    console.log('=== EMAIL TEMPLATE CREATION DEBUG ===');
+    console.log('Request body:', req.body);
+    console.log('User object:', req.user);
     
     // Validate required fields
     if (!name || !subject || !body) {
@@ -30,7 +32,7 @@ exports.createEmailTemplate = async (req, res) => {
       createdBy,
     };
 
-    // Only add variables if provided and not empty
+    // Add variables if provided and not empty
     if (variables && Object.keys(variables).length > 0) {
       emailTemplateData.variables = variables;
     }
@@ -40,32 +42,42 @@ exports.createEmailTemplate = async (req, res) => {
       emailTemplateData.organization = organization;
     }
 
+    console.log('Email template data to save:', emailTemplateData);
+    
     const newEmailTemplate = new EmailTemplate(emailTemplateData);
-
     const savedEmailTemplate = await newEmailTemplate.save();
     
     // ✅ AUDIT LOG: Email Template Created
-    await createAuditLog({
-      action: 'Email Template Created',
-      user: req.user?._id,
-      resource: 'emailTemplate',
-      resourceId: savedEmailTemplate._id,
-      details: {
-        name: savedEmailTemplate.name,
-        subject: savedEmailTemplate.subject,
-        organization: savedEmailTemplate.organization,
+    try {
+      await createAuditLog({
+        action: 'Email Template Created',
+        user: req.user?._id || createdBy,
+        resource: 'emailTemplate',
+        resourceId: savedEmailTemplate._id,
+        details: {
+          name: savedEmailTemplate.name,
+          subject: savedEmailTemplate.subject,
+          organization: savedEmailTemplate.organization,
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        },
+        organization: req.user?.organization || savedEmailTemplate.organization,
+        severity: 'info',
         ip: req.ip,
         userAgent: req.headers['user-agent']
-      },
-      organization: req.user?.organization || savedEmailTemplate.organization,
-      severity: 'info',
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+      });
+    } catch (auditError) {
+      console.error('Audit log error (non-blocking):', auditError);
+      // Don't fail the main operation if audit logging fails
+    }
     
     res.status(201).json({ success: true, emailTemplate: savedEmailTemplate });
   } catch (error) {
-    console.error('Email template creation error:', error);
+    console.error('=== EMAIL TEMPLATE ERROR DETAILS ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error code:', error.code);
     
     // Provide more specific error messages
     if (error.name === 'ValidationError') {
@@ -83,7 +95,11 @@ exports.createEmailTemplate = async (req, res) => {
       });
     }
     
-    res.status(500).json({ success: false, message: "Failed to create email template" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to create email template",
+      error: error.message 
+    });
   }
 };
 

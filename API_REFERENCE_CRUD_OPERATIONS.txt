@@ -1912,12 +1912,29 @@ AUDIT LOGGING: All email template operations are automatically logged for securi
    
    Request Body:
    {
-     "name": "string (required, max 100 characters, unique)",
-     "subject": "string (required, max 200 characters)",
+     "name": "string (required, 3-100 characters, unique)",
+     "subject": "string (required)",
      "body": "string (required, HTML content)",
-     "variables": "object (optional, key-value pairs for template variables)",
+     "variables": {
+       "variableName": "string (optional, key-value pairs for template variables)"
+     },
      "createdBy": "ObjectId (required)",
      "organization": "ObjectId (optional)"
+   }
+   
+   Example Request:
+   {
+     "name": "Welcome Email Template",
+     "subject": "Welcome to {{companyName}} - Get Started Today!",
+     "body": "<html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}</style></head><body><div style='max-width:600px;margin:0 auto;padding:20px'><h1 style='color:#2c5aa0'>Welcome {{firstName}}!</h1><p>Thank you for joining <strong>{{companyName}}</strong>. We're excited to have you on board.</p><div style='background:#f4f4f4;padding:15px;border-radius:5px;margin:20px 0'><h3>Getting Started:</h3><ul><li>Complete your profile setup</li><li>Explore our dashboard features</li><li>Contact support if you need help</li></ul></div><p>Best regards,<br>The {{companyName}} Team</p><footer style='margin-top:30px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#666'><p>This email was sent to {{email}}. If you have questions, contact us at support@{{companyDomain}}</p></footer></div></body></html>",
+     "variables": {
+       "firstName": "User's first name",
+       "companyName": "Organization name",
+       "email": "User's email address",
+       "companyDomain": "Organization domain"
+     },
+     "createdBy": "67f504af91eae487185de082",
+     "organization": "67f504af91eae487185de080"
    }
    
    Response:
@@ -1928,7 +1945,12 @@ AUDIT LOGGING: All email template operations are automatically logged for securi
        "name": "string",
        "subject": "string",
        "body": "string",
-       "variables": "object",
+       "variables": {
+         "firstName": "string",
+         "companyName": "string",
+         "email": "string",
+         "companyDomain": "string"
+       },
        "createdBy": "ObjectId",
        "organization": "ObjectId",
        "isActive": "boolean",
@@ -1936,6 +1958,12 @@ AUDIT LOGGING: All email template operations are automatically logged for securi
        "updatedAt": "Date"
      }
    }
+   
+   Error Responses:
+   - 400: "Name, subject, and body are required fields"
+   - 400: "Template name must be between 3 and 100 characters"
+   - 400: "Template name already exists"
+   - 500: "Failed to create email template"
 
 2. GET ALL EMAIL TEMPLATES
    GET /api/email/templates/all
