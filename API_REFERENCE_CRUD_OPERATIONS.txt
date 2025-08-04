@@ -6942,107 +6942,126 @@ BASE URL: /api/receipts
    }
 
 ================================================================================
-                                TEMPLATES API
+                                WEBSITE TEMPLATES API
 ================================================================================
 
 BASE URL: /api/templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All template operations are automatically logged for security and compliance.
+
+DESCRIPTION: This API manages website templates (ecommerce, portfolio, blog, business, etc.) 
+with categories and premium features. This is separate from invoice/receipt templates.
 
 1. CREATE TEMPLATE
    POST /api/templates/create
    
    Request Body:
    {
-     "organizationId": "ObjectId (required)",
      "name": "string (required)",
-     "type": "string (required, invoice|receipt)",
-     "isDefault": "boolean (default: false)",
-     "design": {
-       "primaryColor": "string (optional)",
-       "secondaryColor": "string (optional)",
-       "fontFamily": "string (optional)",
-       "logoPosition": "string (optional)",
-       "showLogo": "boolean (optional)",
-       "showHeader": "boolean (optional)",
-       "showFooter": "boolean (optional)"
-     },
-     "content": {
-       "headerText": "string (optional)",
-       "footerText": "string (optional)",
-       "terms": "string (optional)",
-       "notes": "string (optional)"
-     },
-     "layout": {
-       "showTaxBreakdown": "boolean (optional)",
-       "showDiscountBreakdown": "boolean (optional)",
-       "showShippingInfo": "boolean (optional)",
-       "showPaymentInfo": "boolean (optional)"
-     }
+     "description": "string (required)",
+     "category": "string (required, enum: ecommerce|portfolio|blog|business|other)",
+     "isPremium": "boolean (default: false)",
+     "price": "number (default: 0, required if isPremium is true)",
+     "features": ["string (optional)"],
+     "image": "file (optional)"
    }
    
    Response:
    {
      "success": true,
-     "message": "Template created successfully",
      "data": {
        "_id": "ObjectId",
+       "userId": "ObjectId",
        "name": "string",
-       "type": "string",
-       "isDefault": "boolean",
-       "organizationId": "ObjectId",
+       "description": "string",
+       "category": "string",
+       "isPremium": "boolean",
+       "price": "number",
+       "features": ["string"],
+       "image": {
+         "url": "string",
+         "publicId": "string"
+       },
        "createdAt": "Date"
-     }
+     },
+     "message": "Template created successfully"
    }
 
 2. GET ALL TEMPLATES
-   GET /api/templates/organization/:organizationId
+   GET /api/templates/all
    
    Query Parameters:
-   - type: string (optional, invoice|receipt)
-   - isDefault: boolean (optional)
+   - category: string (optional)
+   - isPremium: boolean (optional)
    
    Response:
    {
      "success": true,
+     "count": "number",
      "data": [
        {
          "_id": "ObjectId",
          "name": "string",
-         "type": "string",
-         "isDefault": "boolean",
+         "description": "string",
+         "category": "string",
+         "isPremium": "boolean",
+         "price": "number",
+         "features": ["string"],
+         "image": {
+           "url": "string",
+           "publicId": "string"
+         },
+         "userId": {
+           "_id": "ObjectId",
+           "name": "string",
+           "email": "string"
+         },
          "createdAt": "Date"
        }
      ]
    }
 
 3. GET TEMPLATE BY ID
-   GET /api/templates/get/:templateId
+   GET /api/templates/get/:id
    
    Response:
    {
      "success": true,
      "data": {
        "_id": "ObjectId",
-       "organizationId": "ObjectId",
        "name": "string",
-       "type": "string",
-       "isDefault": "boolean",
-       "design": "object",
-       "content": "object",
-       "layout": "object",
-       "createdAt": "Date",
-       "updatedAt": "Date"
+       "description": "string",
+       "category": "string",
+       "isPremium": "boolean",
+       "price": "number",
+       "features": ["string"],
+       "image": {
+         "url": "string",
+         "publicId": "string"
+       },
+       "userId": {
+         "_id": "ObjectId",
+         "name": "string",
+         "email": "string"
+       },
+       "createdAt": "Date"
      }
    }
 
 4. UPDATE TEMPLATE
-   PATCH /api/templates/update/:templateId
+   PATCH /api/templates/update/:id
    
    Request Body: (all fields optional)
    {
      "name": "string",
-     "design": "object",
-     "content": "object",
-     "layout": "object"
+     "description": "string",
+     "category": "string",
+     "isPremium": "boolean",
+     "price": "number",
+     "features": ["string"],
+     "image": "file"
    }
    
    Response:
@@ -7052,15 +7071,21 @@ BASE URL: /api/templates
      "data": {
        "_id": "ObjectId",
        "name": "string",
-       "design": "object",
-       "content": "object",
-       "layout": "object",
+       "description": "string",
+       "category": "string",
+       "isPremium": "boolean",
+       "price": "number",
+       "features": ["string"],
+       "image": {
+         "url": "string",
+         "publicId": "string"
+       },
        "updatedAt": "Date"
      }
    }
 
 5. DELETE TEMPLATE
-   DELETE /api/templates/delete/:templateId
+   DELETE /api/templates/delete/:id
    
    Response:
    {
@@ -7068,16 +7093,437 @@ BASE URL: /api/templates
      "message": "Template deleted successfully"
    }
 
-6. SET TEMPLATE AS DEFAULT
-   PATCH /api/templates/:templateId/set-default
+6. GET USER TEMPLATES
+   GET /api/templates/user/:userId
    
    Response:
    {
      "success": true,
-     "message": "Template set as default successfully",
+     "count": "number",
+     "data": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "description": "string",
+         "category": "string",
+         "isPremium": "boolean",
+         "price": "number",
+         "features": ["string"],
+         "createdAt": "Date"
+       }
+     ]
+   }
+
+7. GET TEMPLATE ANALYTICS (Admin Only)
+   GET /api/templates/analytics/all
+   
+   Response:
+   {
+     "success": true,
      "data": {
+       "totalTemplates": "number",
+       "templatesByCategory": [
+         {
+           "_id": "string",
+           "count": "number"
+         }
+       ],
+       "templatesByType": [
+         {
+           "_id": "boolean",
+           "count": "number"
+         }
+       ]
+     }
+   }
+
+================================================================================
+                                INVOICE TEMPLATES API
+================================================================================
+
+BASE URL: /api/invoice/templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All invoice template operations are automatically logged for security and compliance.
+
+DESCRIPTION: This API manages invoice and receipt templates for generating professional 
+invoices and receipts. Separate from website templates.
+
+1. CREATE INVOICE TEMPLATE
+   POST /api/invoice/templates/invoice/create
+   
+   Request Body:
+   {
+     "name": "string (required)",
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "templateType": "string (default: 'professional', professional|minimal|elegant)",
+     "isDefault": "boolean (default: false)",
+     "companyInfo": {
+       "name": "string (optional)",
+       "address": "string (optional)",
+       "phone": "string (optional)",
+       "email": "string (optional)",
+       "website": "string (optional)",
+       "logo": "string (optional)"
+     },
+     "design": {
+       "primaryColor": "string (optional)",
+       "secondaryColor": "string (optional)",
+       "fontFamily": "string (optional)",
+       "logoPosition": "string (optional)"
+     },
+     "layout": {
+       "showTaxBreakdown": "boolean (optional)",
+       "showDiscountBreakdown": "boolean (optional)",
+       "showShippingInfo": "boolean (optional)",
+       "showPaymentInfo": "boolean (optional)"
+     },
+     "content": {
+       "headerText": "string (optional)",
+       "footerText": "string (optional)",
+       "terms": "string (optional)",
+       "notes": "string (optional)"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice template created successfully",
+     "template": {
        "_id": "ObjectId",
-       "isDefault": true,
+       "name": "string",
+       "organizationId": "ObjectId",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "companyInfo": "object",
+       "design": "object",
+       "layout": "object",
+       "content": "object",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL INVOICE TEMPLATES
+   GET /api/invoice/templates/invoice/list
+   
+   Query Parameters:
+   - organizationId: ObjectId (required)
+   - isActive: boolean (optional)
+   - templateType: string (optional)
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - sortBy: string (default: 'createdAt')
+   - sortOrder: string (default: 'desc')
+   
+   Response:
+   {
+     "success": true,
+     "templates": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "templateType": "string",
+         "isDefault": "boolean",
+         "isActive": "boolean",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string"
+         },
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET INVOICE TEMPLATE BY ID
+   GET /api/invoice/templates/invoice/:id
+   
+   Query Parameters:
+   - organizationId: ObjectId (required)
+   
+   Response:
+   {
+     "success": true,
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "organizationId": "ObjectId",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "companyInfo": "object",
+       "design": "object",
+       "layout": "object",
+       "content": "object",
+       "createdBy": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string"
+       },
+       "updatedBy": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string"
+       },
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE INVOICE TEMPLATE
+   PUT /api/invoice/templates/invoice/:id
+   
+   Request Body: (all fields optional)
+   {
+     "name": "string",
+     "templateType": "string",
+     "isDefault": "boolean",
+     "companyInfo": "object",
+     "design": "object",
+     "layout": "object",
+     "content": "object",
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice template updated successfully",
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "companyInfo": "object",
+       "design": "object",
+       "layout": "object",
+       "content": "object",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE INVOICE TEMPLATE
+   DELETE /api/invoice/templates/invoice/:id
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice template deleted successfully"
+   }
+
+6. SET DEFAULT INVOICE TEMPLATE
+   PUT /api/invoice/templates/invoice/:id/set-default
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Default invoice template set successfully",
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "isDefault": "boolean",
+       "updatedAt": "Date"
+     }
+   }
+
+================================================================================
+                                RECEIPT TEMPLATES API
+================================================================================
+
+BASE URL: /api/invoice/templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All receipt template operations are automatically logged for security and compliance.
+
+1. CREATE RECEIPT TEMPLATE
+   POST /api/invoice/templates/receipt/create
+   
+   Request Body:
+   {
+     "name": "string (required)",
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "templateType": "string (default: 'professional', professional|minimal|elegant)",
+     "isDefault": "boolean (default: false)",
+     "companyInfo": "object (optional)",
+     "design": "object (optional)",
+     "layout": "object (optional)",
+     "content": "object (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt template created successfully",
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "organizationId": "ObjectId",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL RECEIPT TEMPLATES
+   GET /api/invoice/templates/receipt/list
+   
+   Query Parameters:
+   - organizationId: ObjectId (required)
+   - isActive: boolean (optional)
+   - templateType: string (optional)
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - sortBy: string (default: 'createdAt')
+   - sortOrder: string (default: 'desc')
+   
+   Response:
+   {
+     "success": true,
+     "templates": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "templateType": "string",
+         "isDefault": "boolean",
+         "isActive": "boolean",
+         "createdBy": {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string"
+         },
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "page": "number",
+       "limit": "number",
+       "total": "number",
+       "pages": "number"
+     }
+   }
+
+3. GET RECEIPT TEMPLATE BY ID
+   GET /api/invoice/templates/receipt/:id
+   
+   Query Parameters:
+   - organizationId: ObjectId (required)
+   
+   Response:
+   {
+     "success": true,
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "organizationId": "ObjectId",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "companyInfo": "object",
+       "design": "object",
+       "layout": "object",
+       "content": "object",
+       "createdBy": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string"
+       },
+       "updatedBy": {
+         "_id": "ObjectId",
+         "fullName": "string",
+         "email": "string"
+       },
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE RECEIPT TEMPLATE
+   PUT /api/invoice/templates/receipt/:id
+   
+   Request Body: (all fields optional)
+   {
+     "name": "string",
+     "templateType": "string",
+     "isDefault": "boolean",
+     "companyInfo": "object",
+     "design": "object",
+     "layout": "object",
+     "content": "object",
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt template updated successfully",
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "templateType": "string",
+       "isDefault": "boolean",
+       "companyInfo": "object",
+       "design": "object",
+       "layout": "object",
+       "content": "object",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE RECEIPT TEMPLATE
+   DELETE /api/invoice/templates/receipt/:id
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt template deleted successfully"
+   }
+
+6. SET DEFAULT RECEIPT TEMPLATE
+   PUT /api/invoice/templates/receipt/:id/set-default
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Default receipt template set successfully",
+     "template": {
+       "_id": "ObjectId",
+       "name": "string",
+       "isDefault": "boolean",
        "updatedAt": "Date"
      }
    }

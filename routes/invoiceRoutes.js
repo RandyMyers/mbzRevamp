@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const invoiceControllers = require('../controllers/invoiceControllers');
-const { authenticateToken } = require('../middleware/authMiddleware');
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
+
 
 // ==================== INVOICE ROUTES ====================
 

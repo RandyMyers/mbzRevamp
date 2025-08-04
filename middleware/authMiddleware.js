@@ -100,4 +100,7 @@ exports.isOrganizationMember = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-}; 
+};
+
+// Alias for authenticateToken (for compatibility with existing routes)
+exports.authenticateToken = exports.protect; 

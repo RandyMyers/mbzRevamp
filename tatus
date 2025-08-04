@@ -1,0 +1,32 @@
+[33mcommit e9e16cfa2daf10eb513affbf0c15016cebb8acc1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Randy Myers <ranmyers12@gmail.com>
+Date:   Mon Aug 4 03:36:51 2025 +0300
+
+    Add comprehensive shipping label system with invoices, receipts, feedback, and templates - Complete backend implementation with CRUD operations, PDF generation, audit logging, and API documentation
+
+API_REFERENCE.txt
+API_REFERENCE_CRUD_OPERATIONS.txt
+app.js
+controllers/feedbackControllers.js
+controllers/invoiceControllers.js
+controllers/orderControllers.js
+controllers/receiptControllers.js
+controllers/shippingLabelController.js
+controllers/storeControllers.js
+controllers/templateControllers.js
+models/Feedback.js
+models/FeedbackResponse.js
+models/Invoice.js
+models/InvoiceTemplate.js
+models/Receipt.js
+models/ReceiptTemplate.js
+models/Suggestion.js
+models/Survey.js
+models/SurveyResponse.js
+models/shippingLabel.js
+routes/feedbackRoutes.js
+routes/invoiceRoutes.js
+routes/orderRoutes.js
+routes/receiptRoutes.js
+routes/shippingLabelRoutes.js
+routes/templateRoutes.js

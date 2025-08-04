@@ -89,7 +89,8 @@ const invitationRoutes = require('./routes/invitationRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 const receiptRoutes = require('./routes/receiptRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
-const templateRoutes = require('./routes/templateRoutes');
+
+const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
 
 // New Shipping Label routes
 const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
@@ -211,7 +212,7 @@ app.use('/api/notification-settings', notificationSettingsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/feedback', feedbackRoutes);
-app.use('/api/templates', templateRoutes);
+app.use('/api/invoice/templates', invoiceTemplateRoutes);
 
 // New Shipping Label routes
 app.use('/api/shipping-labels', shippingLabelRoutes);

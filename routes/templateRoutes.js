@@ -1,49 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const templateControllers = require('../controllers/templateControllers');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const templateController = require('../controllers/templateController');
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
 
-// ==================== INVOICE TEMPLATE ROUTES ====================
+// Template CRUD operations
+router.post('/create', templateController.createTemplate);
+router.get('/all', templateController.getAllTemplates);
+router.get('/get/:id', templateController.getTemplateById);
+router.patch('/update/:id', templateController.updateTemplate);
+router.delete('/delete/:id', templateController.deleteTemplate);
 
-// CREATE invoice template
-router.post('/invoice/create', templateControllers.createInvoiceTemplate);
+// User-specific templates
+router.get('/user/:userId', templateController.getUserTemplates);
 
-// GET all invoice templates
-router.get('/invoice/list', templateControllers.getInvoiceTemplates);
-
-// GET single invoice template by ID
-router.get('/invoice/:id', templateControllers.getInvoiceTemplateById);
-
-// UPDATE invoice template
-router.put('/invoice/:id', templateControllers.updateInvoiceTemplate);
-
-// DELETE invoice template
-router.delete('/invoice/:id', templateControllers.deleteInvoiceTemplate);
-
-// SET default invoice template
-router.put('/invoice/:id/set-default', templateControllers.setDefaultInvoiceTemplate);
-
-// ==================== RECEIPT TEMPLATE ROUTES ====================
-
-// CREATE receipt template
-router.post('/receipt/create', templateControllers.createReceiptTemplate);
-
-// GET all receipt templates
-router.get('/receipt/list', templateControllers.getReceiptTemplates);
-
-// GET single receipt template by ID
-router.get('/receipt/:id', templateControllers.getReceiptTemplateById);
-
-// UPDATE receipt template
-router.put('/receipt/:id', templateControllers.updateReceiptTemplate);
-
-// DELETE receipt template
-router.delete('/receipt/:id', templateControllers.deleteReceiptTemplate);
-
-// SET default receipt template
-router.put('/receipt/:id/set-default', templateControllers.setDefaultReceiptTemplate);
+// Analytics (admin only)
+router.get('/analytics/all', templateController.getTemplateAnalytics);
 
 module.exports = router;
