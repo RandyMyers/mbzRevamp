@@ -1629,3 +1629,34 @@ exports.getRecentOrders = async (req, res) => {
     });
   }
 };
+
+// GET order with shipping label information
+exports.getOrderWithShippingLabel = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const order = await Order.findById(orderId)
+      .populate('customerId')
+      .populate('storeId');
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Get shipping label if exists
+    const ShippingLabel = require('../models/shippingLabel');
+    const shippingLabel = await ShippingLabel.findOne({ orderId });
+    
+    res.json({
+      success: true,
+      data: {
+        order,
+        shippingLabel,
+      },
+    });
+    
+  } catch (error) {
+    console.error('Error getting order with shipping label:', error);
+    res.status(500).json({ error: error.message });
+  }
+};

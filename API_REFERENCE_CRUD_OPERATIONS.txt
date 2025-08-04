@@ -6453,3 +6453,1421 @@ EMAIL TEMPLATES:
 - Personal message from inviter (optional)
 - Clear call-to-action button and fallback link
 - Mobile-responsive design
+
+================================================================================
+                                INVOICES & RECEIPTS API
+================================================================================
+
+BASE URL: /api/invoices | /api/receipts | /api/templates
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All invoice and receipt operations are automatically logged for security and compliance:
+- Invoice/receipt creation, updates, and deletions are logged with full context
+- PDF generation and email sending are tracked
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+================================================================================
+                                INVOICES API
+================================================================================
+
+BASE URL: /api/invoices
+
+1. CREATE INVOICE
+   POST /api/invoices/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "customerId": "ObjectId (required)",
+     "orderId": "ObjectId (optional)",
+     "invoiceNumber": "string (optional, auto-generated if not provided)",
+     "issueDate": "Date (required)",
+     "dueDate": "Date (required)",
+     "status": "string (default: 'draft', options: draft|sent|paid|overdue|cancelled)",
+     "currency": "string (default: 'USD')",
+     "subtotal": "number (required)",
+     "taxAmount": "number (default: 0)",
+     "discountAmount": "number (default: 0)",
+     "totalAmount": "number (required)",
+     "notes": "string (optional)",
+     "terms": "string (optional)",
+     "lineItems": [
+       {
+         "description": "string (required)",
+         "quantity": "number (required)",
+         "unitPrice": "number (required)",
+         "total": "number (required)"
+       }
+     ],
+     "billingAddress": {
+       "name": "string (required)",
+       "company": "string (optional)",
+       "address": "string (required)",
+       "city": "string (required)",
+       "state": "string (required)",
+       "postalCode": "string (required)",
+       "country": "string (required)"
+     },
+     "shippingAddress": {
+       "name": "string (optional)",
+       "company": "string (optional)",
+       "address": "string (optional)",
+       "city": "string (optional)",
+       "state": "string (optional)",
+       "postalCode": "string (optional)",
+       "country": "string (optional)"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "invoiceNumber": "string",
+       "organizationId": "ObjectId",
+       "customerId": "ObjectId",
+       "orderId": "ObjectId",
+       "issueDate": "Date",
+       "dueDate": "Date",
+       "status": "string",
+       "currency": "string",
+       "subtotal": "number",
+       "taxAmount": "number",
+       "discountAmount": "number",
+       "totalAmount": "number",
+       "notes": "string",
+       "terms": "string",
+       "lineItems": ["object"],
+       "billingAddress": "object",
+       "shippingAddress": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL INVOICES
+   GET /api/invoices/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, draft|sent|paid|overdue|cancelled)
+   - startDate: string (ISO date, optional)
+   - endDate: string (ISO date, optional)
+   - customerId: ObjectId (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "invoiceNumber": "string",
+         "customerId": {
+           "firstName": "string",
+           "lastName": "string",
+           "email": "string"
+         },
+         "issueDate": "Date",
+         "dueDate": "Date",
+         "status": "string",
+         "totalAmount": "number",
+         "currency": "string",
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalInvoices": "number"
+   }
+
+3. GET INVOICE BY ID
+   GET /api/invoices/get/:invoiceId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "invoiceNumber": "string",
+       "organizationId": "ObjectId",
+       "customerId": {
+         "firstName": "string",
+         "lastName": "string",
+         "email": "string"
+       },
+       "orderId": "ObjectId",
+       "issueDate": "Date",
+       "dueDate": "Date",
+       "status": "string",
+       "currency": "string",
+       "subtotal": "number",
+       "taxAmount": "number",
+       "discountAmount": "number",
+       "totalAmount": "number",
+       "notes": "string",
+       "terms": "string",
+       "lineItems": ["object"],
+       "billingAddress": "object",
+       "shippingAddress": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE INVOICE
+   PATCH /api/invoices/update/:invoiceId
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "paidDate": "Date",
+     "paymentMethod": "string",
+     "notes": "string"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "paidDate": "Date",
+       "paymentMethod": "string",
+       "notes": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE INVOICE
+   DELETE /api/invoices/delete/:invoiceId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice deleted successfully"
+   }
+
+6. SEND INVOICE VIA EMAIL
+   POST /api/invoices/:invoiceId/send
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "subject": "string (optional)",
+     "message": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoice sent successfully",
+     "data": {
+       "sentAt": "Date",
+       "recipient": "string"
+     }
+   }
+
+7. GENERATE INVOICE PDF
+   GET /api/invoices/:invoiceId/pdf
+   
+   Response: PDF file download
+
+8. BULK GENERATE INVOICES FROM ORDERS
+   POST /api/invoices/bulk-generate
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "orderIds": ["ObjectId (required)"],
+     "templateId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Invoices generated successfully",
+     "data": {
+       "generated": "number",
+       "failed": "number",
+       "invoices": [
+         {
+           "_id": "ObjectId",
+           "invoiceNumber": "string",
+           "orderId": "ObjectId"
+         }
+       ]
+     }
+   }
+
+================================================================================
+                                RECEIPTS API
+================================================================================
+
+BASE URL: /api/receipts
+
+1. CREATE RECEIPT
+   POST /api/receipts/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "customerId": "ObjectId (required)",
+     "orderId": "ObjectId (optional)",
+     "receiptNumber": "string (optional, auto-generated if not provided)",
+     "paymentDate": "Date (required)",
+     "paymentMethod": "string (required)",
+     "transactionId": "string (optional)",
+     "status": "string (default: 'completed', options: completed|pending|failed|refunded)",
+     "currency": "string (default: 'USD')",
+     "subtotal": "number (required)",
+     "taxAmount": "number (default: 0)",
+     "discountAmount": "number (default: 0)",
+     "totalAmount": "number (required)",
+     "refundAmount": "number (default: 0)",
+     "notes": "string (optional)",
+     "lineItems": [
+       {
+         "description": "string (required)",
+         "quantity": "number (required)",
+         "unitPrice": "number (required)",
+         "total": "number (required)"
+       }
+     ],
+     "billingAddress": {
+       "name": "string (required)",
+       "company": "string (optional)",
+       "address": "string (required)",
+       "city": "string (required)",
+       "state": "string (required)",
+       "postalCode": "string (required)",
+       "country": "string (required)"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "receiptNumber": "string",
+       "organizationId": "ObjectId",
+       "customerId": "ObjectId",
+       "orderId": "ObjectId",
+       "paymentDate": "Date",
+       "paymentMethod": "string",
+       "transactionId": "string",
+       "status": "string",
+       "currency": "string",
+       "subtotal": "number",
+       "taxAmount": "number",
+       "discountAmount": "number",
+       "totalAmount": "number",
+       "refundAmount": "number",
+       "notes": "string",
+       "lineItems": ["object"],
+       "billingAddress": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+2. GET ALL RECEIPTS
+   GET /api/receipts/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, completed|pending|failed|refunded)
+   - startDate: string (ISO date, optional)
+   - endDate: string (ISO date, optional)
+   - customerId: ObjectId (optional)
+   - paymentMethod: string (optional)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "receiptNumber": "string",
+         "customerId": {
+           "firstName": "string",
+           "lastName": "string",
+           "email": "string"
+         },
+         "paymentDate": "Date",
+         "paymentMethod": "string",
+         "transactionId": "string",
+         "status": "string",
+         "totalAmount": "number",
+         "currency": "string",
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalReceipts": "number"
+   }
+
+3. GET RECEIPT BY ID
+   GET /api/receipts/get/:receiptId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "receiptNumber": "string",
+       "organizationId": "ObjectId",
+       "customerId": {
+         "firstName": "string",
+         "lastName": "string",
+         "email": "string"
+       },
+       "orderId": "ObjectId",
+       "paymentDate": "Date",
+       "paymentMethod": "string",
+       "transactionId": "string",
+       "status": "string",
+       "currency": "string",
+       "subtotal": "number",
+       "taxAmount": "number",
+       "discountAmount": "number",
+       "totalAmount": "number",
+       "refundAmount": "number",
+       "notes": "string",
+       "lineItems": ["object"],
+       "billingAddress": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE RECEIPT
+   PATCH /api/receipts/update/:receiptId
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "refundAmount": "number",
+     "refundDate": "Date",
+     "refundReason": "string"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "refundAmount": "number",
+       "refundDate": "Date",
+       "refundReason": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE RECEIPT
+   DELETE /api/receipts/delete/:receiptId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt deleted successfully"
+   }
+
+6. SEND RECEIPT VIA EMAIL
+   POST /api/receipts/:receiptId/send
+   
+   Request Body:
+   {
+     "email": "string (required)",
+     "subject": "string (optional)",
+     "message": "string (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipt sent successfully",
+     "data": {
+       "sentAt": "Date",
+       "recipient": "string"
+     }
+   }
+
+7. GENERATE RECEIPT PDF
+   GET /api/receipts/:receiptId/pdf
+   
+   Response: PDF file download
+
+8. BULK GENERATE RECEIPTS FROM ORDERS
+   POST /api/receipts/bulk-generate
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "orderIds": ["ObjectId (required)"],
+     "templateId": "ObjectId (optional)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Receipts generated successfully",
+     "data": {
+       "generated": "number",
+       "failed": "number",
+       "receipts": [
+         {
+           "_id": "ObjectId",
+           "receiptNumber": "string",
+           "orderId": "ObjectId"
+         }
+       ]
+     }
+   }
+
+================================================================================
+                                TEMPLATES API
+================================================================================
+
+BASE URL: /api/templates
+
+1. CREATE TEMPLATE
+   POST /api/templates/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "name": "string (required)",
+     "type": "string (required, invoice|receipt)",
+     "isDefault": "boolean (default: false)",
+     "design": {
+       "primaryColor": "string (optional)",
+       "secondaryColor": "string (optional)",
+       "fontFamily": "string (optional)",
+       "logoPosition": "string (optional)",
+       "showLogo": "boolean (optional)",
+       "showHeader": "boolean (optional)",
+       "showFooter": "boolean (optional)"
+     },
+     "content": {
+       "headerText": "string (optional)",
+       "footerText": "string (optional)",
+       "terms": "string (optional)",
+       "notes": "string (optional)"
+     },
+     "layout": {
+       "showTaxBreakdown": "boolean (optional)",
+       "showDiscountBreakdown": "boolean (optional)",
+       "showShippingInfo": "boolean (optional)",
+       "showPaymentInfo": "boolean (optional)"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Template created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "type": "string",
+       "isDefault": "boolean",
+       "organizationId": "ObjectId",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL TEMPLATES
+   GET /api/templates/organization/:organizationId
+   
+   Query Parameters:
+   - type: string (optional, invoice|receipt)
+   - isDefault: boolean (optional)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "name": "string",
+         "type": "string",
+         "isDefault": "boolean",
+         "createdAt": "Date"
+       }
+     ]
+   }
+
+3. GET TEMPLATE BY ID
+   GET /api/templates/get/:templateId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "name": "string",
+       "type": "string",
+       "isDefault": "boolean",
+       "design": "object",
+       "content": "object",
+       "layout": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE TEMPLATE
+   PATCH /api/templates/update/:templateId
+   
+   Request Body: (all fields optional)
+   {
+     "name": "string",
+     "design": "object",
+     "content": "object",
+     "layout": "object"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Template updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "name": "string",
+       "design": "object",
+       "content": "object",
+       "layout": "object",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE TEMPLATE
+   DELETE /api/templates/delete/:templateId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Template deleted successfully"
+   }
+
+6. SET TEMPLATE AS DEFAULT
+   PATCH /api/templates/:templateId/set-default
+   
+   Response:
+   {
+     "success": true,
+     "message": "Template set as default successfully",
+     "data": {
+       "_id": "ObjectId",
+       "isDefault": true,
+       "updatedAt": "Date"
+     }
+   }
+
+================================================================================
+                                FEEDBACK & SURVEYS API
+================================================================================
+
+BASE URL: /api/feedback | /api/suggestions | /api/surveys
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All feedback and survey operations are automatically logged for security and compliance:
+- Feedback/suggestion/survey creation, updates, and deletions are logged
+- User responses and voting are tracked
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+================================================================================
+                                FEEDBACK API
+================================================================================
+
+BASE URL: /api/feedback
+
+1. CREATE FEEDBACK
+   POST /api/feedback/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "title": "string (required)",
+     "description": "string (required)",
+     "category": "string (required, bug_report|feature_request|general|support)",
+     "priority": "string (default: 'medium', low|medium|high|critical)",
+     "rating": "number (optional, 1-5)",
+     "status": "string (default: 'open', open|in_progress|resolved|closed)",
+     "metadata": {
+       "userAgent": "string (optional)",
+       "ipAddress": "string (optional)",
+       "pageUrl": "string (optional)"
+     }
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Feedback created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "category": "string",
+       "priority": "string",
+       "rating": "number",
+       "status": "string",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL FEEDBACK
+   GET /api/feedback/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, open|in_progress|resolved|closed)
+   - category: string (optional, bug_report|feature_request|general|support)
+   - priority: string (optional, low|medium|high|critical)
+   - rating: number (optional, 1-5)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "title": "string",
+         "category": "string",
+         "priority": "string",
+         "rating": "number",
+         "status": "string",
+         "userId": {
+           "firstName": "string",
+           "lastName": "string",
+           "email": "string"
+         },
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalFeedback": "number"
+   }
+
+3. GET FEEDBACK BY ID
+   GET /api/feedback/get/:feedbackId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "userId": {
+         "firstName": "string",
+         "lastName": "string",
+         "email": "string"
+       },
+       "title": "string",
+       "description": "string",
+       "category": "string",
+       "priority": "string",
+       "rating": "number",
+       "status": "string",
+       "metadata": "object",
+       "responses": [
+         {
+           "_id": "ObjectId",
+           "content": "string",
+           "type": "string",
+           "responderId": "ObjectId",
+           "createdAt": "Date"
+         }
+       ],
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE FEEDBACK
+   PATCH /api/feedback/update/:feedbackId
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "priority": "string",
+     "notes": "string"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Feedback updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "priority": "string",
+       "notes": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE FEEDBACK
+   DELETE /api/feedback/delete/:feedbackId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Feedback deleted successfully"
+   }
+
+6. ADD RESPONSE TO FEEDBACK
+   POST /api/feedback/:feedbackId/respond
+   
+   Request Body:
+   {
+     "content": "string (required)",
+     "type": "string (required, admin_response|user_response)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Response added successfully",
+     "data": {
+       "_id": "ObjectId",
+       "content": "string",
+       "type": "string",
+       "responderId": "ObjectId",
+       "createdAt": "Date"
+     }
+   }
+
+7. GET FEEDBACK ANALYTICS
+   GET /api/feedback/analytics/:organizationId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalFeedback": "number",
+       "averageRating": "number",
+       "statusBreakdown": [
+         { "status": "string", "count": "number" }
+       ],
+       "categoryBreakdown": [
+         { "category": "string", "count": "number" }
+       ],
+       "priorityBreakdown": [
+         { "priority": "string", "count": "number" }
+       ]
+     }
+   }
+
+8. BULK UPDATE FEEDBACK
+   PATCH /api/feedback/bulk-update
+   
+   Request Body:
+   {
+     "feedbackIds": ["ObjectId (required)"],
+     "status": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Bulk update completed successfully",
+     "data": {
+       "updated": "number",
+       "failed": "number"
+     }
+   }
+
+================================================================================
+                                SUGGESTIONS API
+================================================================================
+
+BASE URL: /api/suggestions
+
+1. CREATE SUGGESTION
+   POST /api/suggestions/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "title": "string (required)",
+     "description": "string (required)",
+     "category": "string (required)",
+     "status": "string (default: 'open', open|under_review|approved|rejected|implemented)",
+     "upvotes": "number (default: 0)",
+     "downvotes": "number (default: 0)",
+     "comments": ["ObjectId (optional)"]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Suggestion created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "category": "string",
+       "status": "string",
+       "upvotes": "number",
+       "downvotes": "number",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL SUGGESTIONS
+   GET /api/suggestions/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, open|under_review|approved|rejected|implemented)
+   - category: string (optional)
+   - sortBy: string (optional, votes|date|title)
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "title": "string",
+         "category": "string",
+         "status": "string",
+         "upvotes": "number",
+         "downvotes": "number",
+         "userId": {
+           "firstName": "string",
+           "lastName": "string",
+           "email": "string"
+         },
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalSuggestions": "number"
+   }
+
+3. GET SUGGESTION BY ID
+   GET /api/suggestions/get/:suggestionId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "userId": {
+         "firstName": "string",
+         "lastName": "string",
+         "email": "string"
+       },
+       "title": "string",
+       "description": "string",
+       "category": "string",
+       "status": "string",
+       "upvotes": "number",
+       "downvotes": "number",
+       "comments": [
+         {
+           "_id": "ObjectId",
+           "content": "string",
+           "userId": "ObjectId",
+           "createdAt": "Date"
+         }
+       ],
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE SUGGESTION
+   PATCH /api/suggestions/update/:suggestionId
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "notes": "string"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Suggestion updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "notes": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE SUGGESTION
+   DELETE /api/suggestions/delete/:suggestionId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Suggestion deleted successfully"
+   }
+
+6. VOTE ON SUGGESTION
+   POST /api/suggestions/:suggestionId/vote
+   
+   Request Body:
+   {
+     "voteType": "string (required, upvote|downvote)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Vote recorded successfully",
+     "data": {
+       "_id": "ObjectId",
+       "upvotes": "number",
+       "downvotes": "number"
+     }
+   }
+
+7. ADD COMMENT TO SUGGESTION
+   POST /api/suggestions/:suggestionId/comment
+   
+   Request Body:
+   {
+     "content": "string (required)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Comment added successfully",
+     "data": {
+       "_id": "ObjectId",
+       "content": "string",
+       "userId": "ObjectId",
+       "createdAt": "Date"
+     }
+   }
+
+================================================================================
+                                SURVEYS API
+================================================================================
+
+BASE URL: /api/surveys
+
+1. CREATE SURVEY
+   POST /api/surveys/create
+   
+   Request Body:
+   {
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "title": "string (required)",
+     "description": "string (required)",
+     "status": "string (default: 'active', draft|active|paused|completed)",
+     "startDate": "Date (required)",
+     "endDate": "Date (required)",
+     "targetAudience": "string (required, all_customers|specific_customers|all_users)",
+     "questions": [
+       {
+         "question": "string (required)",
+         "type": "string (required, rating|text|multiple_choice)",
+         "required": "boolean (default: false)",
+         "options": ["string (optional, for multiple_choice type)"]
+       }
+     ]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Survey created successfully",
+     "data": {
+       "_id": "ObjectId",
+       "title": "string",
+       "status": "string",
+       "startDate": "Date",
+       "endDate": "Date",
+       "createdAt": "Date"
+     }
+   }
+
+2. GET ALL SURVEYS
+   GET /api/surveys/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, draft|active|paused|completed)
+   - sortBy: string (default: "createdAt")
+   - sortOrder: "asc" | "desc" (default: "desc")
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "title": "string",
+         "status": "string",
+         "startDate": "Date",
+         "endDate": "Date",
+         "responses": "number",
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalSurveys": "number"
+   }
+
+3. GET SURVEY BY ID
+   GET /api/surveys/get/:surveyId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "organizationId": "ObjectId",
+       "userId": {
+         "firstName": "string",
+         "lastName": "string",
+         "email": "string"
+       },
+       "title": "string",
+       "description": "string",
+       "status": "string",
+       "startDate": "Date",
+       "endDate": "Date",
+       "targetAudience": "string",
+       "questions": ["object"],
+       "responses": "number",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+4. UPDATE SURVEY
+   PATCH /api/surveys/update/:surveyId
+   
+   Request Body: (all fields optional)
+   {
+     "status": "string",
+     "endDate": "Date"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Survey updated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "endDate": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. DELETE SURVEY
+   DELETE /api/surveys/delete/:surveyId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Survey deleted successfully"
+   }
+
+6. SUBMIT SURVEY RESPONSE
+   POST /api/surveys/:surveyId/response
+   
+   Request Body:
+   {
+     "userId": "ObjectId (required)",
+     "answers": [
+       {
+         "question": "string (required)",
+         "answer": "string (required)"
+       }
+     ]
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Survey response submitted successfully",
+     "data": {
+       "_id": "ObjectId",
+       "surveyId": "ObjectId",
+       "userId": "ObjectId",
+       "status": "completed",
+       "createdAt": "Date"
+     }
+   }
+
+7. GET SURVEY RESPONSES
+   GET /api/surveys/:surveyId/responses
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "surveyId": "ObjectId",
+         "userId": {
+           "firstName": "string",
+           "lastName": "string",
+           "email": "string"
+         },
+         "status": "string",
+         "progress": "number",
+         "answers": [
+           {
+             "question": "string",
+             "answer": "string"
+           }
+         ],
+         "createdAt": "Date"
+       }
+     ],
+     "currentPage": "number",
+     "totalPages": "number",
+     "totalResponses": "number"
+   }
+
+8. GET SURVEY ANALYTICS
+   GET /api/surveys/:surveyId/analytics
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "totalResponses": "number",
+       "completionRate": "number",
+       "averageTime": "string",
+       "questionAnalytics": [
+         {
+           "question": "string",
+           "type": "string",
+           "averageRating": "number",
+           "responses": [
+             { "rating": "string", "count": "number" }
+           ]
+         }
+       ]
+     }
+   }
+
+================================================================================
+                                SHIPPING LABELS API
+================================================================================
+
+BASE URL: /api/shipping-labels
+
+Authentication: All endpoints require authentication via authMiddleware
+
+AUDIT LOGGING: All shipping label operations are automatically logged for security and compliance:
+- Shipping label creation, updates, and deletions are logged with full context
+- PDF generation and status updates are tracked
+- User information, IP address, and user agent are captured
+- Severity levels: info (create/update), warning (delete)
+- Organization context is maintained for all audit entries
+
+1. GENERATE SHIPPING LABEL
+   POST /api/shipping-labels/generate/:orderId
+   
+   Request Body:
+   {
+     "carrier": "string (optional, default: 'USPS', options: USPS|FedEx|UPS|DHL)",
+     "serviceType": "string (optional, default: 'Priority', options: Priority|Express|Ground|First Class|Standard)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Shipping label generated successfully",
+     "data": {
+       "_id": "ObjectId",
+       "orderId": "ObjectId",
+       "organizationId": "ObjectId",
+       "storeId": "ObjectId",
+       "trackingNumber": "string",
+       "carrier": "string",
+       "serviceType": "string",
+       "status": "string",
+       "labelData": {
+         "fromAddress": "object",
+         "toAddress": "object",
+         "packageDetails": "object"
+       },
+       "createdAt": "Date"
+     }
+   }
+
+2. GET SHIPPING LABEL BY ORDER
+   GET /api/shipping-labels/order/:orderId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "orderId": "ObjectId",
+       "trackingNumber": "string",
+       "carrier": "string",
+       "serviceType": "string",
+       "status": "string",
+       "labelData": "object",
+       "createdAt": "Date"
+     }
+   }
+
+3. GET ALL SHIPPING LABELS BY ORGANIZATION
+   GET /api/shipping-labels/organization/:organizationId
+   
+   Query Parameters:
+   - page: number (default: 1)
+   - limit: number (default: 10)
+   - status: string (optional, created|printed|shipped|delivered|cancelled)
+   - carrier: string (optional, USPS|FedEx|UPS|DHL)
+   
+   Response:
+   {
+     "success": true,
+     "data": [
+       {
+         "_id": "ObjectId",
+         "orderId": {
+           "_id": "ObjectId",
+           "number": "string"
+         },
+         "trackingNumber": "string",
+         "carrier": "string",
+         "serviceType": "string",
+         "status": "string",
+         "createdAt": "Date"
+       }
+     ],
+     "pagination": {
+       "currentPage": "number",
+       "totalPages": "number",
+       "totalItems": "number"
+     }
+   }
+
+4. GET SHIPPING LABEL BY ID
+   GET /api/shipping-labels/:labelId
+   
+   Response:
+   {
+     "success": true,
+     "data": {
+       "_id": "ObjectId",
+       "orderId": "ObjectId",
+       "organizationId": "ObjectId",
+       "storeId": "ObjectId",
+       "trackingNumber": "string",
+       "carrier": "string",
+       "serviceType": "string",
+       "status": "string",
+       "labelData": "object",
+       "createdAt": "Date",
+       "updatedAt": "Date"
+     }
+   }
+
+5. GENERATE SHIPPING LABEL PDF
+   GET /api/shipping-labels/:labelId/pdf
+   
+   Response: PDF file download
+
+6. UPDATE SHIPPING LABEL STATUS
+   PATCH /api/shipping-labels/:labelId/status
+   
+   Request Body:
+   {
+     "status": "string (required, created|printed|shipped|delivered|cancelled)"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Shipping label status updated",
+     "data": {
+       "_id": "ObjectId",
+       "status": "string",
+       "updatedAt": "Date"
+     }
+   }
+
+7. DELETE SHIPPING LABEL
+   DELETE /api/shipping-labels/:labelId
+   
+   Response:
+   {
+     "success": true,
+     "message": "Shipping label deleted successfully"
+   }
+
+8. BULK GENERATE SHIPPING LABELS
+   POST /api/shipping-labels/bulk-generate/:organizationId
+   
+   Request Body:
+   {
+     "orderIds": ["ObjectId (required)"],
+     "carrier": "string (optional, default: 'USPS')",
+     "serviceType": "string (optional, default: 'Priority')"
+   }
+   
+   Response:
+   {
+     "success": true,
+     "message": "Bulk shipping label generation completed",
+     "data": [
+       {
+         "orderId": "ObjectId",
+         "success": "boolean",
+         "labelId": "ObjectId (if successful)",
+         "trackingNumber": "string (if successful)",
+         "error": "string (if failed)"
+       }
+     ]
+   }
+
+================================================================================
+                                ERROR RESPONSES
+================================================================================

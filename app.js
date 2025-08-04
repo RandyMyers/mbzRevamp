@@ -85,6 +85,15 @@ const roleRoutes = require('./routes/roleRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
 
+// New InvoicesAndReceipts & Feedback routes
+const invoiceRoutes = require('./routes/invoiceRoutes');
+const receiptRoutes = require('./routes/receiptRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const templateRoutes = require('./routes/templateRoutes');
+
+// New Shipping Label routes
+const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
+
 dotenv.config();
 
 const cloudinary = require('cloudinary').v2;
@@ -197,6 +206,15 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/notification-templates', notificationTemplateRoutes);
 app.use('/api/notification-settings', notificationSettingsRoutes);
+
+// New InvoicesAndReceipts & Feedback routes
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/receipts', receiptRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/templates', templateRoutes);
+
+// New Shipping Label routes
+app.use('/api/shipping-labels', shippingLabelRoutes);
 
 //Start the cron job for receiver emails
 receiverEvent.scheduleEmailSync();

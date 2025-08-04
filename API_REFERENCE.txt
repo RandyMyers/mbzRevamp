@@ -38,7 +38,10 @@
 33. Miscellaneous
 34. BIDIRECTIONAL WOOCOMMERCE SYNC
 35. WOOCOMMERCE REPORTS & ANALYTICS
-36. PUBLIC CONTACT FORM
+36. INVOICES & RECEIPTS
+37. FEEDBACK & SURVEYS
+38. SHIPPING LABELS
+39. PUBLIC CONTACT FORM
 
 ## 1. AUTHENTICATION
 
@@ -7806,7 +7809,1343 @@ Examples:
 
 *This completes the WooCommerce Reports & Analytics implementation with full support for multiple stores, caching, comparison with existing analytics, and comprehensive export functionality.*
 
-## 36. PUBLIC CONTACT FORM
+## 36. INVOICES & RECEIPTS
+
+### 36.1 INVOICES
+
+#### POST /invoices/create
+**Description:** Create a new invoice
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "customerId": "customer_id",
+  "orderId": "order_id",
+  "invoiceNumber": "INV-2024-001",
+  "issueDate": "2024-01-15T00:00:00Z",
+  "dueDate": "2024-01-30T00:00:00Z",
+  "status": "draft",
+  "currency": "USD",
+  "subtotal": 299.99,
+  "taxAmount": 29.99,
+  "discountAmount": 0,
+  "totalAmount": 329.98,
+  "notes": "Payment due within 15 days",
+  "terms": "Net 15",
+  "lineItems": [
+    {
+      "description": "Premium Widget",
+      "quantity": 2,
+      "unitPrice": 149.99,
+      "total": 299.98
+    }
+  ],
+  "billingAddress": {
+    "name": "John Doe",
+    "company": "Acme Corp",
+    "address": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "US"
+  },
+  "shippingAddress": {
+    "name": "John Doe",
+    "company": "Acme Corp",
+    "address": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "US"
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Invoice created successfully",
+  "data": {
+    "_id": "invoice_id",
+    "invoiceNumber": "INV-2024-001",
+    "organizationId": "org_id",
+    "customerId": "customer_id",
+    "orderId": "order_id",
+    "issueDate": "2024-01-15T00:00:00Z",
+    "dueDate": "2024-01-30T00:00:00Z",
+    "status": "draft",
+    "currency": "USD",
+    "subtotal": 299.99,
+    "taxAmount": 29.99,
+    "discountAmount": 0,
+    "totalAmount": 329.98,
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /invoices/organization/:organizationId
+**Description:** Get all invoices for an organization
+**Query Parameters:**
+- `status` (optional): Filter by status (draft, sent, paid, overdue, cancelled)
+- `startDate` (optional): Filter by start date
+- `endDate` (optional): Filter by end date
+- `customerId` (optional): Filter by customer
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "invoice_id",
+      "invoiceNumber": "INV-2024-001",
+      "customerId": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com"
+      },
+      "issueDate": "2024-01-15T00:00:00Z",
+      "dueDate": "2024-01-30T00:00:00Z",
+      "status": "sent",
+      "totalAmount": 329.98,
+      "currency": "USD",
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalInvoices": 50
+}
+```
+
+#### GET /invoices/get/:invoiceId
+**Description:** Get invoice by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "invoice_id",
+    "invoiceNumber": "INV-2024-001",
+    "organizationId": "org_id",
+    "customerId": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    },
+    "orderId": "order_id",
+    "issueDate": "2024-01-15T00:00:00Z",
+    "dueDate": "2024-01-30T00:00:00Z",
+    "status": "sent",
+    "currency": "USD",
+    "subtotal": 299.99,
+    "taxAmount": 29.99,
+    "discountAmount": 0,
+    "totalAmount": 329.98,
+    "notes": "Payment due within 15 days",
+    "terms": "Net 15",
+    "lineItems": [
+      {
+        "description": "Premium Widget",
+        "quantity": 2,
+        "unitPrice": 149.99,
+        "total": 299.98
+      }
+    ],
+    "billingAddress": {
+      "name": "John Doe",
+      "company": "Acme Corp",
+      "address": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "US"
+    },
+    "shippingAddress": {
+      "name": "John Doe",
+      "company": "Acme Corp",
+      "address": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "US"
+    },
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /invoices/update/:invoiceId
+**Description:** Update invoice details
+**Body:**
+```json
+{
+  "status": "paid",
+  "paidDate": "2024-01-20T00:00:00Z",
+  "paymentMethod": "credit_card",
+  "notes": "Payment received via credit card"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Invoice updated successfully",
+  "data": {
+    "_id": "invoice_id",
+    "status": "paid",
+    "paidDate": "2024-01-20T00:00:00Z",
+    "paymentMethod": "credit_card",
+    "notes": "Payment received via credit card",
+    "updatedAt": "2024-01-20T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /invoices/delete/:invoiceId
+**Description:** Delete an invoice
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Invoice deleted successfully"
+}
+```
+
+#### POST /invoices/:invoiceId/send
+**Description:** Send invoice via email
+**Body:**
+```json
+{
+  "email": "customer@example.com",
+  "subject": "Invoice INV-2024-001",
+  "message": "Please find your invoice attached."
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Invoice sent successfully",
+  "data": {
+    "sentAt": "2024-01-15T10:00:00Z",
+    "recipient": "customer@example.com"
+  }
+}
+```
+
+#### GET /invoices/:invoiceId/pdf
+**Description:** Generate PDF for invoice
+**Response:** PDF file download
+
+#### POST /invoices/bulk-generate
+**Description:** Generate invoices from orders
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "orderIds": ["order_id_1", "order_id_2", "order_id_3"],
+  "templateId": "template_id"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Invoices generated successfully",
+  "data": {
+    "generated": 3,
+    "failed": 0,
+    "invoices": [
+      {
+        "_id": "invoice_id_1",
+        "invoiceNumber": "INV-2024-001",
+        "orderId": "order_id_1"
+      }
+    ]
+  }
+}
+```
+
+### 36.2 RECEIPTS
+
+#### POST /receipts/create
+**Description:** Create a new receipt
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "customerId": "customer_id",
+  "orderId": "order_id",
+  "receiptNumber": "RCP-2024-001",
+  "paymentDate": "2024-01-15T00:00:00Z",
+  "paymentMethod": "credit_card",
+  "transactionId": "TXN123456",
+  "status": "completed",
+  "currency": "USD",
+  "subtotal": 299.99,
+  "taxAmount": 29.99,
+  "discountAmount": 0,
+  "totalAmount": 329.98,
+  "refundAmount": 0,
+  "notes": "Payment received",
+  "lineItems": [
+    {
+      "description": "Premium Widget",
+      "quantity": 2,
+      "unitPrice": 149.99,
+      "total": 299.98
+    }
+  ],
+  "billingAddress": {
+    "name": "John Doe",
+    "company": "Acme Corp",
+    "address": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "US"
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Receipt created successfully",
+  "data": {
+    "_id": "receipt_id",
+    "receiptNumber": "RCP-2024-001",
+    "organizationId": "org_id",
+    "customerId": "customer_id",
+    "orderId": "order_id",
+    "paymentDate": "2024-01-15T00:00:00Z",
+    "paymentMethod": "credit_card",
+    "transactionId": "TXN123456",
+    "status": "completed",
+    "currency": "USD",
+    "totalAmount": 329.98,
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /receipts/organization/:organizationId
+**Description:** Get all receipts for an organization
+**Query Parameters:**
+- `status` (optional): Filter by status (completed, pending, failed, refunded)
+- `startDate` (optional): Filter by start date
+- `endDate` (optional): Filter by end date
+- `customerId` (optional): Filter by customer
+- `paymentMethod` (optional): Filter by payment method
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "receipt_id",
+      "receiptNumber": "RCP-2024-001",
+      "customerId": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com"
+      },
+      "paymentDate": "2024-01-15T00:00:00Z",
+      "paymentMethod": "credit_card",
+      "transactionId": "TXN123456",
+      "status": "completed",
+      "totalAmount": 329.98,
+      "currency": "USD",
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalReceipts": 50
+}
+```
+
+#### GET /receipts/get/:receiptId
+**Description:** Get receipt by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "receipt_id",
+    "receiptNumber": "RCP-2024-001",
+    "organizationId": "org_id",
+    "customerId": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    },
+    "orderId": "order_id",
+    "paymentDate": "2024-01-15T00:00:00Z",
+    "paymentMethod": "credit_card",
+    "transactionId": "TXN123456",
+    "status": "completed",
+    "currency": "USD",
+    "subtotal": 299.99,
+    "taxAmount": 29.99,
+    "discountAmount": 0,
+    "totalAmount": 329.98,
+    "refundAmount": 0,
+    "notes": "Payment received",
+    "lineItems": [
+      {
+        "description": "Premium Widget",
+        "quantity": 2,
+        "unitPrice": 149.99,
+        "total": 299.98
+      }
+    ],
+    "billingAddress": {
+      "name": "John Doe",
+      "company": "Acme Corp",
+      "address": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "US"
+    },
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /receipts/update/:receiptId
+**Description:** Update receipt details
+**Body:**
+```json
+{
+  "status": "refunded",
+  "refundAmount": 329.98,
+  "refundDate": "2024-01-20T00:00:00Z",
+  "refundReason": "Customer request"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Receipt updated successfully",
+  "data": {
+    "_id": "receipt_id",
+    "status": "refunded",
+    "refundAmount": 329.98,
+    "refundDate": "2024-01-20T00:00:00Z",
+    "refundReason": "Customer request",
+    "updatedAt": "2024-01-20T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /receipts/delete/:receiptId
+**Description:** Delete a receipt
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Receipt deleted successfully"
+}
+```
+
+#### POST /receipts/:receiptId/send
+**Description:** Send receipt via email
+**Body:**
+```json
+{
+  "email": "customer@example.com",
+  "subject": "Receipt RCP-2024-001",
+  "message": "Please find your receipt attached."
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Receipt sent successfully",
+  "data": {
+    "sentAt": "2024-01-15T10:00:00Z",
+    "recipient": "customer@example.com"
+  }
+}
+```
+
+#### GET /receipts/:receiptId/pdf
+**Description:** Generate PDF for receipt
+**Response:** PDF file download
+
+#### POST /receipts/bulk-generate
+**Description:** Generate receipts from orders
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "orderIds": ["order_id_1", "order_id_2", "order_id_3"],
+  "templateId": "template_id"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Receipts generated successfully",
+  "data": {
+    "generated": 3,
+    "failed": 0,
+    "receipts": [
+      {
+        "_id": "receipt_id_1",
+        "receiptNumber": "RCP-2024-001",
+        "orderId": "order_id_1"
+      }
+    ]
+  }
+}
+```
+
+### 36.3 TEMPLATES
+
+#### POST /templates/create
+**Description:** Create a new invoice or receipt template
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "name": "Professional Invoice Template",
+  "type": "invoice",
+  "isDefault": true,
+  "design": {
+    "primaryColor": "#2563eb",
+    "secondaryColor": "#64748b",
+    "fontFamily": "Arial, sans-serif",
+    "logoPosition": "top-left",
+    "showLogo": true,
+    "showHeader": true,
+    "showFooter": true
+  },
+  "content": {
+    "headerText": "INVOICE",
+    "footerText": "Thank you for your business",
+    "terms": "Payment due within 15 days",
+    "notes": "Late payments subject to 1.5% monthly interest"
+  },
+  "layout": {
+    "showTaxBreakdown": true,
+    "showDiscountBreakdown": true,
+    "showShippingInfo": true,
+    "showPaymentInfo": true
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Template created successfully",
+  "data": {
+    "_id": "template_id",
+    "name": "Professional Invoice Template",
+    "type": "invoice",
+    "isDefault": true,
+    "organizationId": "org_id",
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /templates/organization/:organizationId
+**Description:** Get all templates for an organization
+**Query Parameters:**
+- `type` (optional): Filter by type (invoice, receipt)
+- `isDefault` (optional): Filter by default status
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "template_id",
+      "name": "Professional Invoice Template",
+      "type": "invoice",
+      "isDefault": true,
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### GET /templates/get/:templateId
+**Description:** Get template by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "template_id",
+    "organizationId": "org_id",
+    "name": "Professional Invoice Template",
+    "type": "invoice",
+    "isDefault": true,
+    "design": {
+      "primaryColor": "#2563eb",
+      "secondaryColor": "#64748b",
+      "fontFamily": "Arial, sans-serif",
+      "logoPosition": "top-left",
+      "showLogo": true,
+      "showHeader": true,
+      "showFooter": true
+    },
+    "content": {
+      "headerText": "INVOICE",
+      "footerText": "Thank you for your business",
+      "terms": "Payment due within 15 days",
+      "notes": "Late payments subject to 1.5% monthly interest"
+    },
+    "layout": {
+      "showTaxBreakdown": true,
+      "showDiscountBreakdown": true,
+      "showShippingInfo": true,
+      "showPaymentInfo": true
+    },
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /templates/update/:templateId
+**Description:** Update template details
+**Body:**
+```json
+{
+  "name": "Updated Professional Template",
+  "design": {
+    "primaryColor": "#dc2626",
+    "secondaryColor": "#6b7280"
+  },
+  "content": {
+    "headerText": "UPDATED INVOICE",
+    "footerText": "Updated footer text"
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Template updated successfully",
+  "data": {
+    "_id": "template_id",
+    "name": "Updated Professional Template",
+    "design": {
+      "primaryColor": "#dc2626",
+      "secondaryColor": "#6b7280"
+    },
+    "content": {
+      "headerText": "UPDATED INVOICE",
+      "footerText": "Updated footer text"
+    },
+    "updatedAt": "2024-01-15T12:00:00Z"
+  }
+}
+```
+
+#### DELETE /templates/delete/:templateId
+**Description:** Delete a template
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Template deleted successfully"
+}
+```
+
+#### PATCH /templates/:templateId/set-default
+**Description:** Set template as default for its type
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Template set as default successfully",
+  "data": {
+    "_id": "template_id",
+    "isDefault": true,
+    "updatedAt": "2024-01-15T12:00:00Z"
+  }
+}
+```
+
+## 37. FEEDBACK & SURVEYS
+
+### 37.1 FEEDBACK
+
+#### POST /feedback/create
+**Description:** Create a new feedback entry
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "userId": "user_id",
+  "title": "Feature Request: Dark Mode",
+  "description": "I would like to see a dark mode option for the dashboard",
+  "category": "feature_request",
+  "priority": "medium",
+  "rating": 4,
+  "status": "open",
+  "metadata": {
+    "userAgent": "Mozilla/5.0...",
+    "ipAddress": "192.168.1.1",
+    "pageUrl": "/dashboard"
+  }
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback created successfully",
+  "data": {
+    "_id": "feedback_id",
+    "title": "Feature Request: Dark Mode",
+    "category": "feature_request",
+    "priority": "medium",
+    "rating": 4,
+    "status": "open",
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /feedback/organization/:organizationId
+**Description:** Get all feedback for an organization
+**Query Parameters:**
+- `status` (optional): Filter by status (open, in_progress, resolved, closed)
+- `category` (optional): Filter by category (bug_report, feature_request, general, support)
+- `priority` (optional): Filter by priority (low, medium, high, critical)
+- `rating` (optional): Filter by rating (1-5)
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "feedback_id",
+      "title": "Feature Request: Dark Mode",
+      "category": "feature_request",
+      "priority": "medium",
+      "rating": 4,
+      "status": "open",
+      "userId": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com"
+      },
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalFeedback": 50
+}
+```
+
+#### GET /feedback/get/:feedbackId
+**Description:** Get feedback by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "feedback_id",
+    "organizationId": "org_id",
+    "userId": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    },
+    "title": "Feature Request: Dark Mode",
+    "description": "I would like to see a dark mode option for the dashboard",
+    "category": "feature_request",
+    "priority": "medium",
+    "rating": 4,
+    "status": "open",
+    "metadata": {
+      "userAgent": "Mozilla/5.0...",
+      "ipAddress": "192.168.1.1",
+      "pageUrl": "/dashboard"
+    },
+    "responses": [
+      {
+        "_id": "response_id",
+        "content": "Thank you for your feedback. We're working on this feature.",
+        "type": "admin_response",
+        "responderId": "admin_id",
+        "createdAt": "2024-01-16T00:00:00Z"
+      }
+    ],
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /feedback/update/:feedbackId
+**Description:** Update feedback details
+**Body:**
+```json
+{
+  "status": "in_progress",
+  "priority": "high",
+  "notes": "Assigned to development team"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback updated successfully",
+  "data": {
+    "_id": "feedback_id",
+    "status": "in_progress",
+    "priority": "high",
+    "notes": "Assigned to development team",
+    "updatedAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /feedback/delete/:feedbackId
+**Description:** Delete a feedback entry
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback deleted successfully"
+}
+```
+
+#### POST /feedback/:feedbackId/respond
+**Description:** Add a response to feedback
+**Body:**
+```json
+{
+  "content": "Thank you for your feedback. We're working on this feature.",
+  "type": "admin_response"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Response added successfully",
+  "data": {
+    "_id": "response_id",
+    "content": "Thank you for your feedback. We're working on this feature.",
+    "type": "admin_response",
+    "responderId": "admin_id",
+    "createdAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+#### GET /feedback/analytics/:organizationId
+**Description:** Get feedback analytics
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalFeedback": 150,
+    "averageRating": 4.2,
+    "statusBreakdown": [
+      { "status": "open", "count": 45 },
+      { "status": "in_progress", "count": 30 },
+      { "status": "resolved", "count": 60 },
+      { "status": "closed", "count": 15 }
+    ],
+    "categoryBreakdown": [
+      { "category": "feature_request", "count": 60 },
+      { "category": "bug_report", "count": 40 },
+      { "category": "general", "count": 35 },
+      { "category": "support", "count": 15 }
+    ],
+    "priorityBreakdown": [
+      { "priority": "low", "count": 30 },
+      { "priority": "medium", "count": 75 },
+      { "priority": "high", "count": 35 },
+      { "priority": "critical", "count": 10 }
+    ]
+  }
+}
+```
+
+#### PATCH /feedback/bulk-update
+**Description:** Bulk update feedback status
+**Body:**
+```json
+{
+  "feedbackIds": ["feedback_id_1", "feedback_id_2", "feedback_id_3"],
+  "status": "resolved"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk update completed successfully",
+  "data": {
+    "updated": 3,
+    "failed": 0
+  }
+}
+```
+
+### 37.2 SUGGESTIONS
+
+#### POST /suggestions/create
+**Description:** Create a new suggestion
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "userId": "user_id",
+  "title": "Add Export to Excel Feature",
+  "description": "It would be helpful to have an export to Excel feature for reports",
+  "category": "feature_request",
+  "status": "open",
+  "upvotes": 0,
+  "downvotes": 0,
+  "comments": []
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Suggestion created successfully",
+  "data": {
+    "_id": "suggestion_id",
+    "title": "Add Export to Excel Feature",
+    "category": "feature_request",
+    "status": "open",
+    "upvotes": 0,
+    "downvotes": 0,
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /suggestions/organization/:organizationId
+**Description:** Get all suggestions for an organization
+**Query Parameters:**
+- `status` (optional): Filter by status (open, under_review, approved, rejected, implemented)
+- `category` (optional): Filter by category
+- `sortBy` (optional): Sort by (votes, date, title)
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "suggestion_id",
+      "title": "Add Export to Excel Feature",
+      "category": "feature_request",
+      "status": "open",
+      "upvotes": 15,
+      "downvotes": 2,
+      "userId": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com"
+      },
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalSuggestions": 50
+}
+```
+
+#### GET /suggestions/get/:suggestionId
+**Description:** Get suggestion by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "suggestion_id",
+    "organizationId": "org_id",
+    "userId": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    },
+    "title": "Add Export to Excel Feature",
+    "description": "It would be helpful to have an export to Excel feature for reports",
+    "category": "feature_request",
+    "status": "open",
+    "upvotes": 15,
+    "downvotes": 2,
+    "comments": [
+      {
+        "_id": "comment_id",
+        "content": "Great idea! This would be very useful.",
+        "userId": "user_id_2",
+        "createdAt": "2024-01-16T00:00:00Z"
+      }
+    ],
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /suggestions/update/:suggestionId
+**Description:** Update suggestion details
+**Body:**
+```json
+{
+  "status": "under_review",
+  "notes": "Under consideration by development team"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Suggestion updated successfully",
+  "data": {
+    "_id": "suggestion_id",
+    "status": "under_review",
+    "notes": "Under consideration by development team",
+    "updatedAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /suggestions/delete/:suggestionId
+**Description:** Delete a suggestion
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Suggestion deleted successfully"
+}
+```
+
+#### POST /suggestions/:suggestionId/vote
+**Description:** Vote on a suggestion
+**Body:**
+```json
+{
+  "voteType": "upvote"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Vote recorded successfully",
+  "data": {
+    "_id": "suggestion_id",
+    "upvotes": 16,
+    "downvotes": 2
+  }
+}
+```
+
+#### POST /suggestions/:suggestionId/comment
+**Description:** Add a comment to a suggestion
+**Body:**
+```json
+{
+  "content": "This would be very useful for our team"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Comment added successfully",
+  "data": {
+    "_id": "comment_id",
+    "content": "This would be very useful for our team",
+    "userId": "user_id",
+    "createdAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+### 37.3 SURVEYS
+
+#### POST /surveys/create
+**Description:** Create a new survey
+**Body:**
+```json
+{
+  "organizationId": "org_id",
+  "userId": "user_id",
+  "title": "Customer Satisfaction Survey",
+  "description": "Help us improve our services by taking this survey",
+  "status": "active",
+  "startDate": "2024-01-15T00:00:00Z",
+  "endDate": "2024-02-15T00:00:00Z",
+  "targetAudience": "all_customers",
+  "questions": [
+    {
+      "question": "How satisfied are you with our service?",
+      "type": "rating",
+      "required": true,
+      "options": ["1", "2", "3", "4", "5"]
+    },
+    {
+      "question": "What features would you like to see?",
+      "type": "text",
+      "required": false
+    },
+    {
+      "question": "Which platform do you use most?",
+      "type": "multiple_choice",
+      "required": true,
+      "options": ["Web", "Mobile App", "Both"]
+    }
+  ]
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Survey created successfully",
+  "data": {
+    "_id": "survey_id",
+    "title": "Customer Satisfaction Survey",
+    "status": "active",
+    "startDate": "2024-01-15T00:00:00Z",
+    "endDate": "2024-02-15T00:00:00Z",
+    "createdAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### GET /surveys/organization/:organizationId
+**Description:** Get all surveys for an organization
+**Query Parameters:**
+- `status` (optional): Filter by status (draft, active, paused, completed)
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "survey_id",
+      "title": "Customer Satisfaction Survey",
+      "status": "active",
+      "startDate": "2024-01-15T00:00:00Z",
+      "endDate": "2024-02-15T00:00:00Z",
+      "responses": 25,
+      "createdAt": "2024-01-15T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalSurveys": 50
+}
+```
+
+#### GET /surveys/get/:surveyId
+**Description:** Get survey by ID
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "survey_id",
+    "organizationId": "org_id",
+    "userId": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    },
+    "title": "Customer Satisfaction Survey",
+    "description": "Help us improve our services by taking this survey",
+    "status": "active",
+    "startDate": "2024-01-15T00:00:00Z",
+    "endDate": "2024-02-15T00:00:00Z",
+    "targetAudience": "all_customers",
+    "questions": [
+      {
+        "question": "How satisfied are you with our service?",
+        "type": "rating",
+        "required": true,
+        "options": ["1", "2", "3", "4", "5"]
+      }
+    ],
+    "responses": 25,
+    "createdAt": "2024-01-15T00:00:00Z",
+    "updatedAt": "2024-01-15T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /surveys/update/:surveyId
+**Description:** Update survey details
+**Body:**
+```json
+{
+  "status": "paused",
+  "endDate": "2024-03-15T00:00:00Z"
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Survey updated successfully",
+  "data": {
+    "_id": "survey_id",
+    "status": "paused",
+    "endDate": "2024-03-15T00:00:00Z",
+    "updatedAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /surveys/delete/:surveyId
+**Description:** Delete a survey
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Survey deleted successfully"
+}
+```
+
+#### POST /surveys/:surveyId/response
+**Description:** Submit a survey response
+**Body:**
+```json
+{
+  "userId": "user_id",
+  "answers": [
+    {
+      "question": "How satisfied are you with our service?",
+      "answer": "4"
+    },
+    {
+      "question": "What features would you like to see?",
+      "answer": "Dark mode and mobile app"
+    },
+    {
+      "question": "Which platform do you use most?",
+      "answer": "Web"
+    }
+  ]
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Survey response submitted successfully",
+  "data": {
+    "_id": "response_id",
+    "surveyId": "survey_id",
+    "userId": "user_id",
+    "status": "completed",
+    "createdAt": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+#### GET /surveys/:surveyId/responses
+**Description:** Get survey responses
+**Query Parameters:**
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "response_id",
+      "surveyId": "survey_id",
+      "userId": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com"
+      },
+      "status": "completed",
+      "progress": 100,
+      "answers": [
+        {
+          "question": "How satisfied are you with our service?",
+          "answer": "4"
+        }
+      ],
+      "createdAt": "2024-01-16T00:00:00Z"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalResponses": 50
+}
+```
+
+#### GET /surveys/:surveyId/analytics
+**Description:** Get survey analytics
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalResponses": 25,
+    "completionRate": 85.5,
+    "averageTime": "3 minutes",
+    "questionAnalytics": [
+      {
+        "question": "How satisfied are you with our service?",
+        "type": "rating",
+        "averageRating": 4.2,
+        "responses": [
+          { "rating": "5", "count": 10 },
+          { "rating": "4", "count": 8 },
+          { "rating": "3", "count": 5 },
+          { "rating": "2", "count": 2 },
+          { "rating": "1", "count": 0 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## 38. PUBLIC CONTACT FORM
 
 ### POST /contact
 **Description:** Send a message from the public website contact form. This endpoint is for non-authenticated users to contact MBZ Technology support. The message will be sent to the support email using secure SMTP.
@@ -8418,3 +9757,242 @@ All endpoints return the same error format:
 - All responses include `perStore` array showing data breakdown by individual stores
 - `errors` array contains any store-specific errors that occurred during data fetching
 - `totalStores` indicates the number of stores successfully processed
+
+## 38. SHIPPING LABELS
+
+### Overview
+The Shipping Labels API provides comprehensive functionality for generating, managing, and tracking shipping labels for orders. This system integrates with the existing order management infrastructure and supports multiple carriers and service types.
+
+### Base URL: `/api/shipping-labels`
+
+### Authentication
+All endpoints require authentication via `authMiddleware`
+
+### Key Features:
+- **Multi-carrier support**: USPS, FedEx, UPS, DHL
+- **PDF generation**: Professional shipping label PDFs
+- **Tracking integration**: Real-time tracking number generation
+- **Bulk operations**: Generate multiple labels at once
+- **Status management**: Track label lifecycle (created → printed → shipped → delivered)
+- **Audit logging**: Complete audit trail for compliance
+
+### Endpoints:
+
+#### 1. Generate Shipping Label
+**POST** `/api/shipping-labels/generate/:orderId`
+
+**Description:** Generate a shipping label for a specific order
+
+**Request Body:**
+```json
+{
+  "carrier": "USPS",
+  "serviceType": "Priority"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Shipping label generated successfully",
+  "data": {
+    "_id": "label_id",
+    "orderId": "order_id",
+    "trackingNumber": "TRK12345678",
+    "carrier": "USPS",
+    "serviceType": "Priority",
+    "status": "created",
+    "labelData": {
+      "fromAddress": {
+        "name": "Store Name",
+        "company": "Store Name",
+        "address1": "123 Store Street",
+        "city": "Store City",
+        "state": "CA",
+        "postalCode": "90210",
+        "country": "United States"
+      },
+      "toAddress": {
+        "name": "John Doe",
+        "company": "Company Name",
+        "address1": "456 Customer Street",
+        "city": "Customer City",
+        "state": "NY",
+        "postalCode": "10001",
+        "country": "United States"
+      },
+      "packageDetails": {
+        "weight": 16,
+        "dimensions": {
+          "length": 12,
+          "width": 8,
+          "height": 6
+        }
+      }
+    },
+    "createdAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+#### 2. Get Shipping Label by Order
+**GET** `/api/shipping-labels/order/:orderId`
+
+**Description:** Retrieve shipping label information for a specific order
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "label_id",
+    "orderId": "order_id",
+    "trackingNumber": "TRK12345678",
+    "carrier": "USPS",
+    "serviceType": "Priority",
+    "status": "created",
+    "labelData": "object",
+    "createdAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+#### 3. Get All Shipping Labels
+**GET** `/api/shipping-labels/organization/:organizationId`
+
+**Description:** Retrieve all shipping labels for an organization with pagination
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `status` (optional): Filter by status (created|printed|shipped|delivered|cancelled)
+- `carrier` (optional): Filter by carrier (USPS|FedEx|UPS|DHL)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "label_id",
+      "orderId": {
+        "_id": "order_id",
+        "number": "ORDER123"
+      },
+      "trackingNumber": "TRK12345678",
+      "carrier": "USPS",
+      "serviceType": "Priority",
+      "status": "created",
+      "createdAt": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 5,
+    "totalItems": 50
+  }
+}
+```
+
+#### 4. Generate PDF
+**GET** `/api/shipping-labels/:labelId/pdf`
+
+**Description:** Generate and download shipping label PDF
+
+**Response:** PDF file download
+
+#### 5. Update Status
+**PATCH** `/api/shipping-labels/:labelId/status`
+
+**Description:** Update shipping label status
+
+**Request Body:**
+```json
+{
+  "status": "printed"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Shipping label status updated",
+  "data": {
+    "_id": "label_id",
+    "status": "printed",
+    "updatedAt": "2024-01-15T11:00:00Z"
+  }
+}
+```
+
+#### 6. Bulk Generate Labels
+**POST** `/api/shipping-labels/bulk-generate/:organizationId`
+
+**Description:** Generate shipping labels for multiple orders
+
+**Request Body:**
+```json
+{
+  "orderIds": ["order_id_1", "order_id_2", "order_id_3"],
+  "carrier": "USPS",
+  "serviceType": "Priority"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk shipping label generation completed",
+  "data": [
+    {
+      "orderId": "order_id_1",
+      "success": true,
+      "labelId": "label_id_1",
+      "trackingNumber": "TRK12345678"
+    },
+    {
+      "orderId": "order_id_2",
+      "success": false,
+      "error": "Shipping label already exists"
+    }
+  ]
+}
+```
+
+### Status Values:
+- `created`: Label generated but not yet printed
+- `printed`: Label has been printed
+- `shipped`: Package has been shipped
+- `delivered`: Package has been delivered
+- `cancelled`: Label has been cancelled
+
+### Carrier Options:
+- `USPS`: United States Postal Service
+- `FedEx`: Federal Express
+- `UPS`: United Parcel Service
+- `DHL`: DHL Express
+
+### Service Types:
+- `Priority`: Priority Mail (USPS)
+- `Express`: Express Mail (USPS)
+- `Ground`: Ground Shipping (FedEx/UPS)
+- `First Class`: First Class Mail (USPS)
+- `Standard`: Standard Shipping
+
+### Error Responses:
+```json
+{
+  "success": false,
+  "error": "Error message"
+}
+```
+
+### Common Error Scenarios:
+- **400 Bad Request**: Invalid carrier/service type or missing required fields
+- **401 Unauthorized**: Missing or invalid authentication
+- **404 Not Found**: Order or shipping label not found
+- **409 Conflict**: Shipping label already exists for order
+- **500 Internal Server Error**: Server-side error during label generation

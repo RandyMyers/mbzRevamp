@@ -20,6 +20,9 @@ router.delete("/store/:storeId", orderController.deleteAllOrdersByStore);
 // GET a specific order by ID
 router.get("/get/:orderId", orderController.getOrderById);
 
+// GET order with shipping label information
+router.get("/with-shipping-label/:orderId", orderController.getOrderWithShippingLabel);
+
 // GET recent orders for dashboard
 router.get("/recent", orderController.getRecentOrders);
 
