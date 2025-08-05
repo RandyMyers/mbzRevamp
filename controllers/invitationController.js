@@ -16,7 +16,6 @@ exports.createInvitation = async (req, res) => {
       email, 
       role, 
       department, 
-      groups, 
       message, 
       expiresAt,
       organization,
@@ -86,18 +85,7 @@ exports.createInvitation = async (req, res) => {
       }
     }
 
-    // ✅ VALIDATION 7: Validate groups if provided
-    if (groups && groups.length > 0) {
-      const groupDocs = await Group.find({ _id: { $in: groups } });
-      if (groupDocs.length !== groups.length) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'One or more specified groups are invalid' 
-        });
-      }
-    }
-
-    // ✅ VALIDATION 8: Validate baseUrl
+    // ✅ VALIDATION 7: Validate baseUrl
     if (!baseUrl) {
       return res.status(400).json({ 
         success: false, 
@@ -118,7 +106,7 @@ exports.createInvitation = async (req, res) => {
       organization: organization || req.user.organization,
       role: role || null,
       department: department || null,
-      groups: groups || [],
+      groups: [], // Removed groups from here
       message: message || '',
       token,
       expiresAt: expirationDate,
@@ -156,7 +144,6 @@ exports.createInvitation = async (req, res) => {
         inviteeEmail: email,
         role: role,
         department: department,
-        groups: groups,
         organization: organization || req.user.organization,
         expiresAt: expirationDate,
         baseUrl: baseUrl,
@@ -178,7 +165,6 @@ exports.createInvitation = async (req, res) => {
         email: invitation.email,
         role: invitation.role,
         department: invitation.department,
-        groups: invitation.groups,
         status: invitation.status,
         expiresAt: invitation.expiresAt,
         invitedBy: invitation.invitedBy,
@@ -372,7 +358,7 @@ exports.acceptInvitation = async (req, res) => {
       token, 
       status: 'pending', 
       expiresAt: { $gt: new Date() } 
-    }).populate(['organization', 'role', 'groups']);
+    }).populate(['organization', 'role']);
 
     if (!invitation) {
       return res.status(404).json({ 
@@ -412,7 +398,6 @@ exports.acceptInvitation = async (req, res) => {
       password: hashedPassword,
       role: invitation.role || null,
       department: invitation.department || null,
-      groups: invitation.groups || [],
       organization: invitation.organization._id,
       status: 'active',
       lastLogin: new Date()
