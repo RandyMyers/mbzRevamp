@@ -172,7 +172,7 @@ exports.loginSuperAdmin = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     // ✅ AUDIT LOG: Successful Login
@@ -309,7 +309,7 @@ exports.registerOrganizationUser = async (req, res) => {
     const token = jwt.sign(
       { userId: newUser._id, role: newUser.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({ 
@@ -391,7 +391,7 @@ exports.loginOrganizationUser = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
 
     // ✅ AUDIT LOG: Successful Login
@@ -513,7 +513,7 @@ exports.registerAffiliate = async (req, res) => {
     const token = jwt.sign(
       { userId: newAffiliate._id, role: newAffiliate.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({ 
@@ -559,7 +559,7 @@ exports.loginAffiliate = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
 
     res.status(200).json({
@@ -786,7 +786,7 @@ exports.registerUser = async (req, res) => {
     const token = jwt.sign(
       { userId: newUser._id, role: adminRole.name }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     console.log('User registered successfully:', newUser._id);

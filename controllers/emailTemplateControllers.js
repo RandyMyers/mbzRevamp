@@ -1,5 +1,5 @@
 const EmailTemplate = require("../models/emailTemplate"); // Import the EmailTemplate model
-const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
+const logEvent = require('../helper/logEvent');
 
 // CREATE a new email template
 exports.createEmailTemplate = async (req, res) => {
@@ -84,7 +84,7 @@ exports.createEmailTemplate = async (req, res) => {
     // ✅ AUDIT LOG: Email Template Created
     try {
       console.log('Attempting to create audit log...');
-      await createAuditLog({
+      await logEvent({
         action: 'Email Template Created',
         user: req.user?._id || createdBy,
         resource: 'emailTemplate',
@@ -92,12 +92,9 @@ exports.createEmailTemplate = async (req, res) => {
         details: {
           name: savedEmailTemplate.name,
           subject: savedEmailTemplate.subject,
-          organization: savedEmailTemplate.organization,
-          ip: req.ip,
-          userAgent: req.headers['user-agent']
+          organization: savedEmailTemplate.organization
         },
         organization: req.user?.organization || savedEmailTemplate.organization,
-        severity: 'info',
         ip: req.ip,
         userAgent: req.headers['user-agent']
       });
@@ -158,11 +155,26 @@ exports.createEmailTemplate = async (req, res) => {
 // GET all email templates
 exports.getAllEmailTemplates = async (req, res) => {
   try {
+    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER DEBUG ===');
+    console.log('🔍 Request user:', req.user);
+    console.log('🔍 User ID:', req.user?._id);
+    console.log('🔍 User role:', req.user?.role);
+    console.log('🔍 User email:', req.user?.email);
+    
     const emailTemplates = await EmailTemplate.find()
       .populate("createdBy organization", "name") // Populate fields with related data
       .exec();
+    
+    console.log('✅ Found email templates:', emailTemplates.length);
+    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization })));
+    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER DEBUG END ===');
+    
     res.status(200).json({ success: true, emailTemplates });
   } catch (error) {
+    console.log('❌ GET ALL EMAIL TEMPLATES CONTROLLER ERROR ===');
+    console.log('🔍 Error:', error.message);
+    console.log('🔍 Stack:', error.stack);
+    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER ERROR END ===');
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to retrieve email templates" });
   }
@@ -173,16 +185,29 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
   const { organizationId } = req.params; // Assuming organizationId is passed in the URL
 
   try {
+    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG ===');
+    console.log('🔍 Request user:', req.user);
+    console.log('🔍 User ID:', req.user?._id);
+    console.log('🔍 User role:', req.user?.role);
+    console.log('🔍 User organizationId:', req.user?.organizationId);
+    console.log('🔍 Requested organizationId:', organizationId);
+    console.log('🔍 Params:', req.params);
+    
     const emailTemplates = await EmailTemplate.find({ organization: organizationId })
       .populate("createdBy", "name") // Populate the createdBy field with the user's name
       .exec();
 
-    if (!emailTemplates.length) {
-      return res.status(404).json({ success: false, message: "No email templates found for this organization" });
-    }
+    console.log('✅ Found email templates for organization:', emailTemplates.length);
+    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization })));
+    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG END ===');
 
+    // Return empty array instead of 404 when no templates found
     res.status(200).json({ success: true, emailTemplates });
   } catch (error) {
+    console.log('❌ GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER ERROR ===');
+    console.log('🔍 Error:', error.message);
+    console.log('🔍 Stack:', error.stack);
+    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER ERROR END ===');
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to retrieve email templates by organization" });
   }
@@ -222,7 +247,7 @@ exports.updateEmailTemplate = async (req, res) => {
     }
 
     // ✅ AUDIT LOG: Email Template Updated
-    await createAuditLog({
+    await logEvent({
       action: 'Email Template Updated',
       user: req.user?._id,
       resource: 'emailTemplate',
@@ -231,12 +256,9 @@ exports.updateEmailTemplate = async (req, res) => {
         name: updatedEmailTemplate.name,
         subject: updatedEmailTemplate.subject,
         updatedFields: Object.keys(req.body),
-        organization: updatedEmailTemplate.organization,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
+        organization: updatedEmailTemplate.organization
       },
       organization: req.user?.organization || updatedEmailTemplate.organization,
-      severity: 'info',
       ip: req.ip,
       userAgent: req.headers['user-agent']
     });
@@ -258,7 +280,7 @@ exports.deleteEmailTemplate = async (req, res) => {
     }
 
     // ✅ AUDIT LOG: Email Template Deleted
-    await createAuditLog({
+    await logEvent({
       action: 'Email Template Deleted',
       user: req.user?._id,
       resource: 'emailTemplate',
@@ -266,14 +288,12 @@ exports.deleteEmailTemplate = async (req, res) => {
       details: {
         name: emailTemplateToDelete.name,
         subject: emailTemplateToDelete.subject,
-        organization: emailTemplateToDelete.organization,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
+        organization: emailTemplateToDelete.organization
       },
       organization: req.user?.organization || emailTemplateToDelete.organization,
-      severity: 'warning',
       ip: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
+      severity: 'warning'
     });
 
     await EmailTemplate.findByIdAndDelete(emailTemplateId);

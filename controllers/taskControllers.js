@@ -107,10 +107,16 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    
+    // Validate assigned users if being updated
+    if (updateData.assignedTo && Array.isArray(updateData.assignedTo)) {
+      const users = await User.find({ _id: { $in: updateData.assignedTo } });
+      if (users.length !== updateData.assignedTo.length) {
+        return res.status(404).json({ success: false, message: "One or more assigned users not found" });
+      }
+    }
 
     // Update task fields
-    const fields = ['title', 'status'];
+    const fields = ['title', 'status', 'description', 'priority', 'dueDate', 'assignedTo', 'tags'];
     const oldTask = { ...task.toObject() };
     fields.forEach(field => {
       if (updateData[field] !== undefined) {
@@ -430,4 +436,96 @@ exports.getTasksByUserId = async (req, res) => {
   }
 };
 
+// UPDATE task assignments (add/remove users)
+exports.updateTaskAssignments = async (req, res) => {
+  const { taskId } = req.params;
+  const { assignedTo, action } = req.body; // action: 'add', 'remove', 'replace'
 
+  try {
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    // Validate assigned users
+    if (assignedTo && Array.isArray(assignedTo)) {
+      const users = await User.find({ _id: { $in: assignedTo } });
+      if (users.length !== assignedTo.length) {
+        return res.status(404).json({ success: false, message: "One or more assigned users not found" });
+      }
+    }
+
+    const oldAssignments = [...task.assignedTo];
+    let newAssignments = [];
+
+    switch (action) {
+      case 'add':
+        // Add new users without duplicates
+        newAssignments = [...new Set([...task.assignedTo.map(id => id.toString()), ...assignedTo])];
+        break;
+      
+      case 'remove':
+        // Remove specified users
+        newAssignments = task.assignedTo
+          .map(id => id.toString())
+          .filter(id => !assignedTo.includes(id));
+        break;
+      
+      case 'replace':
+        // Replace all assignments
+        newAssignments = assignedTo;
+        break;
+      
+      default:
+        return res.status(400).json({ success: false, message: "Invalid action. Use 'add', 'remove', or 'replace'" });
+    }
+
+    // Convert back to ObjectIds
+    task.assignedTo = newAssignments.map(id => new mongoose.Types.ObjectId(id));
+
+    const updatedTask = await task.save();
+    
+    await logEvent({
+      action: 'update_task_assignments',
+      user: req.user._id,
+      resource: 'Task',
+      resourceId: task._id,
+      details: { 
+        before: oldAssignments, 
+        after: task.assignedTo,
+        action: action 
+      },
+      organization: req.user.organization
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      task: updatedTask,
+      message: `Task assignments ${action}ed successfully`
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to update task assignments" });
+  }
+};
+
+// GET users available for task assignment in organization
+exports.getAvailableUsersForAssignment = async (req, res) => {
+  const { organizationId } = req.params;
+
+  try {
+    const users = await User.find({ 
+      organization: organizationId,
+      isActive: true 
+    }).select('name email role');
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ success: false, message: "No users found in this organization" });
+    }
+
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to retrieve available users" });
+  }
+};

@@ -33,5 +33,8 @@ router.delete("/:taskId/comments/:commentId", taskController.deleteComment);
 // User-specific tasks
 router.get("/user/:userId", taskController.getTasksByUserId);
 
-module.exports = router;
+// Task assignment routes
+router.patch("/:taskId/assignments", taskController.updateTaskAssignments);
+router.get("/organization/:organizationId/available-users", taskController.getAvailableUsersForAssignment);
+
 module.exports = router;

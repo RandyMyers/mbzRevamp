@@ -6,7 +6,14 @@ exports.createLog = async (req, res) => {
     const { action, user, resource, resourceId, details, organization } = req.body;
     const log = new AuditLog({ action, user, resource, resourceId, details, organization });
     await log.save();
-    res.status(201).json({ success: true, log });
+    
+    // Populate the saved log before returning
+    const populatedLog = await AuditLog.findById(log._id)
+      .populate('user', 'name email role')
+      .populate('organization', 'name domain')
+      .exec();
+    
+    res.status(201).json({ success: true, log: populatedLog });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Failed to create audit log' });
@@ -26,7 +33,11 @@ exports.getLogs = async (req, res) => {
       if (startDate) filter.timestamp.$gte = new Date(startDate);
       if (endDate) filter.timestamp.$lte = new Date(endDate);
     }
-    const logs = await AuditLog.find(filter).populate('user organization');
+    const logs = await AuditLog.find(filter)
+      .populate('user', 'name email role')
+      .populate('organization', 'name domain')
+      .sort({ timestamp: -1 })
+      .exec();
     res.status(200).json({ success: true, logs });
   } catch (error) {
     console.error(error);
@@ -34,11 +45,44 @@ exports.getLogs = async (req, res) => {
   }
 };
 
+// Get audit logs by organization
+exports.getLogsByOrganization = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    const { user, resource, startDate, endDate, severity, action } = req.query;
+    
+    const filter = { organization: organizationId };
+    if (user) filter.user = user;
+    if (resource) filter.resource = resource;
+    if (severity) filter.severity = severity;
+    if (action) filter.action = { $regex: action, $options: 'i' };
+    if (startDate || endDate) {
+      filter.timestamp = {};
+      if (startDate) filter.timestamp.$gte = new Date(startDate);
+      if (endDate) filter.timestamp.$lte = new Date(endDate);
+    }
+    
+    const logs = await AuditLog.find(filter)
+      .populate('user', 'name email role')
+      .populate('organization', 'name domain')
+      .sort({ timestamp: -1 })
+      .exec();
+      
+    res.status(200).json({ success: true, logs });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Failed to fetch organization audit logs' });
+  }
+};
+
 // Get a single audit log by ID
 exports.getLogById = async (req, res) => {
   try {
     const { logId } = req.params;
-    const log = await AuditLog.findById(logId).populate('user organization');
+    const log = await AuditLog.findById(logId)
+      .populate('user', 'name email role')
+      .populate('organization', 'name domain')
+      .exec();
     if (!log) return res.status(404).json({ success: false, message: 'Audit log not found' });
     res.status(200).json({ success: true, log });
   } catch (error) {

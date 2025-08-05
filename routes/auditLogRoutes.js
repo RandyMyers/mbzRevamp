@@ -4,6 +4,7 @@ const auditLogController = require('../controllers/auditLogController');
 
 router.post('/', auditLogController.createLog);
 router.get('/', auditLogController.getLogs);
+router.get('/organization/:organizationId', auditLogController.getLogsByOrganization);
 router.get('/:logId', auditLogController.getLogById);
 router.delete('/:logId', auditLogController.deleteLog);
 
