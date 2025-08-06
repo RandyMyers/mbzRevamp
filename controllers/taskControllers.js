@@ -5,7 +5,7 @@ const logEvent = require('../helper/logEvent');
 
 // CREATE a new task with subtasks
 exports.createTask = async (req, res) => {
-  const { title, description, status, priority, dueDate, assignedTo, organization, tags, createdBy, subtasks } = req.body;
+  const { title, description, status, priority, dueDate, assignedTo, organizationId, tags, createdBy, subtasks } = req.body;
   console.log(req.body);
 
   try {
@@ -16,7 +16,7 @@ exports.createTask = async (req, res) => {
     }
 
     // Validate organization
-    const org = await Organization.findById(organization);
+    const org = await Organization.findById(organizationId);
     if (!org) {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
@@ -38,7 +38,7 @@ exports.createTask = async (req, res) => {
       dueDate,
       assignedTo,
       createdBy,
-      organization,
+      organization: organizationId,
       tags,
       subtasks: subtasks || []
     });
@@ -279,15 +279,41 @@ exports.updateTaskStatus = async (req, res) => {
   const { status } = req.body;  // Only the status (new column) will be passed
 
   try {
+    // Validate status
+    const validStatuses = ['todo', 'in-progress', 'review', 'completed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid status. Must be one of: todo, in-progress, review, completed" 
+      });
+    }
+
     const task = await Task.findById(taskId);
     if (!task) {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
+    const oldStatus = task.status;
+    
     // Update only the status (column)
     task.status = status;
 
     const updatedTask = await task.save();
+    
+    // Log the status change
+    await logEvent({
+      action: 'update_task_status',
+      user: req.user._id,
+      resource: 'Task',
+      resourceId: task._id,
+      details: { 
+        before: oldStatus, 
+        after: status,
+        taskTitle: task.title 
+      },
+      organization: req.user.organization
+    });
+
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
     console.error(error);
@@ -306,7 +332,21 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    await task.remove();
+    await Task.findByIdAndDelete(taskId);
+    
+    // Log the task deletion
+    await logEvent({
+      action: 'delete_task',
+      user: req.user._id,
+      resource: 'Task',
+      resourceId: taskId,
+      details: { 
+        taskTitle: task.title,
+        taskStatus: task.status 
+      },
+      organization: req.user.organization
+    });
+
     res.status(200).json({ success: true, message: "Task deleted successfully" });
   } catch (error) {
     console.error(error);
