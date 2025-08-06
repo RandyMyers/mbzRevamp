@@ -250,3 +250,48 @@ exports.logEmailAnalytics = async (req, res) => {
   }
 };
 
+// Test endpoint to create a sample email
+exports.createTestEmail = async (req, res) => {
+  try {
+    const testEmail = new Email({
+      recipient: "test@example.com",
+      subject: "Test Email",
+      body: "This is a test email body",
+      status: "sent",
+      createdBy: req.user?._id,
+      organization: req.user?.organization
+    });
+
+    const savedEmail = await testEmail.save();
+    res.status(201).json({ success: true, email: savedEmail });
+  } catch (error) {
+    console.error('Test email creation error:', error);
+    res.status(500).json({ success: false, message: "Failed to create test email" });
+  }
+};
+
+// Test endpoint to get email count
+exports.getEmailCount = async (req, res) => {
+  try {
+    const count = await Email.countDocuments();
+    const inboxCount = await require("../models/inbox").countDocuments();
+    const sentCount = await require("../models/sent").countDocuments();
+    const archivedCount = await require("../models/archived").countDocuments();
+    const trashCount = await require("../models/trash").countDocuments();
+    
+    res.status(200).json({ 
+      success: true, 
+      counts: {
+        emails: count,
+        inbox: inboxCount,
+        sent: sentCount,
+        archived: archivedCount,
+        trash: trashCount
+      }
+    });
+  } catch (error) {
+    console.error('Email count error:', error);
+    res.status(500).json({ success: false, message: "Failed to get email count" });
+  }
+};
+

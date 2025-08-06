@@ -5188,7 +5188,7 @@ AUDIT LOGGING: All task operations are automatically logged for security and com
      "status": "string (default: 'pending')",
      "priority": "string (default: 'medium')",
      "dueDate": "Date (optional)",
-     "assignedTo": "ObjectId (optional)",
+     "assignedTo": ["ObjectId (optional)"],
      "tags": ["string (optional)"],
      "organizationId": "ObjectId (required)"
    }
@@ -5203,7 +5203,7 @@ AUDIT LOGGING: All task operations are automatically logged for security and com
        "status": "string",
        "priority": "string",
        "dueDate": "Date",
-       "assignedTo": "ObjectId",
+       "assignedTo": ["ObjectId"],
        "tags": ["string"],
        "organizationId": "ObjectId",
        "createdBy": "ObjectId",
@@ -5269,11 +5269,13 @@ AUDIT LOGGING: All task operations are automatically logged for security and com
        "status": "string",
        "priority": "string",
        "dueDate": "Date",
-       "assignedTo": {
-         "_id": "ObjectId",
-         "fullName": "string",
-         "email": "string"
-       },
+       "assignedTo": [
+         {
+           "_id": "ObjectId",
+           "fullName": "string",
+           "email": "string"
+         }
+       ],
        "tags": ["string"],
        "organizationId": "ObjectId",
        "createdBy": "ObjectId",
@@ -5294,7 +5296,7 @@ AUDIT LOGGING: All task operations are automatically logged for security and com
      "status": "string",
      "priority": "string",
      "dueDate": "Date",
-     "assignedTo": "ObjectId",
+     "assignedTo": ["ObjectId"],
      "tags": ["string"]
    }
    
@@ -5462,6 +5464,55 @@ AUDIT LOGGING: All task operations are automatically logged for security and com
         "total": "number",
         "pages": "number"
       }
+    }
+
+14. UPDATE TASK ASSIGNMENTS
+    PATCH /api/tasks/:taskId/assignments
+    
+    Request Body:
+    {
+      "assignedTo": ["ObjectId (required)"],
+      "action": "string (required, add|remove|replace)"
+    }
+    
+    Response:
+    {
+      "success": true,
+      "task": {
+        "_id": "ObjectId",
+        "title": "string",
+        "assignedTo": [
+          {
+            "_id": "ObjectId",
+            "fullName": "string",
+            "email": "string"
+          }
+        ],
+        "status": "string",
+        "priority": "string"
+      },
+      "message": "Task assignments updated successfully"
+    }
+    
+    Note: 
+    - 'add': Adds new users to existing assignments (prevents duplicates)
+    - 'remove': Removes specified users from assignments
+    - 'replace': Replaces all assignments with new list
+
+15. GET AVAILABLE USERS FOR ASSIGNMENT
+    GET /api/tasks/organization/:organizationId/available-users
+    
+    Response:
+    {
+      "success": true,
+      "users": [
+        {
+          "_id": "ObjectId",
+          "name": "string",
+          "email": "string",
+          "role": "string"
+        }
+      ]
     }
 
 ================================================================================
@@ -8509,320 +8560,6 @@ Authentication: All endpoints require authentication via authMiddleware
    {
      "success": true,
      "message": "Audit log deleted successfully"
-   }
-
-================================================================================
-                                ERROR RESPONSES
-================================================================================
-
-================================================================================
-                                AUDIT LOGS API
-================================================================================
-
-BASE URL: /api/audit-logs
-
-Authentication: All endpoints require authentication via authMiddleware
-
-AUDIT LOGGING: All audit log operations are automatically logged for security and compliance:
-- Audit log creation, updates, and deletions are logged with full context
-- User information, IP address, and user agent are captured
-- Severity levels: info (create/update), warning (delete)
-- Organization context is maintained for all audit entries
-
-1. CREATE AUDIT LOG
-   POST /api/audit-logs
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Request Body:
-   {
-     "action": "string (required)",
-     "user": "ObjectId (required)",
-     "resource": "string (optional)",
-     "resourceId": "ObjectId (optional)",
-     "details": "object (optional)",
-     "organization": "ObjectId (required)",
-     "severity": "string (optional, default: 'info', options: info|warning|error|critical)",
-     "ip": "string (optional)",
-     "userAgent": "string (optional)"
-   }
-   
-   Response:
-   {
-     "success": true,
-     "log": {
-       "_id": "ObjectId",
-       "action": "string",
-       "user": {
-         "_id": "ObjectId",
-         "name": "string",
-         "email": "string",
-         "role": "string"
-       },
-       "resource": "string",
-       "resourceId": "ObjectId",
-       "details": "object",
-       "organization": {
-         "_id": "ObjectId",
-         "name": "string",
-         "domain": "string"
-       },
-       "severity": "string",
-       "timestamp": "Date",
-       "ip": "string",
-       "userAgent": "string"
-     }
-   }
-
-2. GET ALL AUDIT LOGS
-   GET /api/audit-logs
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Query Parameters:
-   - page: number (default: 1)
-   - limit: number (default: 10)
-   - user: ObjectId (optional)
-   - resource: string (optional)
-   - organization: ObjectId (optional)
-   - startDate: string (ISO date, optional)
-   - endDate: string (ISO date, optional)
-   - severity: string (optional, info|warning|error|critical)
-   - action: string (optional, search in action field)
-   - sortBy: string (default: "timestamp")
-   - sortOrder: "asc" | "desc" (default: "desc")
-   
-   Response:
-   {
-     "success": true,
-     "logs": [
-       {
-         "_id": "ObjectId",
-         "action": "string",
-         "user": {
-           "_id": "ObjectId",
-           "name": "string",
-           "email": "string",
-           "role": "string"
-         },
-         "resource": "string",
-         "resourceId": "ObjectId",
-         "details": "object",
-         "organization": {
-           "_id": "ObjectId",
-           "name": "string",
-           "domain": "string"
-         },
-         "severity": "string",
-         "timestamp": "Date",
-         "ip": "string",
-         "userAgent": "string"
-       }
-     ],
-     "pagination": {
-       "page": "number",
-       "limit": "number",
-       "total": "number",
-       "pages": "number"
-     }
-   }
-
-3. GET AUDIT LOGS BY ORGANIZATION
-   GET /api/audit-logs/organization/:organizationId
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Query Parameters:
-   - page: number (default: 1)
-   - limit: number (default: 10)
-   - user: ObjectId (optional)
-   - resource: string (optional)
-   - startDate: string (ISO date, optional)
-   - endDate: string (ISO date, optional)
-   - severity: string (optional, info|warning|error|critical)
-   - action: string (optional, search in action field)
-   - sortBy: string (default: "timestamp")
-   - sortOrder: "asc" | "desc" (default: "desc")
-   
-   Response:
-   {
-     "success": true,
-     "logs": [
-       {
-         "_id": "ObjectId",
-         "action": "string",
-         "user": {
-           "_id": "ObjectId",
-           "name": "string",
-           "email": "string",
-           "role": "string"
-         },
-         "resource": "string",
-         "resourceId": "ObjectId",
-         "details": "object",
-         "organization": {
-           "_id": "ObjectId",
-           "name": "string",
-           "domain": "string"
-         },
-         "severity": "string",
-         "timestamp": "Date",
-         "ip": "string",
-         "userAgent": "string"
-       }
-     ],
-     "pagination": {
-       "page": "number",
-       "limit": "number",
-       "total": "number",
-       "pages": "number"
-     }
-   }
-
-4. GET AUDIT LOG BY ID
-   GET /api/audit-logs/:logId
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Response:
-   {
-     "success": true,
-     "log": {
-       "_id": "ObjectId",
-       "action": "string",
-       "user": {
-         "_id": "ObjectId",
-         "name": "string",
-         "email": "string",
-         "role": "string"
-       },
-       "resource": "string",
-       "resourceId": "ObjectId",
-       "details": "object",
-       "organization": {
-         "_id": "ObjectId",
-         "name": "string",
-         "domain": "string"
-       },
-       "severity": "string",
-       "timestamp": "Date",
-       "ip": "string",
-       "userAgent": "string"
-     }
-   }
-
-5. DELETE AUDIT LOG
-   DELETE /api/audit-logs/:logId
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Response:
-   {
-     "success": true,
-     "message": "Audit log deleted successfully"
-   }
-
-6. GET AUDIT LOG STATISTICS
-   GET /api/audit-logs/stats/:organizationId
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Query Parameters:
-   - startDate: string (ISO date, optional)
-   - endDate: string (ISO date, optional)
-   - severity: string (optional)
-   
-   Response:
-   {
-     "success": true,
-     "stats": {
-       "totalLogs": "number",
-       "logsBySeverity": {
-         "info": "number",
-         "warning": "number",
-         "error": "number",
-         "critical": "number"
-       },
-       "logsByResource": [
-         {
-           "resource": "string",
-           "count": "number"
-         }
-       ],
-       "logsByUser": [
-         {
-           "user": {
-             "_id": "ObjectId",
-             "name": "string"
-           },
-           "count": "number"
-         }
-       ],
-       "logsByDate": [
-         {
-           "date": "string (YYYY-MM-DD)",
-           "count": "number"
-         }
-       ]
-     }
-   }
-
-7. EXPORT AUDIT LOGS
-   GET /api/audit-logs/export/:organizationId
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Query Parameters:
-   - format: string (csv|json, default: csv)
-   - startDate: string (ISO date, optional)
-   - endDate: string (ISO date, optional)
-   - severity: string (optional)
-   - resource: string (optional)
-   - user: ObjectId (optional)
-   
-   Response: File download (CSV or JSON)
-
-8. SEARCH AUDIT LOGS
-   GET /api/audit-logs/search
-   
-   Headers: Authorization: Bearer JWT_TOKEN
-   
-   Query Parameters:
-   - query: string (required, search term)
-   - organizationId: ObjectId (optional)
-   - startDate: string (ISO date, optional)
-   - endDate: string (ISO date, optional)
-   - severity: string (optional)
-   - resource: string (optional)
-   
-   Response:
-   {
-     "success": true,
-     "logs": [
-       {
-         "_id": "ObjectId",
-         "action": "string",
-         "user": {
-           "_id": "ObjectId",
-           "name": "string",
-           "email": "string",
-           "role": "string"
-         },
-         "resource": "string",
-         "resourceId": "ObjectId",
-         "details": "object",
-         "organization": {
-           "_id": "ObjectId",
-           "name": "string",
-           "domain": "string"
-         },
-         "severity": "string",
-         "timestamp": "Date",
-         "ip": "string",
-         "userAgent": "string"
-       }
-     ],
-     "totalResults": "number"
    }
 
 ================================================================================

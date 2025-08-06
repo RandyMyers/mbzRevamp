@@ -12,6 +12,10 @@ router.delete("/delete/:emailId", protect, emailController.deleteEmail);
 // Route to get emails by status
 router.get("/status/:status", protect, emailController.getEmailsByStatus);
 
+// Test routes
+router.post("/test/create", protect, emailController.createTestEmail);
+router.get("/test/count", protect, emailController.getEmailCount);
+
 // --- Analytics endpoints ---
 router.get("/analytics/delivery-stats", protect, emailLogsController.getDeliveryStats);
 router.get("/analytics/device-stats", protect, emailLogsController.getDeviceStats);
