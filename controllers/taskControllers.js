@@ -328,10 +328,7 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    //Check if the user is either assigned to the task or the creator
-    if (!task.assignedTo.includes(user) && task.createdBy.toString() !== user) {
-     return res.status(403).json({ success: false, message: "You are not allowed to comment on this task" });
-    }
+    
 
     // Add the comment to the task
     task.comments.push({
