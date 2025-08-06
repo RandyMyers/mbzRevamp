@@ -200,9 +200,26 @@ InvoiceSchema.pre('save', function(next) {
 
 // Generate invoice number
 InvoiceSchema.statics.generateInvoiceNumber = async function(organizationId) {
-  const count = await this.countDocuments({ organizationId });
   const year = new Date().getFullYear();
-  return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+  
+  // Use findOne with sort to get the latest invoice number
+  const latestInvoice = await this.findOne(
+    { 
+      organizationId,
+      invoiceNumber: { $regex: `^INV-${year}-` }
+    },
+    { invoiceNumber: 1 }
+  ).sort({ invoiceNumber: -1 });
+
+  let nextNumber = 1;
+  if (latestInvoice) {
+    const match = latestInvoice.invoiceNumber.match(new RegExp(`^INV-${year}-(\\d+)$`));
+    if (match) {
+      nextNumber = parseInt(match[1]) + 1;
+    }
+  }
+
+  return `INV-${year}-${String(nextNumber).padStart(4, '0')}`;
 };
 
 // Calculate totals

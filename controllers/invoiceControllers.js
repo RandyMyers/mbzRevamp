@@ -3,7 +3,8 @@ const InvoiceTemplate = require('../models/InvoiceTemplate');
 const Customer = require('../models/customers');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
-const { createAuditLog } = require('../helpers/auditLogHelper');
+const User = require('../models/users');
+const logEvent = require('../helper/logEvent');
 const { sendNotificationToAdmins } = require('../helpers/notificationHelper');
 const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
@@ -45,8 +46,91 @@ exports.createInvoice = async (req, res) => {
       });
     }
 
+    // Validate items array structure
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Items must be a non-empty array'
+      });
+    }
+
+    // Validate each item has required fields
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.name || !item.quantity || !item.unitPrice) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1} is missing required fields: name, quantity, or unitPrice`
+        });
+      }
+    }
+
+    // Validate currency
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'NGN'];
+    if (currency && !validCurrencies.includes(currency.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid currency. Must be one of: ${validCurrencies.join(', ')}`
+      });
+    }
+
+    // Validate due date is in the future
+    if (dueDate && new Date(dueDate) <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Due date must be in the future'
+      });
+    }
+
+    // Validate dependencies exist
+    const [customer, store, organization, user] = await Promise.all([
+      Customer.findById(customerId),
+      Store.findById(storeId),
+      Organization.findById(organizationId),
+      User.findById(userId)
+    ]);
+
+    if (!customer) {
+      return res.status(404).json({ success: false, message: 'Customer not found' });
+    }
+    if (!store) {
+      return res.status(404).json({ success: false, message: 'Store not found' });
+    }
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify user belongs to the organization
+    if (user.organization.toString() !== organizationId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only create invoices for your organization' 
+      });
+    }
+
+    // Validate template if provided
+    if (templateId) {
+      const template = await InvoiceTemplate.findById(templateId);
+      if (!template) {
+        return res.status(404).json({ success: false, message: 'Invoice template not found' });
+      }
+    }
+
     // Generate invoice number
     const invoiceNumber = await Invoice.generateInvoiceNumber(organizationId);
+
+    // Process items to ensure correct structure
+    const processedItems = items.map(item => ({
+      name: item.name,
+      description: item.description || '',
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unitPrice),
+      totalPrice: Number(item.quantity) * Number(item.unitPrice),
+      taxRate: Number(item.taxRate) || 0
+    }));
 
     // Create new invoice
     const newInvoice = new Invoice({
@@ -58,12 +142,12 @@ exports.createInvoice = async (req, res) => {
       customerName,
       customerEmail,
       customerAddress,
-      items,
+      items: processedItems,
       subtotal: subtotal || 0,
       taxAmount: taxAmount || 0,
       discountAmount: discountAmount || 0,
       totalAmount,
-      currency: currency || 'USD',
+      currency: (currency || 'USD').toUpperCase(),
       dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       notes,
       terms,
@@ -76,32 +160,47 @@ exports.createInvoice = async (req, res) => {
     // Calculate totals
     newInvoice.calculateTotals();
 
+    // Validate calculated total matches provided total
+    const calculatedTotal = newInvoice.subtotal + newInvoice.taxAmount - newInvoice.discountAmount;
+    if (Math.abs(calculatedTotal - totalAmount) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        message: `Total amount mismatch. Calculated: ${calculatedTotal}, Provided: ${totalAmount}`
+      });
+    }
+
     const savedInvoice = await newInvoice.save();
 
     // Create audit log
-    await createAuditLog({
-      action: 'INVOICE_CREATED',
+    await logEvent({
+      action: 'invoice_created',
       user: userId,
       resource: 'Invoice',
       resourceId: savedInvoice._id,
       details: {
         invoiceNumber: savedInvoice.invoiceNumber,
         customerName: savedInvoice.customerName,
-        totalAmount: savedInvoice.totalAmount
+        totalAmount: savedInvoice.totalAmount,
+        currency: savedInvoice.currency
       },
       organization: organizationId
     });
 
-    // Send notification to admins
-    await sendNotificationToAdmins(organizationId, {
-      type: 'invoice_created',
-      title: 'New Invoice Created',
-      message: `Invoice ${savedInvoice.invoiceNumber} has been created for ${savedInvoice.customerName}`,
-      data: {
-        invoiceId: savedInvoice._id,
-        invoiceNumber: savedInvoice.invoiceNumber
-      }
-    });
+    // Send notification to admins (with error handling)
+    try {
+      await sendNotificationToAdmins(organizationId, {
+        type: 'invoice_created',
+        title: 'New Invoice Created',
+        message: `Invoice ${savedInvoice.invoiceNumber} has been created for ${savedInvoice.customerName}`,
+        data: {
+          invoiceId: savedInvoice._id,
+          invoiceNumber: savedInvoice.invoiceNumber
+        }
+      });
+    } catch (notificationError) {
+      console.error('Notification error:', notificationError);
+      // Don't fail the invoice creation if notification fails
+    }
 
     res.status(201).json({
       success: true,
@@ -257,8 +356,8 @@ exports.updateInvoice = async (req, res) => {
     }
 
     // Create audit log
-    await createAuditLog({
-      action: 'INVOICE_UPDATED',
+    await logEvent({
+      action: 'invoice_updated',
       user: userId,
       resource: 'Invoice',
       resourceId: invoice._id,
@@ -305,8 +404,8 @@ exports.deleteInvoice = async (req, res) => {
     }
 
     // Create audit log
-    await createAuditLog({
-      action: 'INVOICE_CANCELLED',
+    await logEvent({
+      action: 'invoice_cancelled',
       user: userId,
       resource: 'Invoice',
       resourceId: invoice._id,
@@ -422,8 +521,8 @@ exports.emailInvoice = async (req, res) => {
     await invoice.save();
 
     // Create audit log
-    await createAuditLog({
-      action: 'INVOICE_EMAILED',
+    await logEvent({
+      action: 'invoice_emailed',
       user: userId,
       resource: 'Invoice',
       resourceId: invoice._id,

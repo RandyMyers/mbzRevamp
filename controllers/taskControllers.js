@@ -280,11 +280,11 @@ exports.updateTaskStatus = async (req, res) => {
 
   try {
     // Validate status
-    const validStatuses = ['todo', 'in-progress', 'review', 'completed'];
-    if (!validStatuses.includes(status)) {
+    const validStatuses = ['pending', 'inProgress', 'review', 'completed', 'cancelled', 'onHold'];
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ 
         success: false, 
-        message: "Invalid status. Must be one of: todo, in-progress, review, completed" 
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
       });
     }
 
@@ -357,27 +357,54 @@ exports.deleteTask = async (req, res) => {
 // ADD a comment to a task
 exports.addComment = async (req, res) => {
   const { taskId } = req.params;
-  const { user, text } = req.body;
-  console.log(req.body);
- 
+  const { text } = req.body;
+  const userId = req.user._id; // Get user from authenticated request
 
   try {
+    // Validate required fields
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Comment text is required" 
+      });
+    }
+
     const task = await Task.findById(taskId);
 
     if (!task) {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    
+    // Verify user belongs to the same organization as the task
+    if (task.organization.toString() !== req.user.organization.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You can only comment on tasks in your organization" 
+      });
+    }
 
     // Add the comment to the task
     task.comments.push({
-      text,
-      user,
+      text: text.trim(),
+      user: userId,
       createdAt: Date.now(),
     });
 
     const updatedTask = await task.save();
+
+    // Log the comment addition
+    await logEvent({
+      action: 'add_task_comment',
+      user: userId,
+      resource: 'Task',
+      resourceId: task._id,
+      details: { 
+        taskTitle: task.title,
+        commentText: text.trim().substring(0, 100) // Log first 100 chars
+      },
+      organization: req.user.organization
+    });
+
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
     console.error(error);
@@ -388,9 +415,18 @@ exports.addComment = async (req, res) => {
 // UPDATE a comment
 exports.updateComment = async (req, res) => {
   const { taskId, commentId } = req.params;
-  const { text, user } = req.body;
+  const { text } = req.body;
+  const userId = req.user._id;
 
   try {
+    // Validate required fields
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Comment text is required" 
+      });
+    }
+
     const task = await Task.findById(taskId);
     if (!task) {
       return res.status(404).json({ success: false, message: "Task not found" });
@@ -402,14 +438,28 @@ exports.updateComment = async (req, res) => {
     }
 
     // Check if user owns the comment
-    if (comment.user.toString() !== user) {
+    if (comment.user.toString() !== userId.toString()) {
       return res.status(403).json({ success: false, message: "You can only edit your own comments" });
     }
 
-    comment.text = text;
+    comment.text = text.trim();
     comment.updatedAt = Date.now();
 
     const updatedTask = await task.save();
+
+    // Log the comment update
+    await logEvent({
+      action: 'update_task_comment',
+      user: userId,
+      resource: 'Task',
+      resourceId: task._id,
+      details: { 
+        taskTitle: task.title,
+        commentText: text.trim().substring(0, 100)
+      },
+      organization: req.user.organization
+    });
+
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
     console.error(error);
@@ -420,7 +470,7 @@ exports.updateComment = async (req, res) => {
 // DELETE a comment
 exports.deleteComment = async (req, res) => {
   const { taskId, commentId } = req.params;
-  const { user } = req.body;
+  const userId = req.user._id;
 
   try {
     const task = await Task.findById(taskId);
@@ -434,12 +484,26 @@ exports.deleteComment = async (req, res) => {
     }
 
     // Check if user owns the comment or is task creator
-    if (comment.user.toString() !== user && task.createdBy.toString() !== user) {
+    if (comment.user.toString() !== userId.toString() && task.createdBy.toString() !== userId.toString()) {
       return res.status(403).json({ success: false, message: "You can only delete your own comments or be the task creator" });
     }
 
-    comment.remove();
+    comment.deleteOne();
     const updatedTask = await task.save();
+
+    // Log the comment deletion
+    await logEvent({
+      action: 'delete_task_comment',
+      user: userId,
+      resource: 'Task',
+      resourceId: task._id,
+      details: { 
+        taskTitle: task.title,
+        commentText: comment.text.substring(0, 100)
+      },
+      organization: req.user.organization
+    });
+
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
     console.error(error);

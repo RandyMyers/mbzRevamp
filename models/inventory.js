@@ -143,7 +143,7 @@ const InventorySchema = new Schema({
 const Inventory = mongoose.model('Inventory', InventorySchema);
 
 // Add unique indexes to prevent duplicates
-InventorySchema.index({ wooCommerceId: 1, storeId: 1 }, { unique: true, sparse: true });
-InventorySchema.index({ sku: 1, storeId: 1, organizationId: 1 }, { unique: true, sparse: true });
+// Only enforce uniqueness when wooCommerceId is not null
+InventorySchema.index({ sku: 1, storeId: 1, organizationId: 1 }, { unique: true });
 
 module.exports = Inventory;

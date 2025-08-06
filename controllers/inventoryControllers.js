@@ -368,6 +368,21 @@ exports.createProduct = async (req, res) => {
 
     // PHASE 1: Create product in local database first
     console.log('💾 PHASE 1: Creating product in local database...');
+    
+    // Check for existing product with same SKU in the same store
+    const existingProduct = await Inventory.findOne({ 
+      sku: sku, 
+      storeId: storeId,
+      organizationId: organizationId 
+    });
+    
+    if (existingProduct) {
+      return res.status(400).json({
+        success: false,
+        message: `Product with SKU '${sku}' already exists in this store`
+      });
+    }
+    
     const newProduct = new Inventory({
       product_Id: product_Id ? Number(product_Id) : null, // Optional now
       sku,
@@ -423,6 +438,7 @@ exports.createProduct = async (req, res) => {
       storeId,
       userId,
       organizationId,
+      wooCommerceId: null, // Explicitly set to null initially
       syncStatus: syncToWooCommerce ? 'pending' : 'not_synced',
       syncError: null,
     });

@@ -6557,48 +6557,43 @@ BASE URL: /api/invoices
 1. CREATE INVOICE
    POST /api/invoices/create
    
+   Authentication: Bearer token required
+   
    Request Body:
    {
-     "organizationId": "ObjectId (required)",
      "customerId": "ObjectId (required)",
-     "orderId": "ObjectId (optional)",
-     "invoiceNumber": "string (optional, auto-generated if not provided)",
-     "issueDate": "Date (required)",
-     "dueDate": "Date (required)",
-     "status": "string (default: 'draft', options: draft|sent|paid|overdue|cancelled)",
-     "currency": "string (default: 'USD')",
-     "subtotal": "number (required)",
-     "taxAmount": "number (default: 0)",
-     "discountAmount": "number (default: 0)",
-     "totalAmount": "number (required)",
-     "notes": "string (optional)",
-     "terms": "string (optional)",
-     "lineItems": [
-       {
-         "description": "string (required)",
-         "quantity": "number (required)",
-         "unitPrice": "number (required)",
-         "total": "number (required)"
-       }
-     ],
-     "billingAddress": {
-       "name": "string (required)",
-       "company": "string (optional)",
-       "address": "string (required)",
-       "city": "string (required)",
-       "state": "string (required)",
-       "postalCode": "string (required)",
-       "country": "string (required)"
-     },
-     "shippingAddress": {
-       "name": "string (optional)",
-       "company": "string (optional)",
-       "address": "string (optional)",
+     "storeId": "ObjectId (required)",
+     "organizationId": "ObjectId (required)",
+     "userId": "ObjectId (required)",
+     "customerName": "string (required)",
+     "customerEmail": "string (required)",
+     "customerAddress": {
+       "street": "string (optional)",
        "city": "string (optional)",
        "state": "string (optional)",
-       "postalCode": "string (optional)",
+       "zipCode": "string (optional)",
        "country": "string (optional)"
-     }
+     },
+     "items": [
+       {
+         "name": "string (required)",
+         "description": "string (optional)",
+         "quantity": "number (required)",
+         "unitPrice": "number (required)",
+         "totalPrice": "number (auto-calculated)",
+         "taxRate": "number (optional, default: 0)"
+       }
+     ],
+     "subtotal": "number (optional, auto-calculated)",
+     "taxAmount": "number (optional, default: 0)",
+     "discountAmount": "number (optional, default: 0)",
+     "totalAmount": "number (required)",
+     "currency": "string (optional, default: 'USD', options: USD|EUR|GBP|CAD|AUD|JPY|NGN)",
+     "dueDate": "Date (optional, default: 30 days from now)",
+     "notes": "string (optional)",
+     "terms": "string (optional)",
+     "type": "string (optional, default: 'one_time', options: subscription|one_time|recurring)",
+     "templateId": "ObjectId (optional)"
    }
    
    Response:
@@ -6630,7 +6625,7 @@ BASE URL: /api/invoices
    }
 
 2. GET ALL INVOICES
-   GET /api/invoices/organization/:organizationId
+   GET /api/invoices/list
    
    Query Parameters:
    - page: number (default: 1)
@@ -7631,6 +7626,8 @@ BASE URL: /api/feedback
 1. CREATE FEEDBACK
    POST /api/feedback/create
    
+   Authentication: Bearer token required
+   
    Request Body:
    {
      "organizationId": "ObjectId (required)",
@@ -7664,7 +7661,7 @@ BASE URL: /api/feedback
    }
 
 2. GET ALL FEEDBACK
-   GET /api/feedback/organization/:organizationId
+   GET /api/feedback/list
    
    Query Parameters:
    - page: number (default: 1)
@@ -7701,7 +7698,7 @@ BASE URL: /api/feedback
    }
 
 3. GET FEEDBACK BY ID
-   GET /api/feedback/get/:feedbackId
+   GET /api/feedback/:id
    
    Response:
    {
@@ -7736,7 +7733,7 @@ BASE URL: /api/feedback
    }
 
 4. UPDATE FEEDBACK
-   PATCH /api/feedback/update/:feedbackId
+   PUT /api/feedback/:id
    
    Request Body: (all fields optional)
    {
@@ -7759,7 +7756,7 @@ BASE URL: /api/feedback
    }
 
 5. DELETE FEEDBACK
-   DELETE /api/feedback/delete/:feedbackId
+   DELETE /api/feedback/:id
    
    Response:
    {
@@ -7768,7 +7765,7 @@ BASE URL: /api/feedback
    }
 
 6. ADD RESPONSE TO FEEDBACK
-   POST /api/feedback/:feedbackId/respond
+   POST /api/feedback/:id/respond
    
    Request Body:
    {
@@ -7790,7 +7787,7 @@ BASE URL: /api/feedback
    }
 
 7. GET FEEDBACK ANALYTICS
-   GET /api/feedback/analytics/:organizationId
+   GET /api/feedback/analytics/summary
    
    Response:
    {
@@ -7811,7 +7808,7 @@ BASE URL: /api/feedback
    }
 
 8. BULK UPDATE FEEDBACK
-   PATCH /api/feedback/bulk-update
+   PUT /api/feedback/bulk/status
    
    Request Body:
    {
