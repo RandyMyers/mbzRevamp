@@ -30,3 +30,8 @@ routes/orderRoutes.js
 routes/receiptRoutes.js
 routes/shippingLabelRoutes.js
 routes/templateRoutes.js
+[33m1528082[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Update API reference documentation: Fix invoice, invoice template, and feedback endpoints to match actual server implementation
+[33m7bbfe38[m Fix updateTaskStatus function with validation and audit logging
+[33m71f833b[m Update task controllers and model with latest improvements
+[33mcab84ae[m Update server files: Task assignment improvements, API reference updates, and email template fixes
+[33ma5ba629[m Remove group field from user management and invitation system

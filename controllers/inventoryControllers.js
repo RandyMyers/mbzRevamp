@@ -8,7 +8,6 @@ const cloudinary = require('cloudinary').v2;
 const logEvent = require('../helper/logEvent');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
-const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
 const { notifyProductCreated, notifyLowInventory, notifyOutOfStock } = require('../helpers/notificationHelper');
 
 //const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
@@ -1085,32 +1084,42 @@ exports.updateProduct = async (req, res) => {
 // DELETE a product from the inventory
 exports.deleteProduct = async (req, res) => {
   const { productId } = req.params;
+  const userId = req.user._id;
+
   try {
+    // Validate product ID
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product ID is required" });
+    }
+
     // Get the product before deletion for audit logging
     const productToDelete = await Inventory.findById(productId);
     if (!productToDelete) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // ✅ AUDIT LOG: Product Deleted
-    await createAuditLog({
-      action: 'Product Deleted',
-      user: req.user?._id || productToDelete.userId,
-      resource: 'product',
+    // Verify user belongs to the same organization as the product
+    if (productToDelete.organizationId.toString() !== req.user.organization.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You can only delete products from your organization" 
+      });
+    }
+
+    // Log the product deletion
+    await logEvent({
+      action: 'delete_product',
+      user: userId,
+      resource: 'Product',
       resourceId: productId,
       details: {
         productName: productToDelete.name,
         sku: productToDelete.sku,
         price: productToDelete.price,
         storeId: productToDelete.storeId,
-        organizationId: productToDelete.organizationId,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
+        organizationId: productToDelete.organizationId
       },
-      organization: req.user?.organization || productToDelete.organizationId,
-      severity: 'warning', // Deletion is more critical
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      organization: req.user.organization
     });
 
     const deletedProduct = await Inventory.findByIdAndDelete(productId);
