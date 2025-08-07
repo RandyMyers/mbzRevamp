@@ -2,11 +2,13 @@ const Email = require("../models/emails"); // Import the Email model
 const EmailLogs = require("../models/emailLogs");
 const logEvent = require('../helper/logEvent');
 const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper');
+const sendEmail = require('../helper/senderEmail'); // Import the sendEmail helper
+const Sender = require('../models/sender'); // Import Sender model for email sending
 
 // CREATE a new email
 exports.createEmail = async (req, res) => {
   try {
-    const { recipient, subject, body, variables, emailTemplate, createdBy, organization, user } = req.body;
+    const { recipient, subject, body, variables, emailTemplate, createdBy, organization, user, senderId, campaign, workflow } = req.body;
     
     // Handle both 'createdBy' and 'user' field names for compatibility
     const userId = createdBy || user;
@@ -28,51 +30,114 @@ exports.createEmail = async (req, res) => {
       });
     }
 
-    const newEmail = new Email({
-      recipient,
-      subject,
-      body,
-      variables,
-      emailTemplate,
-      createdBy: userId,
-      organization,
-    });
+    // 🔥 SEND THE EMAIL USING THE HELPER FUNCTION
+    try {
+      // Get active sender if senderId is provided, otherwise get first active sender
+      let sender;
+      if (senderId) {
+        sender = await Sender.findById(senderId);
+      } else {
+        sender = await Sender.findOne({ isActive: true, organization: organization });
+      }
 
-    const savedEmail = await newEmail.save();
-    
-    // ✅ AUDIT LOG: Email Created
-    await createAuditLog({
-      action: 'Email Created',
-      user: req.user?._id,
-      resource: 'email',
-      resourceId: savedEmail._id,
-      details: {
-        recipient: savedEmail.recipient,
-        subject: savedEmail.subject,
-        status: savedEmail.status,
-        organization: savedEmail.organization,
+      if (!sender || !sender.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "No active email sender found. Please configure an email sender first."
+        });
+      }
+
+      // Send the email using the sendEmail helper function
+      const emailSent = await sendEmail({
+        senderId: sender._id,
+        campaign: campaign,
+        workflow: workflow,
+        organization: organization,
+        createdBy: userId,
+        emailTemplate: emailTemplate,
+        variables: variables,
+        to: recipient,
+        subject: subject,
+        html: body, // Use body as HTML content
+        text: body.replace(/<[^>]*>/g, '') // Strip HTML tags for text version
+      });
+
+      console.log('✅ Email sent successfully using helper function');
+      
+      // ✅ AUDIT LOG: Email Created and Sent
+      await createAuditLog({
+        action: 'Email Created and Sent',
+        user: req.user?._id,
+        resource: 'email',
+        resourceId: emailSent.messageId,
+        details: {
+          recipient: recipient,
+          subject: subject,
+          status: 'sent',
+          organization: organization,
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        },
+        organization: req.user?.organization || organization,
+        severity: 'info',
         ip: req.ip,
         userAgent: req.headers['user-agent']
-      },
-      organization: req.user?.organization || savedEmail.organization,
-      severity: 'info',
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
-    
-    // Only log event if user is authenticated
-    if (req.user && req.user._id) {
-      await logEvent({
-        action: 'create_email',
-        user: req.user._id,
-        resource: 'Email',
-        resourceId: savedEmail._id,
-        details: { to: savedEmail.recipient, subject: savedEmail.subject },
-        organization: req.user.organization
+      });
+      
+      // Only log event if user is authenticated
+      if (req.user && req.user._id) {
+        await logEvent({
+          action: 'create_email',
+          user: req.user._id,
+          resource: 'Email',
+          resourceId: emailSent.messageId,
+          details: { to: recipient, subject: subject },
+          organization: req.user.organization
+        });
+      }
+
+      res.status(201).json({ 
+        success: true, 
+        message: "Email sent successfully",
+        emailInfo: {
+          messageId: emailSent.messageId,
+          recipient: recipient,
+          subject: subject,
+          status: 'sent'
+        }
+      });
+
+    } catch (sendError) {
+      console.error('❌ Email sending failed:', sendError);
+      
+      // ✅ AUDIT LOG: Email Send Failed
+      await createAuditLog({
+        action: 'Email Send Failed',
+        user: req.user?._id,
+        resource: 'email',
+        resourceId: null,
+        details: {
+          recipient: recipient,
+          subject: subject,
+          status: 'failed',
+          error: sendError.message,
+          organization: organization,
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        },
+        organization: req.user?.organization || organization,
+        severity: 'error',
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send email",
+        error: sendError.message
       });
     }
     
-    res.status(201).json({ success: true, email: savedEmail });
   } catch (error) {
     console.error('Email creation error:', error);
     

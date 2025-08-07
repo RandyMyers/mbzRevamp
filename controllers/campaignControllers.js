@@ -344,16 +344,16 @@ exports.startCampaign = async (req, res) => {
         
         campaign.sentCount += 1;
 
-        if (emailSent) {
-            
+        // Check if email was sent successfully (backward compatibility)
+        if (emailSent && emailSent.success) {
             campaign.deliveredCount += 1; // Assuming email is delivered successfully
-          } else {
+        } else {
             campaign.bouncedCount += 1; // Increment bounced count if sending fails
-          }
+        }
 
-        activeSender.emailsSentToday++;
-
-        await activeSender.save();
+        // Note: sender daily count is now handled in the helper function
+        // activeSender.emailsSentToday++; // This is now handled in sendEmail helper
+        // await activeSender.save(); // This is now handled in sendEmail helper
       } catch (error) {
         console.error('Error sending email to contact:', contact.email, error);
       }

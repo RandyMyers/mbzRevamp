@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const cloudinary = require('cloudinary').v2;
 const Role = require('../models/role');
 const Group = require('../models/group');
-const Invitation = require('../models/invitation');
+
 const AuditLog = require('../models/auditLog');
 const logEvent = require('../helper/logEvent');
 

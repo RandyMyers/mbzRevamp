@@ -1,10 +1,17 @@
 const Role = require('../models/role');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 // Create a new role
 exports.createRole = async (req, res) => {
   try {
-    const { name, description, permissions } = req.body;
-    const role = new Role({ name, description, permissions });
+    const { name, description, permissions, organizationId, userId } = req.body;
+    const role = new Role({ 
+      name, 
+      description, 
+      permissions, 
+      organization: organizationId,
+      userId: userId
+    });
     await role.save();
     res.status(201).json({ success: true, role });
   } catch (error) {
@@ -41,10 +48,10 @@ exports.getRoleById = async (req, res) => {
 exports.updateRole = async (req, res) => {
   try {
     const { roleId } = req.params;
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, organizationId, userId } = req.body;
     const role = await Role.findByIdAndUpdate(
       roleId,
-      { name, description, permissions, updatedAt: Date.now() },
+      { name, description, permissions, organization: organizationId, userId: userId, updatedAt: Date.now() },
       { new: true }
     );
     if (!role) return res.status(404).json({ success: false, message: 'Role not found' });

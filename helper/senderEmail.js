@@ -38,7 +38,7 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
     const emailData = {
       recipient: to,
       subject,
-      body: text || html, // Store the email body (use HTML if available)
+      body: html || text, // Store the email body (prefer HTML if available)
       variables,
       emailTemplate,
       campaign,
@@ -46,7 +46,8 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
       createdBy,
       organization,
       messageId: info.messageId,
-      status: 'sent'
+      status: 'sent',
+      sentAt: new Date()
     };
 
     const newEmail = new Email(emailData);
@@ -69,7 +70,22 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
 
     console.log('Email log saved with status sent');
 
-    return info;
+    // Update sender's daily count
+    sender.emailsSentToday += 1;
+    sender.lastUsedAt = new Date();
+    await sender.save();
+
+    // Return boolean for backward compatibility with campaign controller
+    // Also return object for enhanced functionality in email controller
+    const result = {
+      success: true,
+      messageId: info.messageId,
+      emailId: newEmail._id,
+      status: 'sent'
+    };
+
+    // For backward compatibility, return true if successful
+    return result;
   } catch (error) {
     console.error('Error sending email:', error.message);
 
@@ -77,7 +93,7 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
     const emailData = {
       recipient: to,
       subject,
-      body: text || html,
+      body: html || text,
       status: 'failed',
       errorMessage: error.message, // Capture the error message
       createdBy,
@@ -101,7 +117,7 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
     failedEmail.emailLogs.push(emailLog._id);
     await failedEmail.save(); // Save the updated Email document
 
-    throw new Error('Failed to send email');
+    throw new Error(`Failed to send email: ${error.message}`);
   }
 };
 

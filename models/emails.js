@@ -49,9 +49,15 @@ const EmailSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["trash", "drafts", "scheduled","sent"], // Allowed values
+      enum: ["trash", "drafts", "scheduled", "sent", "failed", "pending"], // Added missing statuses
       default: "drafts", // Default value if none is provided
       required: true,
+    },
+    errorMessage: {
+      type: String, // Added for error tracking
+    },
+    sentAt: {
+      type: Date, // Added for tracking when email was sent
     },
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt fields

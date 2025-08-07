@@ -9,53 +9,123 @@ exports.createTask = async (req, res) => {
   console.log(req.body);
 
   try {
-    // Validate assigned users
-    const users = await User.find({ _id: { $in: assignedTo } });
-    if (users.length !== assignedTo.length) {
-      return res.status(404).json({ success: false, message: "One or more assigned users not found" });
+    // ✅ VALIDATION 1: Check required fields
+    if (!title || !description || !organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Title, description, and organizationId are required" 
+      });
     }
 
-    // Validate organization
-    const org = await Organization.findById(organizationId);
-    if (!org) {
-      return res.status(404).json({ success: false, message: "Organization not found" });
-    }
-
-    // Validate subtask assignees if provided
-    if (subtasks && subtasks.length > 0) {
-      const subtaskUserIds = subtasks.map(s => s.assignedTo).filter(Boolean);
-      const subtaskUsers = await User.find({ _id: { $in: subtaskUserIds } });
-      if (subtaskUsers.length !== new Set(subtaskUserIds).size) {
-        return res.status(404).json({ success: false, message: "One or more subtask assignees not found" });
+    // ✅ VALIDATION 2: Handle assignedTo properly
+    let validatedAssignedTo = [];
+    if (assignedTo) {
+      // Convert to array if single user ID is sent
+      const assignedToArray = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+      
+      // Filter out null/undefined values
+      const validUserIds = assignedToArray.filter(id => id && id.toString().trim() !== '');
+      
+      if (validUserIds.length > 0) {
+        // Validate assigned users
+        const users = await User.find({ _id: { $in: validUserIds } });
+        if (users.length !== validUserIds.length) {
+          return res.status(404).json({ 
+            success: false, 
+            message: "One or more assigned users not found" 
+          });
+        }
+        validatedAssignedTo = validUserIds;
       }
     }
 
+    // ✅ VALIDATION 3: Validate organization
+    const org = await Organization.findById(organizationId);
+    if (!org) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Organization not found" 
+      });
+    }
+
+    // ✅ VALIDATION 4: Validate subtask assignees if provided
+    if (subtasks && Array.isArray(subtasks) && subtasks.length > 0) {
+      const subtaskUserIds = subtasks
+        .map(s => s.assignedTo)
+        .filter(Boolean)
+        .filter(id => id.toString().trim() !== '');
+      
+      if (subtaskUserIds.length > 0) {
+        const subtaskUsers = await User.find({ _id: { $in: subtaskUserIds } });
+        if (subtaskUsers.length !== subtaskUserIds.length) {
+          return res.status(404).json({ 
+            success: false, 
+            message: "One or more subtask assignees not found" 
+          });
+        }
+      }
+    }
+
+    // ✅ CREATE TASK
     const newTask = new Task({
-      title,
-      description,
-      status,
-      priority,
-      dueDate,
-      assignedTo,
-      createdBy,
+      title: title.trim(),
+      description: description.trim(),
+      status: status || 'pending',
+      priority: priority || 'medium',
+      dueDate: dueDate || null,
+      assignedTo: validatedAssignedTo,
+      createdBy: createdBy || req.user._id, // Use authenticated user if not provided
       organization: organizationId,
-      tags,
+      tags: tags || [],
       subtasks: subtasks || []
     });
 
     const savedTask = await newTask.save();
+    
+    // ✅ LOG EVENT
     await logEvent({
       action: 'create_task',
       user: req.user._id,
       resource: 'Task',
       resourceId: savedTask._id,
-      details: { title: savedTask.title, status: savedTask.status },
+      details: { 
+        title: savedTask.title, 
+        status: savedTask.status,
+        assignedToCount: savedTask.assignedTo.length,
+        subtasksCount: savedTask.subtasks.length
+      },
       organization: req.user.organization
     });
-    res.status(201).json({ success: true, task: savedTask });
+    
+    res.status(201).json({ 
+      success: true, 
+      task: savedTask,
+      message: "Task created successfully"
+    });
+    
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to create task" });
+    console.error('Create task error:', error);
+    
+    // ✅ BETTER ERROR HANDLING
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation error: " + Object.values(error.errors).map(e => e.message).join(', ')
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Task with this title already exists" 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to create task",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
