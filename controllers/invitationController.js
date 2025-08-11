@@ -678,8 +678,88 @@ const acceptInvitation = async (req, res) => {
   }
 };
 
+// Update invitation
+exports.updateInvitation = async (req, res) => {
+  try {
+    const { invitationId } = req.params;
+    const { status, role, department, message, expiresAt } = req.body;
+    const userId = req.user._id;
+
+    // Validate invitation ID
+    if (!invitationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invitation ID is required" 
+      });
+    }
+
+    // Find the invitation
+    const invitation = await Invitation.findById(invitationId);
+    if (!invitation) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Invitation not found" 
+      });
+    }
+
+    // Check if user is authorized to update this invitation
+    if (invitation.invitedBy.toString() !== userId.toString() && 
+        req.user.role !== 'admin' && 
+        req.user.role !== 'super-admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You are not authorized to update this invitation" 
+      });
+    }
+
+    // Update fields
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (role) updateData.role = role;
+    if (department) updateData.department = department;
+    if (message) updateData.message = message;
+    if (expiresAt) updateData.expiresAt = new Date(expiresAt);
+
+    // Update the invitation
+    const updatedInvitation = await Invitation.findByIdAndUpdate(
+      invitationId, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
+
+    // Log the update
+    await logEvent({
+      action: 'update_invitation',
+      user: userId,
+      resource: 'Invitation',
+      resourceId: invitationId,
+      details: {
+        email: updatedInvitation.email,
+        status: updatedInvitation.status,
+        role: updatedInvitation.role,
+        department: updatedInvitation.department
+      },
+      organization: req.user.organization
+    });
+
+    res.json({
+      success: true,
+      message: 'Invitation updated successfully',
+      data: updatedInvitation
+    });
+
+  } catch (error) {
+    console.error('Failed to update invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update invitation',
+      error: error.message
+    });
+  }
+};
+
 // Test email configuration
-const testEmailConfig = async (req, res) => {
+exports.testEmailConfig = async (req, res) => {
   try {
     const { validateEmailConfig } = require('../services/emailService');
     
@@ -742,13 +822,4 @@ const testEmailConfig = async (req, res) => {
   }
 };
 
-module.exports = {
-  createInvitation,
-  getInvitations,
-  getInvitationById,
-  updateInvitation,
-  deleteInvitation,
-  resendInvitation,
-  acceptInvitation,
-  testEmailConfig
-}; 
+// All functions are exported using exports.functionName pattern above 
