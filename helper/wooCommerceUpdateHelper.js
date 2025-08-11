@@ -9,21 +9,22 @@ const {
 
 /**
  * Update product in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {number} wooCommerceId - WooCommerce product ID
  * @param {Object} productData - Local product data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const updateProductInWooCommerce = async (wooCommerceId, productData, storeId, userId, organizationId) => {
+const updateProductInWooCommerce = async (store, wooCommerceId, productData) => {
   try {
     if (!wooCommerceId) {
       throw new Error('WooCommerce product ID is required for update');
     }
 
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local product data to WooCommerce format
@@ -47,10 +48,10 @@ const updateProductInWooCommerce = async (wooCommerceId, productData, storeId, u
       operation: 'update',
       entityType: 'product',
       entityId: productData._id || productData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: productData.userId || 'system',
+      organizationId: productData.organizationId || 'system',
       wooCommerceId: wooCommerceProduct.id
     });
 
@@ -69,10 +70,10 @@ const updateProductInWooCommerce = async (wooCommerceId, productData, storeId, u
       operation: 'update',
       entityType: 'product',
       entityId: productData._id || productData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: productData.userId || 'system',
+      organizationId: productData.organizationId || 'system',
       error: errorResult
     });
 
@@ -82,21 +83,22 @@ const updateProductInWooCommerce = async (wooCommerceId, productData, storeId, u
 
 /**
  * Update customer in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {number} wooCommerceId - WooCommerce customer ID
  * @param {Object} customerData - Local customer data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const updateCustomerInWooCommerce = async (wooCommerceId, customerData, storeId, userId, organizationId) => {
+const updateCustomerInWooCommerce = async (store, wooCommerceId, customerData) => {
   try {
     if (!wooCommerceId) {
       throw new Error('WooCommerce customer ID is required for update');
     }
 
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local customer data to WooCommerce format
@@ -120,10 +122,10 @@ const updateCustomerInWooCommerce = async (wooCommerceId, customerData, storeId,
       operation: 'update',
       entityType: 'customer',
       entityId: customerData._id || customerData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: customerData.userId || 'system',
+      organizationId: customerData.organizationId || 'system',
       wooCommerceId: wooCommerceCustomer.id
     });
 
@@ -142,10 +144,10 @@ const updateCustomerInWooCommerce = async (wooCommerceId, customerData, storeId,
       operation: 'update',
       entityType: 'customer',
       entityId: customerData._id || customerData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: customerData.userId || 'system',
+      organizationId: customerData.organizationId || 'system',
       error: errorResult
     });
 
@@ -155,21 +157,22 @@ const updateCustomerInWooCommerce = async (wooCommerceId, customerData, storeId,
 
 /**
  * Update order in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {number} wooCommerceId - WooCommerce order ID
  * @param {Object} orderData - Local order data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const updateOrderInWooCommerce = async (wooCommerceId, orderData, storeId, userId, organizationId) => {
+const updateOrderInWooCommerce = async (store, wooCommerceId, orderData) => {
   try {
     if (!wooCommerceId) {
       throw new Error('WooCommerce order ID is required for update');
     }
 
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local order data to WooCommerce format
@@ -193,10 +196,10 @@ const updateOrderInWooCommerce = async (wooCommerceId, orderData, storeId, userI
       operation: 'update',
       entityType: 'order',
       entityId: orderData._id || orderData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: orderData.userId || 'system',
+      organizationId: orderData.organizationId || 'system',
       wooCommerceId: wooCommerceOrder.id
     });
 
@@ -215,10 +218,10 @@ const updateOrderInWooCommerce = async (wooCommerceId, orderData, storeId, userI
       operation: 'update',
       entityType: 'order',
       entityId: orderData._id || orderData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: orderData.userId || 'system',
+      organizationId: orderData.organizationId || 'system',
       error: errorResult
     });
 

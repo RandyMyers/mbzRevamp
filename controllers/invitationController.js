@@ -124,14 +124,60 @@ exports.createInvitation = async (req, res) => {
 
     // ✅ SEND INVITATION EMAIL WITH BASEURL
     try {
+      // ✅ VALIDATE DATA BEFORE SENDING EMAIL
+      if (!invitation.organization || !invitation.invitedBy) {
+        console.error('Missing required data for email:', {
+          hasOrganization: !!invitation.organization,
+          hasInvitedBy: !!invitation.invitedBy
+        });
+        throw new Error('Missing required invitation data');
+      }
+
       const emailResult = await sendInvitationEmail(invitation, baseUrl);
       if (!emailResult.success) {
-        console.error('Failed to send invitation email:', emailResult.error);
-        // Don't fail the request, but log the error
+        console.error('❌ Email sending failed:', emailResult.error);
+        throw new Error(`Failed to send invitation email: ${emailResult.error}`);
       }
+
+      console.log('✅ Invitation email sent successfully');
+      
+      // ✅ AUDIT LOG SUCCESS
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'INVITATION_EMAIL_SENT',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          invitationId: invitation._id,
+          recipientEmail: invitation.email,
+          organizationId: invitation.organization._id,
+          role: invitation.role,
+          groupId: invitation.group
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
     } catch (emailError) {
-      console.error('Email sending error:', emailError);
-      // Continue with the invitation creation even if email fails
+      console.error('❌ Email sending error:', emailError);
+      
+      // ✅ AUDIT LOG EMAIL FAILURE
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'INVITATION_EMAIL_FAILED',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          invitationId: invitation._id,
+          recipientEmail: invitation.email,
+          error: emailError.message
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      // Continue with invitation creation even if email fails
+      console.warn('⚠️ Continuing with invitation creation despite email failure');
     }
 
     // ✅ AUDIT LOG: Invitation Created
@@ -264,12 +310,63 @@ exports.resendInvitation = async (req, res) => {
 
     // ✅ SEND NEW INVITATION EMAIL WITH BASEURL
     try {
+      // ✅ VALIDATE DATA BEFORE SENDING EMAIL
+      if (!invitation.organization || !invitation.invitedBy) {
+        console.error('Missing required data for resend email:', {
+          hasOrganization: !!invitation.organization,
+          hasInvitedBy: !!invitation.invitedBy
+        });
+        throw new Error('Missing required invitation data for resend');
+      }
+
       const emailResult = await sendInvitationEmail(invitation, baseUrl);
       if (!emailResult.success) {
-        console.error('Failed to send resend invitation email:', emailResult.error);
+        console.error('❌ Resend email failed:', emailResult.error);
+        throw new Error(`Failed to resend invitation email: ${emailResult.error}`);
       }
+
+      console.log('✅ Invitation email resent successfully');
+      
+      // ✅ AUDIT LOG SUCCESS
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'INVITATION_EMAIL_RESENT',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          invitationId: invitation._id,
+          recipientEmail: invitation.email,
+          organizationId: invitation.organization._id,
+          role: invitation.role,
+          groupId: invitation.group
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
     } catch (emailError) {
-      console.error('Email sending error on resend:', emailError);
+      console.error('❌ Resend email error:', emailError);
+      
+      // ✅ AUDIT LOG EMAIL FAILURE
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'INVITATION_EMAIL_RESEND_FAILED',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          invitationId: invitation._id,
+          recipientEmail: invitation.email,
+          error: emailError.message
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to resend invitation email',
+        error: emailError.message
+      });
     }
 
     // ✅ AUDIT LOG: Invitation Resent
@@ -506,4 +603,152 @@ exports.deleteInvitation = async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, message: 'Failed to delete invitation' });
   }
+}; 
+
+// Accept invitation
+const acceptInvitation = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation token is required'
+      });
+    }
+
+    // Find valid invitation
+    const invitation = await Invitation.findValidInvitation(token);
+    
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid or expired invitation token'
+      });
+    }
+
+    // Check if invitation is already accepted
+    if (invitation.status === 'accepted') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation has already been accepted'
+      });
+    }
+
+    // Update invitation status
+    invitation.status = 'accepted';
+    invitation.acceptedAt = new Date();
+    await invitation.save();
+
+    // Create audit log
+    await createAuditLog({
+      userId: invitation.invitedBy?._id || 'system',
+      action: 'INVITATION_ACCEPTED',
+      resourceType: 'INVITATION',
+      resourceId: invitation._id,
+      details: {
+        invitationId: invitation._id,
+        recipientEmail: invitation.email,
+        organizationId: invitation.organization?._id,
+        role: invitation.role,
+        groupId: invitation.group
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.json({
+      success: true,
+      message: 'Invitation accepted successfully',
+      data: {
+        invitationId: invitation._id,
+        organizationId: invitation.organization?._id,
+        role: invitation.role,
+        groupId: invitation.group
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to accept invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept invitation',
+      error: error.message
+    });
+  }
+};
+
+// Test email configuration
+const testEmailConfig = async (req, res) => {
+  try {
+    const { validateEmailConfig } = require('../services/emailService');
+    
+    const isValid = validateEmailConfig();
+    
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email configuration is incomplete',
+        details: {
+          SMTP_HOST: process.env.SMTP_HOST || 'Missing',
+          SMTP_PORT: process.env.SMTP_PORT || 'Missing',
+          SMTP_USER: process.env.SMTP_USER ? 'Set' : 'Missing',
+          SMTP_PASS: process.env.SMTP_PASS ? 'Set' : 'Missing',
+          SMTP_SECURE: process.env.SMTP_SECURE || 'Missing'
+        }
+      });
+    }
+
+    // Test SMTP connection
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+
+    await transporter.verify();
+    
+    res.json({
+      success: true,
+      message: 'Email configuration is valid and SMTP connection successful',
+      details: {
+        SMTP_HOST: process.env.SMTP_HOST,
+        SMTP_PORT: process.env.SMTP_PORT,
+        SMTP_SECURE: process.env.SMTP_SECURE,
+        SMTP_USER: 'Configured',
+        SMTP_PASS: 'Configured'
+      }
+    });
+
+  } catch (error) {
+    console.error('Email configuration test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Email configuration test failed',
+      error: error.message,
+      details: {
+        SMTP_HOST: process.env.SMTP_HOST || 'Missing',
+        SMTP_PORT: process.env.SMTP_PORT || 'Missing',
+        SMTP_SECURE: process.env.SMTP_SECURE || 'Missing',
+        SMTP_USER: process.env.SMTP_USER ? 'Set' : 'Missing',
+        SMTP_PASS: process.env.SMTP_PASS ? 'Set' : 'Missing'
+      }
+    });
+  }
+};
+
+module.exports = {
+  createInvitation,
+  getInvitations,
+  getInvitationById,
+  updateInvitation,
+  deleteInvitation,
+  resendInvitation,
+  acceptInvitation,
+  testEmailConfig
 }; 

@@ -9,16 +9,17 @@ const {
 
 /**
  * Create product in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {Object} productData - Local product data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const createProductInWooCommerce = async (productData, storeId, userId, organizationId) => {
+const createProductInWooCommerce = async (store, productData) => {
   try {
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local product data to WooCommerce format
@@ -42,10 +43,10 @@ const createProductInWooCommerce = async (productData, storeId, userId, organiza
       operation: 'create',
       entityType: 'product',
       entityId: productData._id || productData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: productData.userId || 'system',
+      organizationId: productData.organizationId || 'system',
       wooCommerceId: wooCommerceProduct.id
     });
 
@@ -64,10 +65,10 @@ const createProductInWooCommerce = async (productData, storeId, userId, organiza
       operation: 'create',
       entityType: 'product',
       entityId: productData._id || productData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: productData.userId || 'system',
+      organizationId: productData.organizationId || 'system',
       error: errorResult
     });
 
@@ -77,16 +78,17 @@ const createProductInWooCommerce = async (productData, storeId, userId, organiza
 
 /**
  * Create customer in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {Object} customerData - Local customer data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const createCustomerInWooCommerce = async (customerData, storeId, userId, organizationId) => {
+const createCustomerInWooCommerce = async (store, customerData) => {
   try {
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local customer data to WooCommerce format
@@ -110,10 +112,10 @@ const createCustomerInWooCommerce = async (customerData, storeId, userId, organi
       operation: 'create',
       entityType: 'customer',
       entityId: customerData._id || customerData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: customerData.userId || 'system',
+      organizationId: customerData.organizationId || 'system',
       wooCommerceId: wooCommerceCustomer.id
     });
 
@@ -132,10 +134,10 @@ const createCustomerInWooCommerce = async (customerData, storeId, userId, organi
       operation: 'create',
       entityType: 'customer',
       entityId: customerData._id || customerData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: customerData.userId || 'system',
+      organizationId: customerData.organizationId || 'system',
       error: errorResult
     });
 
@@ -145,16 +147,17 @@ const createCustomerInWooCommerce = async (customerData, storeId, userId, organi
 
 /**
  * Create order in WooCommerce store
+ * @param {Object} store - Store configuration object
  * @param {Object} orderData - Local order data
- * @param {string} storeId - Store ID
- * @param {Object} userId - User performing the operation
- * @param {string} organizationId - Organization ID
  * @returns {Object} Sync result
  */
-const createOrderInWooCommerce = async (orderData, storeId, userId, organizationId) => {
+const createOrderInWooCommerce = async (store, orderData) => {
   try {
-    // Get store configuration
-    const store = await getStoreById(storeId);
+    if (!store) {
+      throw new Error('Store configuration is required');
+    }
+
+    // Initialize WooCommerce API with store configuration
     const api = initializeWooCommerceAPI(store);
 
     // Map local order data to WooCommerce format
@@ -178,10 +181,10 @@ const createOrderInWooCommerce = async (orderData, storeId, userId, organization
       operation: 'create',
       entityType: 'order',
       entityId: orderData._id || orderData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'success',
-      userId,
-      organizationId,
+      userId: orderData.userId || 'system',
+      organizationId: orderData.organizationId || 'system',
       wooCommerceId: wooCommerceOrder.id
     });
 
@@ -200,10 +203,10 @@ const createOrderInWooCommerce = async (orderData, storeId, userId, organization
       operation: 'create',
       entityType: 'order',
       entityId: orderData._id || orderData.id,
-      storeId,
+      storeId: store._id || store.id,
       status: 'failed',
-      userId,
-      organizationId,
+      userId: orderData.userId || 'system',
+      organizationId: orderData.organizationId || 'system',
       error: errorResult
     });
 

@@ -6,6 +6,7 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const logEvent = require('../helper/logEvent');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
 const { notifyProductCreated, notifyLowInventory, notifyOutOfStock } = require('../helpers/notificationHelper');
@@ -518,7 +519,7 @@ exports.createProduct = async (req, res) => {
 
           // Create product in WooCommerce
           console.log('🚀 Calling WooCommerce API to create product...');
-          const wooCommerceResult = await createProductInWooCommerce(productData, storeId, userId, organizationId);
+          const wooCommerceResult = await createProductInWooCommerce(store, productData);
           console.log('📡 WooCommerce API response:', JSON.stringify(wooCommerceResult, null, 2));
           
           if (wooCommerceResult.success) {
@@ -755,7 +756,11 @@ exports.updateProduct = async (req, res) => {
       'purchase_note',
       'sold_individually',
       'grouped_products',
-      'menu_order'
+      'menu_order',
+      'wooCommerceId',
+      'lastWooCommerceSync',
+      'syncStatus',
+      'syncError'
     ];
 
     // Sanitize update data - only allow specified fields
@@ -814,6 +819,20 @@ exports.updateProduct = async (req, res) => {
     if (sanitizedData.menu_order !== undefined) {
       sanitizedData.menu_order = sanitizedData.menu_order ? Number(sanitizedData.menu_order) : 0;
     }
+    
+    // Validate dimensions structure if provided
+    if (sanitizedData.dimensions) {
+      if (typeof sanitizedData.dimensions === 'object') {
+        sanitizedData.dimensions = {
+          length: sanitizedData.dimensions.length || null,
+          width: sanitizedData.dimensions.width || null,
+          height: sanitizedData.dimensions.height || null
+        };
+      } else {
+        // If dimensions is not an object, remove it
+        delete sanitizedData.dimensions;
+      }
+    }
 
     // Validate and process date fields
     if (sanitizedData.date_on_sale_from !== undefined) {
@@ -869,6 +888,15 @@ exports.updateProduct = async (req, res) => {
         name: cat.name || '',
         slug: cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-') || ''
       }));
+      
+      // Validate required fields for categories
+      const invalidCategories = sanitizedData.categories.filter(cat => !cat.id || !cat.name || !cat.slug);
+      if (invalidCategories.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid category data. All categories must have id, name, and slug."
+        });
+      }
     }
 
     // Process images if provided
@@ -880,6 +908,15 @@ exports.updateProduct = async (req, res) => {
         src: img.src || '',
         alt: img.alt || ''
       }));
+      
+      // Validate required fields for images
+      const invalidImages = sanitizedData.images.filter(img => !img.id || !img.src);
+      if (invalidImages.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid image data. All images must have id and src."
+        });
+      }
     }
 
     // Handle image uploads if files are provided
@@ -901,11 +938,9 @@ exports.updateProduct = async (req, res) => {
           });
         } catch (uploadError) {
           console.error('Cloudinary upload error:', uploadError);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to upload image to Cloudinary',
-            error: uploadError.message
-          });
+          // Don't fail the entire update if image upload fails
+          console.warn(`⚠️ Image upload failed for ${file.name}, continuing with update`);
+          // Continue with other images
         }
       }
       
@@ -914,6 +949,11 @@ exports.updateProduct = async (req, res) => {
         sanitizedData.images = [...sanitizedData.images, ...uploadedImages];
       } else {
         sanitizedData.images = uploadedImages;
+      }
+      
+      // If no images were successfully uploaded and images were requested, log a warning
+      if (uploadedImages.length === 0 && req.files && req.files.images) {
+        console.warn('⚠️ No images were successfully uploaded, but images were provided');
       }
     }
 
@@ -931,6 +971,14 @@ exports.updateProduct = async (req, res) => {
     const existingProduct = await Inventory.findById(productId);
     if (!existingProduct) {
       return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    
+    // Verify user belongs to the same organization as the product
+    if (existingProduct.organizationId.toString() !== req.user.organization.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You can only update products from your organization" 
+      });
     }
 
     let wooCommerceSync = null;
@@ -956,8 +1004,8 @@ exports.updateProduct = async (req, res) => {
         let wooCommerceResult;
 
         // If product already exists in WooCommerce, update it
-        if (existingProduct.product_Id) {
-          wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.product_Id, productData);
+        if (existingProduct.wooCommerceId) {
+          wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.wooCommerceId, productData);
         } else {
           // If product doesn't exist in WooCommerce, create it
           wooCommerceResult = await createProductInWooCommerce(store, productData);
@@ -965,8 +1013,8 @@ exports.updateProduct = async (req, res) => {
         
         if (wooCommerceResult.success) {
           // Update the WooCommerce ID if it's a new product
-          if (!existingProduct.product_Id && wooCommerceResult.data.id) {
-            sanitizedData.product_Id = wooCommerceResult.data.id;
+          if (!existingProduct.wooCommerceId && wooCommerceResult.data.id) {
+            sanitizedData.wooCommerceId = wooCommerceResult.data.id;
           }
           
           sanitizedData.lastWooCommerceSync = new Date();
@@ -975,7 +1023,7 @@ exports.updateProduct = async (req, res) => {
           
           wooCommerceSync = {
             synced: true,
-            wooCommerceId: sanitizedData.product_Id || existingProduct.product_Id,
+            wooCommerceId: sanitizedData.wooCommerceId || existingProduct.wooCommerceId,
             status: 'synced',
             error: null
           };
@@ -985,7 +1033,7 @@ exports.updateProduct = async (req, res) => {
           
           wooCommerceSync = {
             synced: false,
-            wooCommerceId: existingProduct.product_Id,
+            wooCommerceId: existingProduct.wooCommerceId,
             status: 'failed',
             error: sanitizedData.syncError
           };
@@ -998,7 +1046,7 @@ exports.updateProduct = async (req, res) => {
         
         wooCommerceSync = {
           synced: false,
-          wooCommerceId: existingProduct.product_Id,
+          wooCommerceId: existingProduct.wooCommerceId,
           status: 'failed',
           error: wooCommerceError.message
         };
@@ -1025,7 +1073,7 @@ exports.updateProduct = async (req, res) => {
         updatedFields: Object.keys(sanitizedData),
         syncToWooCommerce,
         syncStatus: sanitizedData.syncStatus,
-        wooCommerceId: sanitizedData.product_Id || existingProduct.product_Id,
+        wooCommerceId: sanitizedData.wooCommerceId || existingProduct.wooCommerceId,
         ip: req.ip,
         userAgent: req.headers['user-agent']
       },
@@ -1046,7 +1094,7 @@ exports.updateProduct = async (req, res) => {
         sku: updatedProduct.sku,
         syncToWooCommerce,
         syncStatus: sanitizedData.syncStatus,
-        wooCommerceId: sanitizedData.product_Id || existingProduct.product_Id
+        wooCommerceId: sanitizedData.wooCommerceId || existingProduct.wooCommerceId
       },
       organization: req.user?.organization || existingProduct.organizationId
     });
@@ -1084,6 +1132,7 @@ exports.updateProduct = async (req, res) => {
 // DELETE a product from the inventory
 exports.deleteProduct = async (req, res) => {
   const { productId } = req.params;
+  const { syncToWooCommerce = false } = req.body;
   const userId = req.user._id;
 
   try {
@@ -1106,6 +1155,73 @@ exports.deleteProduct = async (req, res) => {
       });
     }
 
+    let wooCommerceSync = null;
+
+    // If sync to WooCommerce is requested and product exists in WooCommerce
+    if (syncToWooCommerce && productToDelete.wooCommerceId && productToDelete.storeId) {
+      try {
+        // Get store information
+        const store = await Store.findById(productToDelete.storeId);
+        if (!store) {
+          return res.status(404).json({ 
+            success: false, 
+            message: "Store not found for WooCommerce sync" 
+          });
+        }
+
+        // Import and use WooCommerce delete helper
+        const { deleteProductInWooCommerce } = require('../helper/wooCommerceDeleteHelper');
+        
+        // Prepare product data for the helper
+        const productDataForSync = {
+          _id: productToDelete._id,
+          userId: userId,
+          organizationId: productToDelete.organizationId
+        };
+
+        // Delete product from WooCommerce
+        const wooCommerceResult = await deleteProductInWooCommerce(
+          store, 
+          productToDelete.wooCommerceId, 
+          productDataForSync
+        );
+        
+        if (wooCommerceResult.success) {
+          wooCommerceSync = {
+            synced: true,
+            wooCommerceId: productToDelete.wooCommerceId,
+            status: 'deleted',
+            error: null
+          };
+          console.log(`✅ WooCommerce product deleted: ${productToDelete.name} (ID: ${productToDelete.wooCommerceId})`);
+        } else {
+          wooCommerceSync = {
+            synced: false,
+            wooCommerceId: productToDelete.wooCommerceId,
+            status: 'failed',
+            error: wooCommerceResult.error?.message || 'WooCommerce delete failed'
+          };
+          console.error('WooCommerce delete error:', wooCommerceResult.error);
+        }
+      } catch (wooCommerceError) {
+        wooCommerceSync = {
+          synced: false,
+          wooCommerceId: productToDelete.wooCommerceId,
+          status: 'failed',
+          error: wooCommerceError.message
+        };
+        console.error('WooCommerce delete error:', wooCommerceError);
+      }
+    } else if (syncToWooCommerce && !productToDelete.wooCommerceId) {
+      console.log(`⚠️ Product ${productToDelete.name} has no WooCommerce ID, skipping WooCommerce deletion`);
+      wooCommerceSync = {
+        synced: false,
+        wooCommerceId: null,
+        status: 'skipped',
+        error: 'Product not synced to WooCommerce'
+      };
+    }
+
     // Log the product deletion
     await logEvent({
       action: 'delete_product',
@@ -1117,16 +1233,27 @@ exports.deleteProduct = async (req, res) => {
         sku: productToDelete.sku,
         price: productToDelete.price,
         storeId: productToDelete.storeId,
-        organizationId: productToDelete.organizationId
+        organizationId: productToDelete.organizationId,
+        wooCommerceSync: wooCommerceSync
       },
       organization: req.user.organization
     });
 
+    // Delete from local database
     const deletedProduct = await Inventory.findByIdAndDelete(productId);
-    res.status(200).json({ success: true, message: "Product deleted successfully" });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "Product deleted successfully",
+      wooCommerceSync
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to delete product" });
+    console.error('Error deleting product:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to delete product",
+      error: error.message 
+    });
   }
 };
 
@@ -1373,8 +1500,8 @@ exports.syncProductToWooCommerce = async (req, res) => {
     const productData = product.toObject();
 
     // If product already exists in WooCommerce, update it
-    if (product.product_Id) {
-      wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.product_Id, productData);
+    if (product.wooCommerceId) {
+      wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.wooCommerceId, productData);
       syncAction = 'updated';
     } else {
       // If product doesn't exist in WooCommerce, create it

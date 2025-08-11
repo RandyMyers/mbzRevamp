@@ -2439,11 +2439,21 @@ AUDIT LOGGING: All inventory operations are automatically logged for security an
 6. DELETE PRODUCT
    DELETE /api/inventory/:productId
    
+   Request Body:
+   {
+     "syncToWooCommerce": false  // Optional: Whether to delete from WooCommerce too
+   }
+   
    Response:
    {
      "success": true,
      "message": "Product deleted successfully",
-     "id": "ObjectId"
+     "wooCommerceSync": {
+       "synced": true,
+       "wooCommerceId": 123,
+       "status": "deleted",
+       "error": null
+     }
    }
 
 7. DELETE ALL PRODUCTS BY STORE
@@ -3974,8 +3984,8 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
      }
    }
 
-5. CANCEL INVITATION
-   POST /api/invitations/:invitationId/cancel
+5. UPDATE INVITATION
+   PUT /api/invitations/:invitationId
    
    Headers: Authorization: Bearer JWT_TOKEN (REQUIRED)
    
@@ -3983,16 +3993,41 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
    - User must be authenticated with valid JWT token
    - User must have role: 'admin' or 'super-admin'
    
-   Response:
+   Request Body (all fields optional):
+   {
+     "email": "string",
+     "role": "ObjectId",
+     "department": "string",
+     "message": "string",
+     "expiresAt": "Date",
+     "status": "string"
+   }
+   
+   Response (Success):
    {
      "success": true,
-     "message": "Invitation cancelled successfully",
+     "message": "Invitation updated successfully",
      "invitation": {
        "_id": "ObjectId",
-       "email": "user@example.com",
-       "status": "cancelled",
-       "updatedAt": "2024-01-01T00:00:00.000Z"
+       "email": "string",
+       "role": "ObjectId",
+       "department": "string",
+       "status": "string",
+       "expiresAt": "Date",
+       "updatedAt": "Date"
      }
+   }
+   
+   Response (Error - Not Found):
+   {
+     "success": false,
+     "message": "Invitation not found"
+   }
+   
+   Response (Error - Validation):
+   {
+     "success": false,
+     "message": "Invalid data provided"
    }
 
 6. ACCEPT INVITATION
@@ -4002,28 +4037,19 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
    
    Request Body:
    {
-     "token": "invitation_token_here", // REQUIRED - invitation token from email
-     "firstName": "John", // REQUIRED
-     "lastName": "Doe", // REQUIRED
-     "password": "securePassword123", // REQUIRED - min 8 characters
-     "confirmPassword": "securePassword123" // REQUIRED - must match password
+     "token": "invitation_token_here" // REQUIRED - invitation token from email
    }
    
    Response (Success):
    {
      "success": true,
      "message": "Invitation accepted successfully",
-     "user": {
-       "_id": "ObjectId",
-       "firstName": "John",
-       "lastName": "Doe",
-       "email": "user@example.com",
+     "data": {
+       "invitationId": "ObjectId",
+       "organizationId": "ObjectId",
        "role": "ObjectId",
-       "department": "Sales",
-       "organization": "ObjectId",
-       "status": "active"
-     },
-     "token": "jwt_token_here"
+       "groupId": "ObjectId"
+     }
    }
    
    Response (Error - Invalid Token):
@@ -4032,19 +4058,62 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
      "message": "Invalid or expired invitation token"
    }
    
-   Response (Error - Weak Password):
+   Response (Error - Already Accepted):
    {
      "success": false,
-     "message": "Password must be at least 8 characters long"
-   }
-   
-   Response (Error - Password Mismatch):
-   {
-     "success": false,
-     "message": "Passwords do not match"
+     "message": "Invitation has already been accepted"
    }
 
-7. DELETE INVITATION
+7. TEST EMAIL CONFIGURATION
+   GET /api/invitations/test-email-config
+   
+   Headers: Authorization: Bearer JWT_TOKEN (REQUIRED)
+   
+   Authentication Requirements:
+   - User must be authenticated with valid JWT token
+   - User must have role: 'admin' or 'super-admin'
+   
+   Response (Success):
+   {
+     "success": true,
+     "message": "Email configuration is valid and SMTP connection successful",
+     "details": {
+       "SMTP_HOST": "smtp.gmail.com",
+       "SMTP_PORT": "587",
+       "SMTP_SECURE": "false",
+       "SMTP_USER": "Configured",
+       "SMTP_PASS": "Configured"
+     }
+   }
+   
+   Response (Error - Configuration Missing):
+   {
+     "success": false,
+     "message": "Email configuration is incomplete",
+     "details": {
+       "SMTP_HOST": "Missing",
+       "SMTP_PORT": "Missing",
+       "SMTP_SECURE": "Missing",
+       "SMTP_USER": "Missing",
+       "SMTP_PASS": "Missing"
+     }
+   }
+   
+   Response (Error - Connection Failed):
+   {
+     "success": false,
+     "message": "Email configuration test failed",
+     "error": "Connection timeout",
+     "details": {
+       "SMTP_HOST": "smtp.gmail.com",
+       "SMTP_PORT": "587",
+       "SMTP_SECURE": "false",
+       "SMTP_USER": "Set",
+       "SMTP_PASS": "Set"
+     }
+   }
+
+8. DELETE INVITATION
    DELETE /api/invitations/:invitationId
    
    Headers: Authorization: Bearer JWT_TOKEN (REQUIRED)
@@ -4066,11 +4135,11 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
 HTTP Status Codes:
 - 200: Success
 - 201: Invitation created successfully
-- 400: Invalid email format, duplicate invitation, weak password, missing baseUrl
+- 400: Invalid email format, duplicate invitation, missing baseUrl, email configuration incomplete
 - 401: Unauthorized (missing or invalid JWT token)
 - 403: Forbidden (user not admin/super-admin)
 - 404: Invitation not found or expired
-- 500: Internal server error
+- 500: Internal server error, email configuration test failed
 
 Common Error Messages:
 - "You are not authorized to send invitations" - User lacks admin privileges
@@ -4080,8 +4149,9 @@ Common Error Messages:
 - "Base URL is required for invitation links" - Missing baseUrl parameter
 - "Invalid role specified" - Role ID not found
 - "Invalid or expired invitation token" - Token validation failed
-- "Password must be at least 8 characters long" - Weak password
-- "Passwords do not match" - Password confirmation mismatch
+- "Invitation has already been accepted" - Invitation already processed
+- "Email configuration is incomplete" - Missing SMTP settings
+- "Email configuration test failed" - SMTP connection failed
 
 ================================================================================
                               INVITATION FEATURES
@@ -4106,8 +4176,9 @@ VALIDATION FEATURES:
 - Role existence validation
 - Organization validation
 - Department enum validation
-- Password strength requirements
 - Token expiration checking
+- Email configuration validation
+- SMTP connection testing
 
 AUDIT FEATURES:
 - Comprehensive logging of all invitation operations
@@ -7978,11 +8049,21 @@ AUDIT LOGGING: All inventory operations are automatically logged for security an
 6. DELETE PRODUCT
    DELETE /api/inventory/:productId
    
+   Request Body:
+   {
+     "syncToWooCommerce": false  // Optional: Whether to delete from WooCommerce too
+   }
+   
    Response:
    {
      "success": true,
      "message": "Product deleted successfully",
-     "id": "ObjectId"
+     "wooCommerceSync": {
+       "synced": true,
+       "wooCommerceId": 123,
+       "status": "deleted",
+       "error": null
+     }
    }
 
 7. DELETE ALL PRODUCTS BY STORE
@@ -9513,8 +9594,8 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
      }
    }
 
-5. CANCEL INVITATION
-   POST /api/invitations/:invitationId/cancel
+5. UPDATE INVITATION
+   PUT /api/invitations/:invitationId
    
    Headers: Authorization: Bearer JWT_TOKEN (REQUIRED)
    
@@ -9522,16 +9603,41 @@ PERMISSIONS: Only admin and super-admin users can create/manage invitations
    - User must be authenticated with valid JWT token
    - User must have role: 'admin' or 'super-admin'
    
-   Response:
+   Request Body (all fields optional):
+   {
+     "email": "string",
+     "role": "ObjectId",
+     "department": "string",
+     "message": "string",
+     "expiresAt": "Date",
+     "status": "string"
+   }
+   
+   Response (Success):
    {
      "success": true,
-     "message": "Invitation cancelled successfully",
+     "message": "Invitation updated successfully",
      "invitation": {
        "_id": "ObjectId",
-       "email": "user@example.com",
-       "status": "cancelled",
-       "updatedAt": "2024-01-01T00:00:00.000Z"
+       "email": "string",
+       "role": "ObjectId",
+       "department": "string",
+       "status": "string",
+       "expiresAt": "Date",
+       "updatedAt": "Date"
      }
+   }
+   
+   Response (Error - Not Found):
+   {
+     "success": false,
+     "message": "Invitation not found"
+   }
+   
+   Response (Error - Validation):
+   {
+     "success": false,
+     "message": "Invalid data provided"
    }
 
 6. ACCEPT INVITATION

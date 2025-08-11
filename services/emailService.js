@@ -12,13 +12,40 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Add this function to validate email configuration
+exports.validateEmailConfig = () => {
+  const required = ['SMTP_USER', 'SMTP_PASS'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error(`❌ Missing required email environment variables: ${missing.join(', ')}`);
+    return false;
+  }
+  
+  return true;
+};
+
 // Send invitation email
 exports.sendInvitationEmail = async (invitation, baseUrl) => {
   try {
+    // ✅ VALIDATE EMAIL CONFIGURATION
+    if (!this.validateEmailConfig()) {
+      throw new Error('Email configuration is incomplete');
+    }
+
     console.log(`📧 Sending invitation email to: ${invitation.email}`);
 
+    // ✅ VALIDATE REQUIRED DATA
+    if (!invitation.organization || !invitation.organization.name) {
+      throw new Error('Organization data is missing or invalid');
+    }
+    
+    if (!invitation.invitedBy || !invitation.invitedBy.fullName) {
+      throw new Error('Inviter data is missing or invalid');
+    }
+
     // Generate invitation URL using provided baseUrl
-    const invitationUrl = `${baseUrl}/invite/accept?token=${invitation.token}`;
+    const invitationUrl = `${baseUrl}/accept-invitation?token=${invitation.token}`;
 
     // Create email content
     const subject = `You've been invited to join ${invitation.organization.name}`;
@@ -130,20 +157,25 @@ exports.sendInvitationEmail = async (invitation, baseUrl) => {
     console.error(`❌ Failed to send invitation email to ${invitation.email}:`, error.message);
     
     // ✅ AUDIT LOG: Email Failed
-    await createAuditLog({
-      action: 'Invitation Email Failed',
-      user: invitation.invitedBy._id,
-      resource: 'invitation',
-      resourceId: invitation._id,
-      details: {
-        recipient: invitation.email,
-        error: error.message,
-        organization: invitation.organization._id
-      },
-      organization: invitation.organization._id,
-      severity: 'error'
-    });
-
+    try {
+      await createAuditLog({
+        userId: invitation.invitedBy?._id || 'system',
+        action: 'INVITATION_EMAIL_FAILED',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          recipientEmail: invitation.email,
+          organizationId: invitation.organization?._id,
+          error: error.message,
+          stack: error.stack
+        },
+        ipAddress: 'system',
+        userAgent: 'email-service'
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for email failure:', auditError);
+    }
+    
     return { success: false, error: error.message };
   }
 };
