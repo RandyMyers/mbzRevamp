@@ -4,6 +4,280 @@ const currencyUtils = require('../utils/currencyUtils');
 const currencyList = require('../utils/currencyList');
 const mongoose = require('mongoose');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserPreferences:
+ *       type: object
+ *       properties:
+ *         user:
+ *           type: object
+ *           properties:
+ *             displayCurrency:
+ *               type: string
+ *               description: User's preferred display currency
+ *               example: "USD"
+ *             organization:
+ *               type: object
+ *               properties:
+ *                 defaultCurrency:
+ *                   type: string
+ *                   description: Organization's default currency
+ *                   example: "USD"
+ *                 analyticsCurrency:
+ *                   type: string
+ *                   description: Currency used for analytics
+ *                   example: "USD"
+ *                 name:
+ *                   type: string
+ *                   description: Organization name
+ *                   example: "My Company"
+ *         availableCurrencies:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: List of available currency codes
+ *           example: ["USD", "EUR", "GBP", "NGN"]
+ *         popularCurrencies:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Currency code
+ *                 example: "USD"
+ *               name:
+ *                 type: string
+ *                 description: Currency name
+ *                 example: "US Dollar"
+ *         totalSupportedCurrencies:
+ *           type: number
+ *           description: Total number of supported currencies
+ *           example: 150
+ *         organizationSettings:
+ *           type: object
+ *           properties:
+ *             defaultCurrency:
+ *               type: string
+ *               description: Organization default currency
+ *               example: "USD"
+ *             analyticsCurrency:
+ *               type: string
+ *               description: Analytics currency
+ *               example: "USD"
+ *     
+ *     CurrencyUpdate:
+ *       type: object
+ *       required:
+ *         - userId
+ *         - displayCurrency
+ *       properties:
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID
+ *           example: "507f1f77bcf86cd799439011"
+ *         displayCurrency:
+ *           type: string
+ *           description: New display currency code
+ *           example: "EUR"
+ *     
+ *     AnalyticsCurrencyUpdate:
+ *       type: object
+ *       required:
+ *         - organizationId
+ *         - analyticsCurrency
+ *       properties:
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *           example: "507f1f77bcf86cd799439011"
+ *         analyticsCurrency:
+ *           type: string
+ *           description: New analytics currency code
+ *           example: "EUR"
+ *     
+ *     CurrencyConversionPreview:
+ *       type: object
+ *       required:
+ *         - organizationId
+ *         - amount
+ *         - fromCurrency
+ *         - toCurrency
+ *       properties:
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *           example: "507f1f77bcf86cd799439011"
+ *         amount:
+ *           type: number
+ *           description: Amount to convert
+ *           example: 100.50
+ *         fromCurrency:
+ *           type: string
+ *           description: Source currency code
+ *           example: "USD"
+ *         toCurrency:
+ *           type: string
+ *           description: Target currency code
+ *           example: "EUR"
+ *     
+ *     CurrencyStats:
+ *       type: object
+ *       properties:
+ *         totalCurrencies:
+ *           type: number
+ *           description: Total number of currencies
+ *           example: 25
+ *         activeCurrencies:
+ *           type: number
+ *           description: Number of active currencies
+ *           example: 20
+ *         lastUpdated:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *         exchangeRates:
+ *           type: object
+ *           description: Exchange rate statistics
+ *     
+ *     AvailableCurrencies:
+ *       type: object
+ *       properties:
+ *         availableCurrencies:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: All available currency codes
+ *           example: ["USD", "EUR", "GBP", "NGN"]
+ *         popularCurrencies:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Currency code
+ *                 example: "USD"
+ *               name:
+ *                 type: string
+ *                 description: Currency name
+ *                 example: "US Dollar"
+ *         regionalCurrencies:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Currency code
+ *                 example: "NGN"
+ *               name:
+ *                 type: string
+ *                 description: Currency name
+ *                 example: "Nigerian Naira"
+ *         exchangeRateCurrencies:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Currencies with exchange rates
+ *           example: ["USD", "EUR"]
+ *         orderCurrencies:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Currencies used in orders
+ *           example: ["USD", "NGN"]
+ *         totalSupported:
+ *           type: number
+ *           description: Total supported currencies
+ *           example: 150
+ *         totalAvailable:
+ *           type: number
+ *           description: Total available currencies
+ *           example: 25
+ */
+
+/**
+ * @swagger
+ * /api/user-preferences:
+ *   get:
+ *     summary: Get user preferences including currency settings
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get preferences for
+ *       - in: query
+ *         name: organizationId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID for context
+ *     responses:
+ *       200:
+ *         description: User preferences retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/UserPreferences'
+ *       400:
+ *         description: Bad request - Missing userId
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to fetch user preferences"
+ */
+
 // Get user preferences
 exports.getUserPreferences = async (req, res) => {
   try {
@@ -65,6 +339,79 @@ exports.getUserPreferences = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/user-preferences/update-display-currency:
+ *   put:
+ *     summary: Update user's display currency preference
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CurrencyUpdate'
+ *     responses:
+ *       200:
+ *         description: Display currency updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     displayCurrency:
+ *                       type: string
+ *                       description: Updated display currency
+ *                       example: "EUR"
+ *       400:
+ *         description: Bad request - Missing required fields or invalid currency
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID and display currency are required"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to update display currency"
+ */
+
 // Update user display currency
 exports.updateDisplayCurrency = async (req, res) => {
   try {
@@ -112,6 +459,87 @@ exports.updateDisplayCurrency = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/user-preferences/update-analytics-currency:
+ *   put:
+ *     summary: Update organization's analytics currency
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AnalyticsCurrencyUpdate'
+ *     responses:
+ *       200:
+ *         description: Analytics currency updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     analyticsCurrency:
+ *                       type: string
+ *                       description: Updated analytics currency
+ *                       example: "EUR"
+ *                     defaultCurrency:
+ *                       type: string
+ *                       description: Organization default currency
+ *                       example: "USD"
+ *                     organizationName:
+ *                       type: string
+ *                       description: Organization name
+ *                       example: "My Company"
+ *       400:
+ *         description: Bad request - Missing required fields or invalid currency format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID and analytics currency are required"
+ *       404:
+ *         description: Organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to update analytics currency"
+ */
 
 // Update organization analytics currency
 exports.updateAnalyticsCurrency = async (req, res) => {
@@ -164,6 +592,102 @@ exports.updateAnalyticsCurrency = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/user-preferences/currency-conversion-preview:
+ *   get:
+ *     summary: Get currency conversion preview for a given amount
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: amount
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: Amount to convert
+ *       - in: query
+ *         name: fromCurrency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Source currency code
+ *       - in: query
+ *         name: toCurrency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Target currency code
+ *     responses:
+ *       200:
+ *         description: Currency conversion preview retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     originalAmount:
+ *                       type: number
+ *                       description: Original amount
+ *                       example: 100.50
+ *                     originalCurrency:
+ *                       type: string
+ *                       description: Source currency
+ *                       example: "USD"
+ *                     convertedAmount:
+ *                       type: number
+ *                       description: Converted amount
+ *                       example: 85.42
+ *                     targetCurrency:
+ *                       type: string
+ *                       description: Target currency
+ *                       example: "EUR"
+ *                     exchangeRate:
+ *                       type: string
+ *                       description: Exchange rate used
+ *                       example: "0.85"
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID, amount, from currency, and to currency are required"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get currency conversion preview"
+ */
+
 // Get currency conversion preview
 exports.getCurrencyConversionPreview = async (req, res) => {
   try {
@@ -209,6 +733,63 @@ exports.getCurrencyConversionPreview = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/user-preferences/currency-stats:
+ *   get:
+ *     summary: Get currency statistics for an organization
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Currency statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/CurrencyStats'
+ *       400:
+ *         description: Bad request - Missing organizationId
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get currency statistics"
+ */
+
 // Get currency statistics for organization
 exports.getCurrencyStats = async (req, res) => {
   try {
@@ -235,6 +816,68 @@ exports.getCurrencyStats = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/user-preferences/available-currencies:
+ *   get:
+ *     summary: Get available currencies for an organization
+ *     tags: [User Preferences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: region
+ *         schema:
+ *           type: string
+ *         description: Region to get currencies for (optional)
+ *     responses:
+ *       200:
+ *         description: Available currencies retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/AvailableCurrencies'
+ *       400:
+ *         description: Bad request - Missing organizationId
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get available currencies"
+ */
 
 // Get available currencies for organization
 exports.getAvailableCurrencies = async (req, res) => {

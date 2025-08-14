@@ -14,6 +14,220 @@ const logEvent = require('../helper/logEvent');
 const dotenv = require('dotenv');
 dotenv.config();
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Campaign:
+ *       type: object
+ *       required:
+ *         - name
+ *         - subject
+ *         - organization
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique campaign ID
+ *         name:
+ *           type: string
+ *           description: Campaign name
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *         body:
+ *           type: string
+ *           description: Email body content
+ *         status:
+ *           type: string
+ *           enum: [draft, active, paused, completed, cancelled]
+ *           description: Campaign status
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         emailTemplate:
+ *           type: string
+ *           format: ObjectId
+ *           description: Email template ID
+ *         trackingEnabled:
+ *           type: boolean
+ *           description: Whether email tracking is enabled
+ *         scheduledAt:
+ *           type: string
+ *           format: date-time
+ *           description: When campaign should be sent
+ *         sentAt:
+ *           type: string
+ *           format: date-time
+ *           description: When campaign was sent
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Campaign creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Campaign last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/campaigns/create:
+ *   post:
+ *     summary: Create a new campaign
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - subject
+ *               - organization
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Campaign name
+ *                 example: "Welcome Campaign"
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Welcome to our platform!"
+ *               body:
+ *                 type: string
+ *                 description: Email body content
+ *                 example: "<h1>Welcome!</h1><p>Thank you for joining us.</p>"
+ *               status:
+ *                 type: string
+ *                 enum: [draft, active, paused, completed, cancelled]
+ *                 default: draft
+ *                 description: Campaign status
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               emailTemplate:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Email template ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               trackingEnabled:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether email tracking is enabled
+ *               scheduledAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When campaign should be sent
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *     responses:
+ *       201:
+ *         description: Campaign created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 campaignId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   example: "507f1f77bcf86cd799439011"
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Error creating campaign: Validation failed"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/campaigns/{campaignId}/template:
+ *   put:
+ *     summary: Update campaign with selected template
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Campaign ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - templateId
+ *               - subject
+ *               - body
+ *             properties:
+ *               templateId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Template ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Updated subject line"
+ *               body:
+ *                 type: string
+ *                 description: Email body content
+ *                 example: "<h1>Updated content</h1>"
+ *               trackingEnabled:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether email tracking is enabled
+ *     responses:
+ *       200:
+ *         description: Campaign updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 campaign:
+ *                   $ref: '#/components/schemas/Campaign'
+ *                 template:
+ *                   type: object
+ *                   description: Email template details
+ *       404:
+ *         description: Campaign not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Campaign not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
 // Helper function to replace placeholders in the template with actual data
 const replacePlaceholders = (template, contact) => {
   console.log(template, contact);

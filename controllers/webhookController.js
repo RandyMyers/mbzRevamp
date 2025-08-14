@@ -417,6 +417,120 @@ exports.handleProductDeleted = async (req, res) => {
 };
 
 // Webhook management functions
+/**
+ * @swagger
+ * /api/webhooks:
+ *   post:
+ *     summary: Create a new webhook
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - storeId
+ *               - topic
+ *               - deliveryUrl
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               storeId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Store ID where webhook belongs
+ *                 example: "507f1f77bcf86cd799439011"
+ *               topic:
+ *                 type: string
+ *                 description: Webhook topic/event type
+ *                 example: "order.created"
+ *               deliveryUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: URL where webhook payloads will be sent
+ *                 example: "https://api.example.com/webhooks/orders"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the webhook
+ *                 example: "507f1f77bcf86cd799439011"
+ *               status:
+ *                 type: string
+ *                 enum: [active, paused, disabled]
+ *                 default: active
+ *                 description: Webhook status
+ *               secret:
+ *                 type: string
+ *                 description: Secret key for webhook signature verification
+ *                 example: "webhook_secret_123"
+ *               description:
+ *                 type: string
+ *                 description: Webhook description
+ *                 example: "Order creation notifications"
+ *     responses:
+ *       201:
+ *         description: Webhook created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook created successfully"
+ *                 webhook:
+ *                   $ref: '#/components/schemas/Webhook'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "topic"
+ *                       message:
+ *                         type: string
+ *                         example: "Topic is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create webhook"
+ */
 exports.createWebhook = async (req, res) => {
   try {
     const { storeId, topic, name } = req.body;
@@ -505,6 +619,102 @@ exports.createWebhook = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/webhooks:
+ *   get:
+ *     summary: List all webhooks with filtering and pagination
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: storeId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Filter by store ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, paused, disabled]
+ *         description: Filter by webhook status
+ *       - in: query
+ *         name: topic
+ *         schema:
+ *           type: string
+ *         description: Filter by webhook topic
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Webhooks list retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Webhook'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     totalItems:
+ *                       type: integer
+ *                       example: 50
+ *                     hasNextPage:
+ *                       type: boolean
+ *                       example: true
+ *                     hasPrevPage:
+ *                       type: boolean
+ *                       example: false
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve webhooks"
+ */
 exports.listWebhooks = async (req, res) => {
   try {
     const { storeId, organizationId, status } = req.query;
@@ -541,6 +751,64 @@ exports.listWebhooks = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/webhooks/{webhookId}:
+ *   get:
+ *     summary: Get a specific webhook by ID
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: webhookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Webhook ID
+ *     responses:
+ *       200:
+ *         description: Webhook retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 webhook:
+ *                   $ref: '#/components/schemas/Webhook'
+ *       404:
+ *         description: Webhook not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve webhook"
+ */
 exports.getWebhook = async (req, res) => {
   try {
     const webhook = await Webhook.findById(req.params.id).populate('storeId', 'name url');
@@ -560,6 +828,108 @@ exports.getWebhook = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/webhooks/{webhookId}:
+ *   put:
+ *     summary: Update a webhook by ID
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: webhookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Webhook ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               topic:
+ *                 type: string
+ *                 description: Webhook topic/event type
+ *                 example: "order.updated"
+ *               deliveryUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: URL where webhook payloads will be sent
+ *                 example: "https://api.example.com/webhooks/orders/updated"
+ *               status:
+ *                 type: string
+ *                 enum: [active, paused, disabled]
+ *                 description: Webhook status
+ *               secret:
+ *                 type: string
+ *                 description: Secret key for webhook signature verification
+ *                 example: "new_webhook_secret_456"
+ *               description:
+ *                 type: string
+ *                 description: Webhook description
+ *                 example: "Updated order notifications"
+ *     responses:
+ *       200:
+ *         description: Webhook updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook updated successfully"
+ *                 webhook:
+ *                   $ref: '#/components/schemas/Webhook'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       404:
+ *         description: Webhook not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update webhook"
+ */
 exports.updateWebhook = async (req, res) => {
   try {
     const { name, status, deliveryUrl, secret } = req.body;
@@ -611,6 +981,65 @@ exports.updateWebhook = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/webhooks/{webhookId}:
+ *   delete:
+ *     summary: Delete a webhook by ID
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: webhookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Webhook ID
+ *     responses:
+ *       200:
+ *         description: Webhook deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook deleted successfully"
+ *       404:
+ *         description: Webhook not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete webhook"
+ */
 exports.deleteWebhook = async (req, res) => {
   try {
     const webhook = await Webhook.findById(req.params.id);
@@ -688,6 +1117,84 @@ exports.getWebhookDelivery = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/webhooks/{webhookId}/test:
+ *   post:
+ *     summary: Test a webhook by sending a test payload
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: webhookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Webhook ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               testData:
+ *                 type: object
+ *                 description: Custom test data to send (optional)
+ *                 example: { "message": "Test webhook payload" }
+ *     responses:
+ *       200:
+ *         description: Webhook test executed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook test executed successfully"
+ *                 testResult:
+ *                   type: object
+ *                   properties:
+ *                     statusCode:
+ *                       type: number
+ *                       description: HTTP status code from webhook delivery
+ *                       example: 200
+ *                     responseTime:
+ *                       type: number
+ *                       description: Response time in milliseconds
+ *                       example: 150
+ *                     success:
+ *                       type: boolean
+ *                       description: Whether the webhook delivery was successful
+ *                       example: true
+ *                     error:
+ *                       type: string
+ *                       description: Error message if delivery failed
+ *                       example: null
+ *       404:
+ *         description: Webhook not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to test webhook"
+ */
 exports.testWebhook = async (req, res) => {
   try {
     const webhook = await Webhook.findById(req.params.id);
@@ -727,6 +1234,97 @@ exports.testWebhook = async (req, res) => {
 };
 
 // Bulk webhook management
+/**
+ * @swagger
+ * /api/webhooks/bulk/update:
+ *   put:
+ *     summary: Bulk update multiple webhooks
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - webhookIds
+ *               - updates
+ *             properties:
+ *               webhookIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: ObjectId
+ *                 description: Array of webhook IDs to update
+ *                 example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *               updates:
+ *                 type: object
+ *                 description: Fields to update
+ *                 properties:
+ *                   status:
+ *                     type: string
+ *                     enum: [active, paused, disabled]
+ *                     description: New webhook status
+ *                   topic:
+ *                     type: string
+ *                     description: New webhook topic
+ *                   deliveryUrl:
+ *                     type: string
+ *                     format: uri
+ *                     description: New delivery URL
+ *     responses:
+ *       200:
+ *         description: Webhooks updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhooks updated successfully"
+ *                 updatedCount:
+ *                   type: number
+ *                   description: Number of webhooks updated
+ *                   example: 5
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       webhookId:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: Webhook ID
+ *                       success:
+ *                         type: boolean
+ *                         description: Whether update was successful
+ *                       message:
+ *                         type: string
+ *                         description: Update result message
+ *       400:
+ *         description: Bad request - Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update webhooks"
+ */
 exports.bulkUpdateWebhooks = async (req, res) => {
   try {
     const { webhookIds, status } = req.body;
@@ -809,6 +1407,115 @@ exports.bulkUpdateWebhooks = async (req, res) => {
 };
 
 // Get webhook statistics
+/**
+ * @swagger
+ * /api/webhooks/stats:
+ *   get:
+ *     summary: Get webhook statistics and analytics
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: storeId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Filter by store ID
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: Number of days for statistics
+ *     responses:
+ *       200:
+ *         description: Webhook statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalWebhooks:
+ *                       type: number
+ *                       description: Total number of webhooks
+ *                       example: 25
+ *                     activeWebhooks:
+ *                       type: number
+ *                       description: Number of active webhooks
+ *                       example: 20
+ *                     pausedWebhooks:
+ *                       type: number
+ *                       description: Number of paused webhooks
+ *                       example: 3
+ *                     disabledWebhooks:
+ *                       type: number
+ *                       description: Number of disabled webhooks
+ *                       example: 2
+ *                     totalDeliveries:
+ *                       type: number
+ *                       description: Total webhook deliveries
+ *                       example: 1500
+ *                     successfulDeliveries:
+ *                       type: number
+ *                       description: Successful deliveries
+ *                       example: 1420
+ *                     failedDeliveries:
+ *                       type: number
+ *                       description: Failed deliveries
+ *                       example: 80
+ *                     successRate:
+ *                       type: number
+ *                       description: Delivery success rate percentage
+ *                       example: 94.67
+ *                     averageResponseTime:
+ *                       type: number
+ *                       description: Average response time in milliseconds
+ *                       example: 125
+ *                     topTopics:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           topic:
+ *                             type: string
+ *                             description: Webhook topic
+ *                             example: "order.created"
+ *                           count:
+ *                             type: number
+ *                             description: Number of deliveries
+ *                             example: 500
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve webhook statistics"
+ */
 exports.getWebhookStats = async (req, res) => {
   try {
     const { storeId, organizationId, days = 30 } = req.query;

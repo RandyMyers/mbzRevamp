@@ -128,7 +128,78 @@ exports.registerSuperAdmin = async (req, res) => {
   }
 };
 
-
+/**
+ * @swagger
+ * /api/auth/login/super-admin:
+ *   post:
+ *     summary: Login as Super Admin
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Super admin username
+ *                 example: "admin"
+ *               password:
+ *                 type: string
+ *                 description: Super admin password
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Super Admin login successful"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                 username:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 userRole:
+ *                   type: string
+ *                   example: "super-admin"
+ *                 profilePicture:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   example: "active"
+ *       400:
+ *         description: Invalid credentials or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid credentials"
+ *       500:
+ *         description: Server error
+ */
 // Login Super Admin
 exports.loginSuperAdmin = async (req, res) => {
   const { username, password } = req.body;
@@ -330,6 +401,88 @@ exports.registerOrganizationUser = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/auth/login/organization:
+ *   post:
+ *     summary: Login as Organization User
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email address
+ *                 example: "user@example.com"
+ *               password:
+ *                 type: string
+ *                 description: User's password
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                 username:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                   example: "admin"
+ *                 organizationId:
+ *                   type: string
+ *                   format: ObjectId
+ *                 organization:
+ *                   type: string
+ *                   example: "My Business"
+ *                 organizationCode:
+ *                   type: string
+ *                   example: "MBZ001"
+ *                 profilePicture:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   example: "active"
+ *       400:
+ *         description: Invalid credentials or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ */
 // Login Organization User
 exports.loginOrganizationUser = async (req, res) => {
   const { email, password } = req.body;

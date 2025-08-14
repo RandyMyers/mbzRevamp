@@ -158,24 +158,24 @@ exports.sendInvitationEmail = async (invitation, baseUrl) => {
     
     // ✅ AUDIT LOG: Email Failed
     try {
-      await createAuditLog({
+    await createAuditLog({
         userId: invitation.invitedBy?._id || 'system',
         action: 'INVITATION_EMAIL_FAILED',
         resourceType: 'INVITATION',
-        resourceId: invitation._id,
-        details: {
+      resourceId: invitation._id,
+      details: {
           recipientEmail: invitation.email,
           organizationId: invitation.organization?._id,
-          error: error.message,
+        error: error.message,
           stack: error.stack
-        },
+      },
         ipAddress: 'system',
         userAgent: 'email-service'
-      });
+    });
     } catch (auditError) {
       console.error('Failed to create audit log for email failure:', auditError);
     }
-    
+
     return { success: false, error: error.message };
   }
 };

@@ -9,6 +9,880 @@ const jwt = require('jsonwebtoken');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { sendInvitationEmail } = require('../services/emailService');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Invitation:
+ *       type: object
+ *       required:
+ *         - email
+ *         - invitedBy
+ *         - organization
+ *         - token
+ *         - expiresAt
+ *         - status
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique invitation ID
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email address of the invited user
+ *         invitedBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: ID of the user who sent the invitation
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: ID of the organization the user is invited to
+ *         role:
+ *           type: string
+ *           format: ObjectId
+ *           description: Role assigned to the invited user
+ *         department:
+ *           type: string
+ *           description: Department assigned to the invited user
+ *         groups:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: ObjectId
+ *           description: Groups the user will be added to
+ *         message:
+ *           type: string
+ *           description: Custom message for the invitation
+ *         token:
+ *           type: string
+ *           description: Secure token for invitation acceptance
+ *         expiresAt:
+ *           type: string
+ *           format: date-time
+ *           description: Expiration date of the invitation
+ *         status:
+ *           type: string
+ *           enum: [pending, accepted, cancelled, expired]
+ *           default: pending
+ *           description: Current status of the invitation
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: When the invitation was created
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: When the invitation was last updated
+ *         acceptedAt:
+ *           type: string
+ *           format: date-time
+ *           description: When the invitation was accepted
+ */
+
+/**
+ * @swagger
+ * /api/invitations/create:
+ *   post:
+ *     summary: Create a new invitation
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - baseUrl
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address of the person to invite
+ *                 example: "user@example.com"
+ *               role:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Role ID to assign to the invited user
+ *                 example: "507f1f77bcf86cd799439011"
+ *               department:
+ *                 type: string
+ *                 enum: [Customer Support, IT, HR, Sales, Marketing, Finance, Billing, Shipping]
+ *                 description: Department to assign to the invited user
+ *                 example: "IT"
+ *               message:
+ *                 type: string
+ *                 description: Custom message to include in the invitation
+ *                 example: "Welcome to our team!"
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Custom expiration date (defaults to 7 days)
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID (defaults to authenticated user's organization)
+ *                 example: "507f1f77bcf86cd799439011"
+ *               baseUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: Base URL for invitation links
+ *                 example: "https://app.example.com"
+ *     responses:
+ *       201:
+ *         description: Invitation created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation sent successfully"
+ *                 invitation:
+ *                   $ref: '#/components/schemas/Invitation'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Base URL is required for invitation links"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User not authorized to send invitations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You are not authorized to send invitations"
+ *       404:
+ *         description: Organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations:
+ *   get:
+ *     summary: Get all invitations (optionally by organization)
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Filter invitations by organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invitations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 invitations:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Invitation'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to fetch invitations"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/{invitationId}:
+ *   get:
+ *     summary: Get an invitation by ID
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invitationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invitation ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invitation retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 invitation:
+ *                   $ref: '#/components/schemas/Invitation'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invitation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to fetch invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/{invitationId}/resend:
+ *   post:
+ *     summary: Resend invitation (reset token and expiresAt)
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invitationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invitation ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - baseUrl
+ *             properties:
+ *               baseUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: Base URL for invitation links
+ *                 example: "https://app.example.com"
+ *     responses:
+ *       200:
+ *         description: Invitation resent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation resent successfully"
+ *                 invitation:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       format: ObjectId
+ *                     email:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Base URL is required for invitation links"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User not authorized to resend invitations
+ *       404:
+ *         description: Invitation not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to resend invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/{invitationId}/cancel:
+ *   put:
+ *     summary: Cancel invitation
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invitationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invitation ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invitation cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 invitation:
+ *                   $ref: '#/components/schemas/Invitation'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invitation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to cancel invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/accept:
+ *   post:
+ *     summary: Accept invitation (create user, mark invitation as accepted)
+ *     tags: [Invitations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - fullName
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Invitation token
+ *                 example: "abc123def456..."
+ *               fullName:
+ *                 type: string
+ *                 description: User's full name
+ *                 example: "John Doe"
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: User's password (minimum 6 characters)
+ *                 example: "password123"
+ *               username:
+ *                 type: string
+ *                 description: Optional username (must be unique)
+ *                 example: "johndoe"
+ *     responses:
+ *       200:
+ *         description: Invitation accepted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation accepted successfully"
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       format: ObjectId
+ *                     email:
+ *                       type: string
+ *                     fullName:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                       format: ObjectId
+ *                     department:
+ *                       type: string
+ *                     organization:
+ *                       type: string
+ *                       format: ObjectId
+ *                     status:
+ *                       type: string
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for the new user
+ *                 invitation:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       format: ObjectId
+ *                     status:
+ *                       type: string
+ *                     organization:
+ *                       type: string
+ *                       format: ObjectId
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token, full name, and password are required"
+ *       404:
+ *         description: Invitation not found, expired, or already used
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation not found, expired, or already used"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to accept invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/{invitationId}:
+ *   delete:
+ *     summary: Delete invitation
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invitationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invitation ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invitation deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation deleted"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invitation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/{invitationId}/update:
+ *   put:
+ *     summary: Update invitation details
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: invitationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invitation ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, accepted, cancelled, expired]
+ *                 description: New status for the invitation
+ *                 example: "cancelled"
+ *               role:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: New role ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               department:
+ *                 type: string
+ *                 enum: [Customer Support, IT, HR, Sales, Marketing, Finance, Billing, Shipping]
+ *                 description: New department
+ *                 example: "Sales"
+ *               message:
+ *                 type: string
+ *                 description: New message
+ *                 example: "Updated invitation message"
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: New expiration date
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *     responses:
+ *       200:
+ *         description: Invitation updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation updated successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Invitation'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User not authorized to update this invitation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You are not authorized to update this invitation"
+ *       404:
+ *         description: Invitation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invitation not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update invitation"
+ */
+
+/**
+ * @swagger
+ * /api/invitations/test-email-config:
+ *   post:
+ *     summary: Test email configuration
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Email configuration test successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email configuration is valid and SMTP connection successful"
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     SMTP_HOST:
+ *                       type: string
+ *                       example: "smtp.gmail.com"
+ *                     SMTP_PORT:
+ *                       type: string
+ *                       example: "587"
+ *                     SMTP_SECURE:
+ *                       type: string
+ *                       example: "false"
+ *                     SMTP_USER:
+ *                       type: string
+ *                       example: "Configured"
+ *                     SMTP_PASS:
+ *                       type: string
+ *                       example: "Configured"
+ *       400:
+ *         description: Email configuration incomplete
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email configuration is incomplete"
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     SMTP_HOST:
+ *                       type: string
+ *                       example: "Missing"
+ *                     SMTP_PORT:
+ *                       type: string
+ *                       example: "Missing"
+ *                     SMTP_USER:
+ *                       type: string
+ *                       example: "Missing"
+ *                     SMTP_PASS:
+ *                       type: string
+ *                       example: "Missing"
+ *                     SMTP_SECURE:
+ *                       type: string
+ *                       example: "Missing"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Email configuration test failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email configuration test failed"
+ *                 error:
+ *                   type: string
+ *                   example: "SMTP connection failed"
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     SMTP_HOST:
+ *                       type: string
+ *                       example: "smtp.gmail.com"
+ *                     SMTP_PORT:
+ *                       type: string
+ *                       example: "587"
+ *                     SMTP_SECURE:
+ *                       type: string
+ *                       example: "false"
+ *                     SMTP_USER:
+ *                       type: string
+ *                       example: "Missing"
+ *                     SMTP_PASS:
+ *                       type: string
+ *                       example: "Missing"
+ */
+
 // Create a new invitation
 exports.createInvitation = async (req, res) => {
   try {
@@ -605,79 +1479,6 @@ exports.deleteInvitation = async (req, res) => {
   }
 }; 
 
-// Accept invitation
-const acceptInvitation = async (req, res) => {
-  try {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invitation token is required'
-      });
-    }
-
-    // Find valid invitation
-    const invitation = await Invitation.findValidInvitation(token);
-    
-    if (!invitation) {
-      return res.status(404).json({
-        success: false,
-        message: 'Invalid or expired invitation token'
-      });
-    }
-
-    // Check if invitation is already accepted
-    if (invitation.status === 'accepted') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invitation has already been accepted'
-      });
-    }
-
-    // Update invitation status
-    invitation.status = 'accepted';
-    invitation.acceptedAt = new Date();
-    await invitation.save();
-
-    // Create audit log
-    await createAuditLog({
-      userId: invitation.invitedBy?._id || 'system',
-      action: 'INVITATION_ACCEPTED',
-      resourceType: 'INVITATION',
-      resourceId: invitation._id,
-      details: {
-        invitationId: invitation._id,
-        recipientEmail: invitation.email,
-        organizationId: invitation.organization?._id,
-        role: invitation.role,
-        groupId: invitation.group
-      },
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent')
-    });
-
-    res.json({
-      success: true,
-      message: 'Invitation accepted successfully',
-      data: {
-        invitationId: invitation._id,
-        organizationId: invitation.organization?._id,
-        role: invitation.role,
-        groupId: invitation.group
-      }
-    });
-
-  } catch (error) {
-    console.error('Failed to accept invitation:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to accept invitation',
-      error: error.message
-    });
-  }
-};
-
 // Update invitation
 exports.updateInvitation = async (req, res) => {
   try {
@@ -728,10 +1529,10 @@ exports.updateInvitation = async (req, res) => {
     );
 
     // Log the update
-    await logEvent({
-      action: 'update_invitation',
-      user: userId,
-      resource: 'Invitation',
+    await createAuditLog({
+      userId: userId,
+      action: 'INVITATION_UPDATED',
+      resourceType: 'INVITATION',
       resourceId: invitationId,
       details: {
         email: updatedInvitation.email,
@@ -739,7 +1540,8 @@ exports.updateInvitation = async (req, res) => {
         role: updatedInvitation.role,
         department: updatedInvitation.department
       },
-      organization: req.user.organization
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
     });
 
     res.json({
@@ -822,4 +1624,3 @@ exports.testEmailConfig = async (req, res) => {
   }
 };
 
-// All functions are exported using exports.functionName pattern above 

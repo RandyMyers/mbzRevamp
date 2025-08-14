@@ -1,6 +1,149 @@
 const EmailTemplate = require("../models/emailTemplate"); // Import the EmailTemplate model
 const logEvent = require('../helper/logEvent');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EmailTemplate:
+ *       type: object
+ *       required:
+ *         - name
+ *         - subject
+ *         - body
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique email template ID
+ *         name:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 100
+ *           description: Template name
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *         body:
+ *           type: string
+ *           description: Email body content (HTML)
+ *         variables:
+ *           type: object
+ *           description: Template variables for personalization
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/email-templates/create:
+ *   post:
+ *     summary: Create a new email template
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - subject
+ *               - body
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 100
+ *                 description: Template name
+ *                 example: "Welcome Email"
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Welcome to our platform!"
+ *               body:
+ *                 type: string
+ *                 description: Email body content (HTML)
+ *                 example: "<h1>Welcome!</h1><p>Hello {{firstName}}, thank you for joining us.</p>"
+ *               variables:
+ *                 type: object
+ *                 description: Template variables for personalization
+ *                 example: {"firstName": "string", "company": "string"}
+ *               createdBy:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the template
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       201:
+ *         description: Email template created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email template created successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/EmailTemplate'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Name, subject, and body are required fields"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create email template"
+ */
 // CREATE a new email template
 exports.createEmailTemplate = async (req, res) => {
   try {

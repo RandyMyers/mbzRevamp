@@ -43,7 +43,104 @@ const getOrganizationIdFromUserId = async (userId) => {
   }
 };
 
-// Get overview statistics - fetch all data without date filters
+/**
+ * @swagger
+ * /api/overview/stats/{userId}:
+ *   get:
+ *     summary: Get comprehensive overview statistics for dashboard
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *       - in: query
+ *         name: displayCurrency
+ *         schema:
+ *           type: string
+ *         description: Currency code for displaying amounts (e.g., USD, EUR)
+ *     responses:
+ *       200:
+ *         description: Overview statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalRevenue:
+ *                       type: number
+ *                       description: Total revenue in display currency
+ *                       example: 125000.50
+ *                     totalOrders:
+ *                       type: number
+ *                       description: Total number of orders
+ *                       example: 1250
+ *                     totalCustomers:
+ *                       type: number
+ *                       description: Total number of customers
+ *                       example: 450
+ *                     averageOrderValue:
+ *                       type: number
+ *                       description: Average order value
+ *                       example: 100.00
+ *                     revenueBreakdown:
+ *                       type: object
+ *                       description: Revenue breakdown by currency
+ *                     orderSources:
+ *                       type: object
+ *                       description: Order count by source
+ *                     orderStatusDistribution:
+ *                       type: object
+ *                       description: Order count by status
+ *                     categoryCounts:
+ *                       type: object
+ *                       description: Product count by category
+ *                     stockStatusCounts:
+ *                       type: object
+ *                       description: Product count by stock status
+ *                     stockStatusSales:
+ *                       type: object
+ *                       description: Sales impact by stock status
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 exports.getOverviewStats = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -559,6 +656,79 @@ exports.getOverviewStats = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/sales-trend/{userId}:
+ *   get:
+ *     summary: Get sales trend data for the last 12 months
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Sales trend data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       month:
+ *                         type: string
+ *                         description: Month and year (e.g., "Jan 2024")
+ *                         example: "Jan 2024"
+ *                       revenue:
+ *                         type: number
+ *                         description: Total revenue for the month
+ *                         example: 12500.75
+ *                       orders:
+ *                         type: number
+ *                         description: Number of orders for the month
+ *                         example: 125
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get sales trend"
+ */
 // Get sales trend data
 exports.getSalesTrend = async (req, res) => {
   try {
@@ -629,6 +799,79 @@ exports.getSalesTrend = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/order-sources/{userId}:
+ *   get:
+ *     summary: Get order sources breakdown for analytics
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Order sources data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       source:
+ *                         type: string
+ *                         description: Order source (WooCommerce, API, Manual)
+ *                         example: "WooCommerce"
+ *                       count:
+ *                         type: number
+ *                         description: Number of orders from this source
+ *                         example: 150
+ *                       percentage:
+ *                         type: number
+ *                         description: Percentage of total orders
+ *                         example: 75.5
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get order sources"
+ */
 // Get order sources data
 exports.getOrderSources = async (req, res) => {
   try {
@@ -688,6 +931,91 @@ exports.getOrderSources = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/top-products/{userId}:
+ *   get:
+ *     summary: Get top performing products by revenue
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Top products data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         description: Product name
+ *                         example: "Premium Widget"
+ *                       quantity:
+ *                         type: number
+ *                         description: Total quantity sold
+ *                         example: 150
+ *                       revenue:
+ *                         type: number
+ *                         description: Total revenue generated
+ *                         example: 7500.00
+ *                       productId:
+ *                         type: string
+ *                         description: Product identifier
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       image:
+ *                         type: string
+ *                         description: Product image URL
+ *                         example: "https://example.com/image.jpg"
+ *                       id:
+ *                         type: string
+ *                         description: Product ID for display
+ *                         example: "507f1f77bcf86cd799439011"
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get top products"
+ */
 // Get top products data
 exports.getTopProducts = async (req, res) => {
   try {
@@ -809,6 +1137,97 @@ exports.getTopProducts = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/recent-orders/{userId}:
+ *   get:
+ *     summary: Get recent orders for dashboard display
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Recent orders data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: Order ID
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       orderId:
+ *                         type: string
+ *                         description: Order number or ID
+ *                         example: "#1234"
+ *                       customer:
+ *                         type: string
+ *                         description: Customer full name
+ *                         example: "John Doe"
+ *                       product:
+ *                         type: string
+ *                         description: First product name from order
+ *                         example: "Premium Widget"
+ *                       status:
+ *                         type: string
+ *                         description: Order status
+ *                         example: "completed"
+ *                       amount:
+ *                         type: string
+ *                         description: Order total amount
+ *                         example: "99.99"
+ *                       date:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Order creation date
+ *                         example: "2024-01-15T10:30:00Z"
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get recent orders"
+ */
 // Get recent orders data
 exports.getRecentOrders = async (req, res) => {
   try {
@@ -867,6 +1286,129 @@ exports.getRecentOrders = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/test-product-images/{userId}:
+ *   get:
+ *     summary: Test endpoint to debug product image issues
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Product image test data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalProducts:
+ *                       type: number
+ *                       description: Total number of products
+ *                       example: 150
+ *                     productsWithImages:
+ *                       type: number
+ *                       description: Number of products with images
+ *                       example: 120
+ *                     totalOrders:
+ *                       type: number
+ *                       description: Total number of orders
+ *                       example: 500
+ *                     uniqueProductIdsInOrders:
+ *                       type: number
+ *                       description: Number of unique products in orders
+ *                       example: 75
+ *                     productsInOrders:
+ *                       type: number
+ *                       description: Number of products that appear in orders
+ *                       example: 75
+ *                     productsInOrdersWithImages:
+ *                       type: number
+ *                       description: Number of products in orders with images
+ *                       example: 60
+ *                     sampleProductsWithImages:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Premium Widget"
+ *                           product_Id:
+ *                             type: number
+ *                             example: 12345
+ *                           sku:
+ *                             type: string
+ *                             example: "PW-001"
+ *                           imageSrc:
+ *                             type: string
+ *                             example: "https://example.com/image.jpg"
+ *                           imageCount:
+ *                             type: number
+ *                             example: 3
+ *                     sampleProductsInOrders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Premium Widget"
+ *                           product_Id:
+ *                             type: number
+ *                             example: 12345
+ *                           sku:
+ *                             type: string
+ *                             example: "PW-001"
+ *                           hasImages:
+ *                             type: boolean
+ *                             example: true
+ *                           imageCount:
+ *                             type: number
+ *                             example: 3
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to test product images"
+ */
 // Test endpoint to debug product image issues
 exports.testProductImages = async (req, res) => {
   try {
@@ -959,6 +1501,91 @@ exports.testProductImages = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/stock-status-distribution/{userId}:
+ *   get:
+ *     summary: Get stock status distribution for pie chart visualization
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Stock status distribution data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         description: Display name for stock status
+ *                         example: "In Stock"
+ *                       value:
+ *                         type: number
+ *                         description: Number of products with this status
+ *                         example: 120
+ *                       sales:
+ *                         type: number
+ *                         description: Total sales for products with this status
+ *                         example: 15000.75
+ *                       percentage:
+ *                         type: number
+ *                         description: Percentage of total products
+ *                         example: 80.0
+ *                       color:
+ *                         type: string
+ *                         description: Color code for chart visualization
+ *                         example: "#10b981"
+ *                       status:
+ *                         type: string
+ *                         description: Stock status identifier
+ *                         example: "instock"
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get stock status distribution"
+ */
 // Get stock status distribution for pie chart
 exports.getStockStatusDistribution = async (req, res) => {
   try {
@@ -1079,6 +1706,87 @@ exports.getStockStatusDistribution = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/overview/product-categories-distribution/{userId}:
+ *   get:
+ *     summary: Get product categories distribution for pie chart visualization
+ *     tags: [Overview]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get organization context
+ *     responses:
+ *       200:
+ *         description: Product categories distribution data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         description: Category name
+ *                         example: "Electronics"
+ *                       value:
+ *                         type: number
+ *                         description: Number of products in this category
+ *                         example: 45
+ *                       sales:
+ *                         type: number
+ *                         description: Total sales for products in this category
+ *                         example: 25000.50
+ *                       percentage:
+ *                         type: number
+ *                         description: Percentage of total products
+ *                         example: 30.0
+ *                       color:
+ *                         type: string
+ *                         description: Color code for chart visualization
+ *                         example: "#3b82f6"
+ *       400:
+ *         description: Bad request - Missing userId or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "User ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to get product categories distribution"
+ */
 // Get product categories distribution for pie chart
 exports.getProductCategoriesDistribution = async (req, res) => {
   try {

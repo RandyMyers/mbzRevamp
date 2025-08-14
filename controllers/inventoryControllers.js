@@ -11,10 +11,441 @@ const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelpe
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
 const { notifyProductCreated, notifyLowInventory, notifyOutOfStock } = require('../helpers/notificationHelper');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Product:
+ *       type: object
+ *       required:
+ *         - sku
+ *         - name
+ *         - regular_price
+ *         - slug
+ *         - type
+ *         - categories
+ *         - images
+ *         - permalink
+ *         - storeId
+ *         - userId
+ *         - organizationId
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique product ID
+ *         product_Id:
+ *           type: number
+ *           description: WooCommerce product ID
+ *         sku:
+ *           type: string
+ *           description: Stock Keeping Unit (unique identifier)
+ *         name:
+ *           type: string
+ *           description: Product name
+ *         description:
+ *           type: string
+ *           description: Product description
+ *         short_description:
+ *           type: string
+ *           description: Short product description
+ *         price:
+ *           type: string
+ *           description: Current product price
+ *         sale_price:
+ *           type: string
+ *           description: Sale price
+ *         regular_price:
+ *           type: string
+ *           description: Regular product price
+ *         date_on_sale_from:
+ *           type: string
+ *           format: date-time
+ *           description: Sale start date
+ *         date_on_sale_to:
+ *           type: string
+ *           format: date-time
+ *           description: Sale end date
+ *         on_sale:
+ *           type: boolean
+ *           description: Whether product is on sale
+ *         purchasable:
+ *           type: boolean
+ *           description: Whether product can be purchased
+ *         total_sales:
+ *           type: number
+ *           description: Total units sold
+ *         status:
+ *           type: string
+ *           enum: [draft, pending, private, publish]
+ *           description: Product status
+ *         featured:
+ *           type: boolean
+ *           description: Whether product is featured
+ *         catalog_visibility:
+ *           type: string
+ *           enum: [visible, catalog, search, hidden]
+ *           description: Product visibility in catalog
+ *         virtual:
+ *           type: boolean
+ *           description: Whether product is virtual
+ *         downloadable:
+ *           type: boolean
+ *           description: Whether product is downloadable
+ *         download_limit:
+ *           type: number
+ *           description: Download limit
+ *         download_expiry:
+ *           type: number
+ *           description: Download expiry in days
+ *         external_url:
+ *           type: string
+ *           description: External product URL
+ *         button_text:
+ *           type: string
+ *           description: Button text for external products
+ *         tax_status:
+ *           type: string
+ *           enum: [taxable, shipping, none]
+ *           description: Tax status
+ *         tax_class:
+ *           type: string
+ *           description: Tax class
+ *         manage_stock:
+ *           type: boolean
+ *           description: Whether to manage stock
+ *         stock_quantity:
+ *           type: number
+ *           description: Stock quantity
+ *         stock_status:
+ *           type: string
+ *           enum: [instock, outofstock, onbackorder]
+ *           description: Stock status
+ *         backorders:
+ *           type: string
+ *           enum: [no, notify, yes]
+ *           description: Backorder policy
+ *         backorders_allowed:
+ *           type: boolean
+ *           description: Whether backorders are allowed
+ *         backordered:
+ *           type: boolean
+ *           description: Whether product is backordered
+ *         sold_individually:
+ *           type: boolean
+ *           description: Whether product is sold individually
+ *         weight:
+ *           type: string
+ *           description: Product weight
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             length:
+ *               type: string
+ *               description: Product length
+ *             width:
+ *               type: string
+ *               description: Product width
+ *             height:
+ *               type: string
+ *               description: Product height
+ *         shipping_required:
+ *           type: boolean
+ *           description: Whether shipping is required
+ *         shipping_taxable:
+ *           type: boolean
+ *           description: Whether shipping is taxable
+ *         shipping_class:
+ *           type: string
+ *           description: Shipping class
+ *         shipping_class_id:
+ *           type: number
+ *           description: Shipping class ID
+ *         reviews_allowed:
+ *           type: boolean
+ *           description: Whether reviews are allowed
+ *         average_rating:
+ *           type: string
+ *           description: Average product rating
+ *         rating_count:
+ *           type: number
+ *           description: Number of ratings
+ *         related_ids:
+ *           type: array
+ *           items:
+ *             type: number
+ *           description: Related product IDs
+ *         upsell_ids:
+ *           type: array
+ *           items:
+ *             type: number
+ *           description: Upsell product IDs
+ *         cross_sell_ids:
+ *           type: array
+ *           items:
+ *             type: number
+ *           description: Cross-sell product IDs
+ *         parent_id:
+ *           type: number
+ *           description: Parent product ID
+ *         purchase_note:
+ *           type: string
+ *           description: Purchase note
+ *         categories:
+ *           type: array
+ *           items:
+ *             type: object
+ *             required:
+ *               - id
+ *               - name
+ *               - slug
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Category ID
+ *               name:
+ *                 type: string
+ *                 description: Category name
+ *               slug:
+ *                 type: string
+ *                 description: Category slug
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Tag ID
+ *               name:
+ *                 type: string
+ *                 description: Tag name
+ *               slug:
+ *                 type: string
+ *                 description: Tag slug
+ *         images:
+ *           type: array
+ *           items:
+ *             type: object
+ *             required:
+ *               - id
+ *               - date_created
+ *               - src
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Image ID
+ *               date_created:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Image creation date
+ *               date_created_gmt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Image creation date GMT
+ *               date_modified:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Image modification date
+ *               date_modified_gmt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Image modification date GMT
+ *               src:
+ *                 type: string
+ *                 format: uri
+ *                 description: Image URL
+ *               name:
+ *                 type: string
+ *                 description: Image name
+ *               alt:
+ *                 type: string
+ *                 description: Image alt text
+ *               position:
+ *                 type: number
+ *                 description: Image position
+ *         attributes:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Attribute ID
+ *               name:
+ *                 type: string
+ *                 description: Attribute name
+ *               position:
+ *                 type: number
+ *                 description: Attribute position
+ *               visible:
+ *                 type: boolean
+ *                 description: Whether attribute is visible
+ *               variation:
+ *                 type: boolean
+ *                 description: Whether attribute varies
+ *               options:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Attribute options
+ *         default_attributes:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Default attribute ID
+ *               name:
+ *                 type: string
+ *                 description: Default attribute name
+ *               option:
+ *                 type: string
+ *                 description: Default attribute option
+ *         variations:
+ *           type: array
+ *           items:
+ *             type: number
+ *             description: Product variation IDs
+ *         menu_order:
+ *           type: number
+ *           description: Menu order
+ *         meta_data:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: number
+ *                 description: Meta data ID
+ *               key:
+ *                 type: string
+ *                 description: Meta data key
+ *               value:
+ *                 type: string
+ *                 description: Meta data value
+ *         slug:
+ *           type: string
+ *           description: Product slug
+ *         type:
+ *           type: string
+ *           description: Product type
+ *         permalink:
+ *           type: string
+ *           format: uri
+ *           description: Product permalink
+ *         storeId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Store ID
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the product
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         wooCommerceId:
+ *           type: number
+ *           description: WooCommerce product ID
+ *         lastWooCommerceSync:
+ *           type: string
+ *           format: date-time
+ *           description: Last WooCommerce sync timestamp
+ *         syncStatus:
+ *           type: string
+ *           enum: [pending, synced, failed]
+ *           description: WooCommerce sync status
+ *         syncError:
+ *           type: string
+ *           description: WooCommerce sync error message
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Product creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Product last update timestamp
+ */
+
 //const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 
 
 
+/**
+ * @swagger
+ * /api/inventory/sync/{storeId}/{organizationId}:
+ *   post:
+ *     summary: Synchronize products with WooCommerce API
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID initiating the sync
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product synchronization started successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product synchronization started in the background"
+ *       404:
+ *         description: Store or organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Synchronize products with WooCommerce API
 exports.syncProducts = async (req, res) => {
   try {
@@ -68,6 +499,240 @@ exports.syncProducts = async (req, res) => {
 };
   
 
+/**
+ * @swagger
+ * /api/inventory/create:
+ *   post:
+ *     summary: Create a new product in the inventory
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sku
+ *               - name
+ *               - regular_price
+ *               - slug
+ *               - type
+ *               - categories
+ *               - images
+ *               - permalink
+ *               - storeId
+ *               - userId
+ *               - organizationId
+ *             properties:
+ *               sku:
+ *                 type: string
+ *                 description: Stock Keeping Unit (unique identifier)
+ *                 example: "PROD-001"
+ *               name:
+ *                 type: string
+ *                 description: Product name
+ *                 example: "Premium Widget"
+ *               description:
+ *                 type: string
+ *                 description: Product description
+ *                 example: "A high-quality widget for all your needs"
+ *               short_description:
+ *                 type: string
+ *                 description: Short product description
+ *                 example: "Premium quality widget"
+ *               price:
+ *                 type: string
+ *                 description: Current product price
+ *                 example: "29.99"
+ *               sale_price:
+ *                 type: string
+ *                 description: Sale price
+ *                 example: "24.99"
+ *               regular_price:
+ *                 type: string
+ *                 description: Regular product price
+ *                 example: "29.99"
+ *               status:
+ *                 type: string
+ *                 enum: [draft, pending, private, publish]
+ *                 default: publish
+ *                 description: Product status
+ *                 example: "publish"
+ *               featured:
+ *                 type: boolean
+ *                 description: Whether product is featured
+ *                 example: false
+ *               catalog_visibility:
+ *                 type: string
+ *                 enum: [visible, catalog, search, hidden]
+ *                 default: visible
+ *                 description: Product visibility in catalog
+ *                 example: "visible"
+ *               virtual:
+ *                 type: boolean
+ *                 description: Whether product is virtual
+ *                 example: false
+ *               downloadable:
+ *                 type: boolean
+ *                 description: Whether product is downloadable
+ *                 example: false
+ *               manage_stock:
+ *                 type: boolean
+ *                 description: Whether to manage stock
+ *                 example: true
+ *               stock_quantity:
+ *                 type: number
+ *                 description: Stock quantity
+ *                 example: 100
+ *               stock_status:
+ *                 type: string
+ *                 enum: [instock, outofstock, onbackorder]
+ *                 default: instock
+ *                 description: Stock status
+ *                 example: "instock"
+ *               weight:
+ *                 type: string
+ *                 description: Product weight
+ *                 example: "0.5"
+ *               dimensions:
+ *                 type: object
+ *                 properties:
+ *                   length:
+ *                     type: string
+ *                     description: Product length
+ *                     example: "10"
+ *                   width:
+ *                     type: string
+ *                     description: Product width
+ *                     example: "5"
+ *                   height:
+ *                     type: string
+ *                     description: Product height
+ *                     example: "2"
+ *               slug:
+ *                 type: string
+ *                 description: Product slug
+ *                 example: "premium-widget"
+ *               type:
+ *                 type: string
+ *                 description: Product type
+ *                 example: "simple"
+ *               permalink:
+ *                 type: string
+ *                 format: uri
+ *                 description: Product permalink
+ *                 example: "https://store.com/product/premium-widget"
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - name
+ *                     - slug
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                       description: Category ID
+ *                       example: 15
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                       example: "Widgets"
+ *                     slug:
+ *                       type: string
+ *                       description: Category slug
+ *                       example: "widgets"
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - date_created
+ *                     - src
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                       description: Image ID
+ *                       example: 123
+ *                     date_created:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Image creation date
+ *                       example: "2024-01-01T00:00:00.000Z"
+ *                     src:
+ *                       type: string
+ *                       format: uri
+ *                       description: Image URL
+ *                       example: "https://example.com/image.jpg"
+ *               storeId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Store ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the product
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether to sync product to WooCommerce
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: Product created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product created successfully"
+ *                 product:
+ *                   $ref: '#/components/schemas/Product'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create product"
+ */
 // CREATE a new product in the inventory
 exports.createProduct = async (req, res) => {
   try {
@@ -631,6 +1296,102 @@ exports.createProduct = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/organization/{organizationId}:
+ *   get:
+ *     summary: Get all products for a specific organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve products"
+ */
+/**
+ * @swagger
+ * /api/inventory/organization/{organizationId}:
+ *   get:
+ *     summary: Get all products for a specific organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve products"
+ */
 // GET all products for a specific organization
 exports.getAllProductsByOrganization = async (req, res) => {
   const { organizationId } = req.params;
@@ -659,6 +1420,54 @@ exports.getAllProductsByOrganization = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/store/{storeId}:
+ *   get:
+ *     summary: Get all products for a specific store
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve products"
+ */
 // GET all products for a specific store
 exports.getAllProductsByStore = async (req, res) => {
   const { storeId } = req.params;
@@ -673,6 +1482,84 @@ exports.getAllProductsByStore = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/all:
+ *   get:
+ *     summary: Get all products in the system
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve products"
+ */
+/**
+ * @swagger
+ * /api/inventory/all:
+ *   get:
+ *     summary: Get all products in the system
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve products"
+ */
 // GET all products in the system
 exports.getAllProducts = async (req, res) => {
   try {
@@ -689,6 +1576,65 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/{productId}:
+ *   get:
+ *     summary: Get a specific product by its ID
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Product ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 product:
+ *                   $ref: '#/components/schemas/Product'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Product not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve product"
+ */
 // GET a specific product by its ID
 exports.getProductById = async (req, res) => {
   const { productId } = req.params;
@@ -706,6 +1652,148 @@ exports.getProductById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/{productId}:
+ *   put:
+ *     summary: Update product details
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Product ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Product name
+ *                 example: "Updated Product Name"
+ *               description:
+ *                 type: string
+ *                 description: Product description
+ *                 example: "Updated product description"
+ *               short_description:
+ *                 type: string
+ *                 description: Short product description
+ *               price:
+ *                 type: string
+ *                 description: Current product price
+ *                 example: "39.99"
+ *               sale_price:
+ *                 type: string
+ *                 description: Sale price
+ *                 example: "34.99"
+ *               regular_price:
+ *                 type: string
+ *                 description: Regular product price
+ *                 example: "39.99"
+ *               status:
+ *                 type: string
+ *                 enum: [draft, pending, private, publish]
+ *                 description: Product status
+ *               featured:
+ *                 type: boolean
+ *                 description: Whether product is featured
+ *               catalog_visibility:
+ *                 type: string
+ *                 enum: [visible, catalog, search, hidden]
+ *                 description: Product visibility in catalog
+ *               manage_stock:
+ *                 type: boolean
+ *                 description: Whether to manage stock
+ *               stock_quantity:
+ *                 type: number
+ *                 description: Stock quantity
+ *                 example: 150
+ *               stock_status:
+ *                 type: string
+ *                 enum: [instock, outofstock, onbackorder]
+ *                 description: Stock status
+ *               weight:
+ *                 type: string
+ *                 description: Product weight
+ *                 example: "0.75"
+ *               dimensions:
+ *                 type: object
+ *                 properties:
+ *                   length:
+ *                     type: string
+ *                     description: Product length
+ *                   width:
+ *                     type: string
+ *                     description: Product width
+ *                   height:
+ *                     type: string
+ *                     description: Product height
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                       description: Category ID
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                     slug:
+ *                       type: string
+ *                       description: Category slug
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                       description: Image ID
+ *                     src:
+ *                       type: string
+ *                       description: Image URL
+ *                     alt:
+ *                       type: string
+ *                       description: Image alt text
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to sync changes to WooCommerce
+ *     responses:
+ *       200:
+ *         description: Product updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product updated successfully"
+ *                 product:
+ *                   $ref: '#/components/schemas/Product'
+ *       400:
+ *         description: Bad request - Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
 // UPDATE product details (e.g., price, description, stock quantity)
 exports.updateProduct = async (req, res) => {
   const { productId } = req.params;
@@ -1129,6 +2217,121 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/{productId}:
+ *   delete:
+ *     summary: Delete a product from the inventory
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Product ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to also delete product from WooCommerce
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product deleted successfully"
+ *                 wooCommerceSync:
+ *                   type: object
+ *                   description: WooCommerce synchronization result
+ *                   properties:
+ *                     synced:
+ *                       type: boolean
+ *                       description: Whether WooCommerce sync was successful
+ *                     wooCommerceId:
+ *                       type: number
+ *                       description: WooCommerce product ID
+ *                     status:
+ *                       type: string
+ *                       enum: [deleted, failed, skipped]
+ *                       description: WooCommerce sync status
+ *                     error:
+ *                       type: string
+ *                       description: Error message if sync failed
+ *       400:
+ *         description: Bad request - Product ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Product ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User can only delete products from their organization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You can only delete products from your organization"
+ *       404:
+ *         description: Product or store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Product not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete product"
+ */
 // DELETE a product from the inventory
 exports.deleteProduct = async (req, res) => {
   const { productId } = req.params;
@@ -1257,6 +2460,66 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/store/{storeId}:
+ *   delete:
+ *     summary: Delete all products for a specific store
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: All products deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "All products deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: No products found for this store
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "No products found for this store"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete products"
+ */
 // DELETE all products for a specific store
 exports.deleteAllProductsByStore = async (req, res) => {
   const { storeId } = req.params;
@@ -1296,6 +2559,54 @@ exports.deleteAllProductsByStore = async (req, res) => {
 };
 
 
+/**
+ * @swagger
+ * /api/inventory/metrics/total-products/{organizationId}:
+ *   get:
+ *     summary: Get total products count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Total products count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Total number of products
+ *                   example: 150
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get total products"
+ */
 // Get total products count for organization
 exports.getTotalProducts = async (req, res) => {
   try {
@@ -1307,6 +2618,54 @@ exports.getTotalProducts = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/in-stock/{organizationId}:
+ *   get:
+ *     summary: Get in-stock items count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: In-stock items count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of in-stock items
+ *                   example: 120
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get in-stock items"
+ */
 // Get in-stock items count for organization
 exports.getInStockItems = async (req, res) => {
   try {
@@ -1321,6 +2680,54 @@ exports.getInStockItems = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/low-stock/{organizationId}:
+ *   get:
+ *     summary: Get low-stock items count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Low-stock items count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of low-stock items
+ *                   example: 15
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get low-stock items"
+ */
 // Get low-stock items count for organization
 exports.getLowStockItems = async (req, res) => {
   try {
@@ -1335,6 +2742,54 @@ exports.getLowStockItems = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/out-of-stock/{organizationId}:
+ *   get:
+ *     summary: Get out-of-stock items count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Out-of-stock items count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of out-of-stock items
+ *                   example: 8
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get out-of-stock items"
+ */
 // Get out-of-stock items count for organization
 exports.getOutOfStockItems = async (req, res) => {
   try {
@@ -1349,6 +2804,54 @@ exports.getOutOfStockItems = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/category-count/{organizationId}:
+ *   get:
+ *     summary: Get unique category count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Category count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of unique categories
+ *                   example: 25
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get category count"
+ */
 // Get category count for organization
 exports.getCategoryCount = async (req, res) => {
   try {
@@ -1361,6 +2864,54 @@ exports.getCategoryCount = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/store-count/{organizationId}:
+ *   get:
+ *     summary: Get unique store count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Store count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of unique stores
+ *                   example: 5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get store count"
+ */
 // Get store count for organization (unchanged)
 exports.getStoreCount = async (req, res) => {
   try {
@@ -1372,6 +2923,54 @@ exports.getStoreCount = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/total-value/{organizationId}:
+ *   get:
+ *     summary: Get total inventory value for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Total inventory value retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 totalValue:
+ *                   type: number
+ *                   description: Total inventory value (price * stock quantity)
+ *                   example: 15499.50
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get total inventory value"
+ */
 // Get total inventory value for organization
 exports.getTotalInventoryValue = async (req, res) => {
   try {
@@ -1389,6 +2988,54 @@ exports.getTotalInventoryValue = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/avg-price/{organizationId}:
+ *   get:
+ *     summary: Get average product price for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Average price retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 avgPrice:
+ *                   type: number
+ *                   description: Average product price
+ *                   example: 29.99
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get average price"
+ */
 // Get average product price for organization
 exports.getAveragePrice = async (req, res) => {
   try {
@@ -1405,6 +3052,54 @@ exports.getAveragePrice = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/on-sale/{organizationId}:
+ *   get:
+ *     summary: Get on-sale products count for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: On-sale products count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: number
+ *                   description: Number of on-sale products
+ *                   example: 12
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get on-sale products"
+ */
 // Get on-sale products count for organization
 exports.getOnSaleCount = async (req, res) => {
   try {
@@ -1419,6 +3114,54 @@ exports.getOnSaleCount = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/metrics/avg-rating/{organizationId}:
+ *   get:
+ *     summary: Get average product rating for an organization
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Average rating retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 avgRating:
+ *                   type: number
+ *                   description: Average product rating
+ *                   example: 4.2
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get average rating"
+ */
 // Get average product rating for organization
 exports.getAverageRating = async (req, res) => {
   try {
@@ -1438,6 +3181,87 @@ exports.getAverageRating = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/inventory/woocommerce/retry-sync/{productId}:
+ *   post:
+ *     summary: Retry WooCommerce sync for a failed product
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Product ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product sync retry successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product created in WooCommerce successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Product'
+ *                 wooCommerceSync:
+ *                   type: object
+ *                   description: WooCommerce sync status
+ *       400:
+ *         description: Product is not in failed sync status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Product is not in failed sync status"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Product not found"
+ *       500:
+ *         description: WooCommerce sync retry failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error retrying product WooCommerce sync"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // RETRY SYNC: Retry WooCommerce sync for failed products
 exports.retryProductWooCommerceSync = async (req, res) => {
   const { productId } = req.params;

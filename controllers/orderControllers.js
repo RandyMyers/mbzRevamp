@@ -35,6 +35,77 @@ const calculateOrderTotal = (lineItems, totalTax = 0, shippingTotal = 0, discoun
   return lineItemsTotal + Number(totalTax) + Number(shippingTotal) - Number(discountTotal);
 };
 
+/**
+ * @swagger
+ * /api/orders/sync/{storeId}/{organizationId}:
+ *   post:
+ *     summary: Synchronize orders with WooCommerce API
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID initiating the sync
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Order synchronization started in the background
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Order synchronization started in the background"
+ *       404:
+ *         description: Store or organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 exports.syncOrders = async (req, res) => {
   try {
     const { storeId, organizationId } = req.params;
@@ -84,6 +155,211 @@ exports.syncOrders = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/create:
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - storeId
+ *               - userId
+ *               - organizationId
+ *               - billing
+ *               - shipping
+ *               - line_items
+ *               - total
+ *             properties:
+ *               storeId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Store ID where order belongs
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the order
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               customer_id:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Customer ID (optional)
+ *                 example: "507f1f77bcf86cd799439011"
+ *               billing:
+ *                 type: object
+ *                 required:
+ *                   - first_name
+ *                   - last_name
+ *                   - email
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                     example: "John"
+ *                   last_name:
+ *                     type: string
+ *                     example: "Doe"
+ *                   company:
+ *                     type: string
+ *                     example: "ACME Corp"
+ *                   address_1:
+ *                     type: string
+ *                     example: "123 Main St"
+ *                   address_2:
+ *                     type: string
+ *                     example: "Apt 4B"
+ *                   city:
+ *                     type: string
+ *                     example: "New York"
+ *                   state:
+ *                     type: string
+ *                     example: "NY"
+ *                   postcode:
+ *                     type: string
+ *                     example: "10001"
+ *                   country:
+ *                     type: string
+ *                     example: "US"
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     example: "john@example.com"
+ *                   phone:
+ *                     type: string
+ *                     example: "+1-555-123-4567"
+ *               shipping:
+ *                 type: object
+ *                 required:
+ *                   - first_name
+ *                   - last_name
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                     example: "John"
+ *                   last_name:
+ *                     type: string
+ *                     example: "Doe"
+ *                   company:
+ *                     type: string
+ *                     example: "ACME Corp"
+ *                   address_1:
+ *                     type: string
+ *                     example: "123 Main St"
+ *                   address_2:
+ *                     type: string
+ *                     example: "Apt 4B"
+ *                   city:
+ *                     type: string
+ *                     example: "New York"
+ *                   state:
+ *                     type: string
+ *                     example: "NY"
+ *                   postcode:
+ *                     type: string
+ *                     example: "10001"
+ *                   country:
+ *                     type: string
+ *                     example: "US"
+ *               line_items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - product_id
+ *                     - name
+ *                     - quantity
+ *                     - total
+ *                   properties:
+ *                     product_id:
+ *                       type: string
+ *                       description: Product ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     name:
+ *                       type: string
+ *                       description: Product name
+ *                       example: "Sample Product"
+ *                     quantity:
+ *                       type: number
+ *                       description: Product quantity
+ *                       example: 2
+ *                     total:
+ *                       type: string
+ *                       description: Line item total
+ *                       example: "29.98"
+ *                     subtotal:
+ *                       type: string
+ *                       description: Line item subtotal
+ *                       example: "29.98"
+ *               total:
+ *                 type: string
+ *                 description: Order total amount
+ *                 example: "29.98"
+ *               currency:
+ *                 type: string
+ *                 description: Order currency
+ *                 example: "USD"
+ *               status:
+ *                 type: string
+ *                 description: Order status
+ *                 example: "pending"
+ *               payment_method:
+ *                 type: string
+ *                 description: Payment method
+ *                 example: "credit_card"
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 description: Whether to sync order to WooCommerce
+ *                 default: false
+ *     responses:
+ *       201:
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Order created successfully"
+ *                 order:
+ *                   type: object
+ *                   description: Created order data
+ *                 wooCommerceSync:
+ *                   type: object
+ *                   description: WooCommerce sync results (if applicable)
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 // CREATE a new order
 exports.createOrder = async (req, res) => {
   try {
@@ -407,6 +683,45 @@ exports.createOrder = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/all:
+ *   get:
+ *     summary: Get all orders in the system
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve orders"
+ */
 // GET all orders for a specific organization
 exports.getAllOrders = async (req, res) => {
   
@@ -421,6 +736,87 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/organization/{organizationId}:
+ *   get:
+ *     summary: Get all orders for a specific organization
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID for currency preferences
+ *       - in: query
+ *         name: displayCurrency
+ *         schema:
+ *           type: string
+ *         description: Display currency (e.g., USD, EUR)
+ *         example: "USD"
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: number
+ *                       description: Number of valid orders
+ *                     totalRevenue:
+ *                       type: number
+ *                       description: Total revenue in target currency
+ *                     currency:
+ *                       type: string
+ *                       description: Display currency
+ *                     totalAllOrders:
+ *                       type: number
+ *                       description: Total orders including cancelled/refunded
+ *                     cancelledOrders:
+ *                       type: number
+ *                       description: Number of cancelled orders
+ *                     refundedOrders:
+ *                       type: number
+ *                       description: Number of refunded orders
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve orders"
+ */
 exports.getAllOrdersByOrganization = async (req, res) => {
   const { organizationId } = req.params;
   const { userId, displayCurrency } = req.query;
@@ -495,6 +891,65 @@ exports.getAllOrdersByOrganization = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/get/{orderId}:
+ *   get:
+ *     summary: Get a specific order by ID
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Order retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 order:
+ *                   $ref: '#/components/schemas/Order'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve order"
+ */
 // GET a specific order by its ID
 exports.getOrderById = async (req, res) => {
   const { orderId } = req.params;
@@ -515,6 +970,113 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/store/{storeId}:
+ *   get:
+ *     summary: Get all orders for a specific store
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of orders per page
+ *         example: 10
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter orders by status
+ *         example: "completed"
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering (YYYY-MM-DD)
+ *         example: "2024-12-31"
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     totalOrders:
+ *                       type: integer
+ *                       example: 50
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve orders"
+ */
 // GET all orders for a specific store ID
 exports.getOrdersByStoreId = async (req, res) => {
   try {
@@ -561,6 +1123,107 @@ exports.getOrdersByStoreId = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/store/{storeId}:
+ *   delete:
+ *     summary: Delete all orders for a specific store
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to also delete orders from WooCommerce
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: Orders deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "All orders deleted successfully"
+ *                 deletedCount:
+ *                   type: integer
+ *                   example: 25
+ *                 wooCommerceSyncResults:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     synced:
+ *                       type: integer
+ *                       example: 20
+ *                     failed:
+ *                       type: integer
+ *                       example: 5
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           orderId:
+ *                             type: string
+ *                             format: ObjectId
+ *                           orderKey:
+ *                             type: string
+ *                           wooCommerceId:
+ *                             type: string
+ *                           error:
+ *                             type: string
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found or no orders found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found for WooCommerce sync"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete orders"
+ */
 // DELETE all orders for a specific store
 exports.deleteAllOrdersByStore = async (req, res) => {
   try {
@@ -689,6 +1352,206 @@ exports.deleteAllOrdersByStore = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/update/{orderId}:
+ *   patch:
+ *     summary: Update order details
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to sync changes to WooCommerce
+ *                 example: false
+ *               status:
+ *                 type: string
+ *                 description: Order status
+ *                 example: "completed"
+ *               currency:
+ *                 type: string
+ *                 description: Order currency
+ *                 example: "USD"
+ *               version:
+ *                 type: string
+ *                 description: Order version
+ *                 example: "1.0"
+ *               prices_include_tax:
+ *                 type: boolean
+ *                 description: Whether prices include tax
+ *                 example: false
+ *               total:
+ *                 type: number
+ *                 description: Order total
+ *                 example: 99.99
+ *               discount_total:
+ *                 type: number
+ *                 description: Discount total
+ *                 example: 10.00
+ *               discount_tax:
+ *                 type: number
+ *                 description: Discount tax
+ *                 example: 0.80
+ *               shipping_total:
+ *                 type: number
+ *                 description: Shipping total
+ *                 example: 5.00
+ *               shipping_tax:
+ *                 type: number
+ *                 description: Shipping tax
+ *                 example: 0.40
+ *               cart_tax:
+ *                 type: number
+ *                 description: Cart tax
+ *                 example: 8.00
+ *               total_tax:
+ *                 type: number
+ *                 description: Total tax
+ *                 example: 8.80
+ *               order_key:
+ *                 type: string
+ *                 description: Order key
+ *                 example: "wc_order_abc123"
+ *               customer_note:
+ *                 type: string
+ *                 description: Customer note
+ *                 example: "Please deliver after 6 PM"
+ *               line_items:
+ *                 type: array
+ *                 description: Order line items
+ *               shipping_lines:
+ *                 type: array
+ *                 description: Shipping lines
+ *               billing:
+ *                 type: object
+ *                 description: Billing information
+ *               shipping:
+ *                 type: object
+ *                 description: Shipping information
+ *               payment_method:
+ *                 type: string
+ *                 description: Payment method
+ *                 example: "stripe"
+ *               payment_method_title:
+ *                 type: string
+ *                 description: Payment method title
+ *                 example: "Credit Card"
+ *               transaction_id:
+ *                 type: string
+ *                 description: Transaction ID
+ *                 example: "txn_123456"
+ *               customer_ip_address:
+ *                 type: string
+ *                 description: Customer IP address
+ *                 example: "192.168.1.1"
+ *               customer_user_agent:
+ *                 type: string
+ *                 description: Customer user agent
+ *                 example: "Mozilla/5.0..."
+ *               created_via:
+ *                 type: string
+ *                 description: How order was created
+ *                 example: "checkout"
+ *               date_completed:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date when order was completed
+ *                 example: "2024-01-15T10:30:00.000Z"
+ *               date_paid:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date when order was paid
+ *                 example: "2024-01-15T10:30:00.000Z"
+ *               cart_hash:
+ *                 type: string
+ *                 description: Cart hash
+ *                 example: "abc123def456"
+ *               number:
+ *                 type: string
+ *                 description: Order number
+ *                 example: "1001"
+ *               meta_data:
+ *                 type: array
+ *                 description: Order metadata
+ *     responses:
+ *       200:
+ *         description: Order updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Order updated successfully"
+ *                 order:
+ *                   $ref: '#/components/schemas/Order'
+ *                 wooCommerceSync:
+ *                   type: object
+ *                   nullable: true
+ *                   description: WooCommerce sync result if applicable
+ *       400:
+ *         description: Bad request - Invalid data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid update data"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update order"
+ */
 // UPDATE order details (e.g., status, customer_note)
 exports.updateOrder = async (req, res) => {
   const { orderId } = req.params;
@@ -1017,6 +1880,101 @@ exports.updateOrder = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/delete/{orderId}:
+ *   delete:
+ *     summary: Delete an order from the system
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to also delete order from WooCommerce
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: Order deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Order deleted successfully"
+ *                 deletedOrder:
+ *                   $ref: '#/components/schemas/Order'
+ *                 wooCommerceSync:
+ *                   type: object
+ *                   nullable: true
+ *                   description: WooCommerce sync result if applicable
+ *                   properties:
+ *                     synced:
+ *                       type: boolean
+ *                       description: Whether sync was successful
+ *                       example: true
+ *                     wooCommerceId:
+ *                       type: string
+ *                       description: WooCommerce order ID
+ *                       example: "12345"
+ *                     status:
+ *                       type: string
+ *                       description: Sync status
+ *                       example: "deleted"
+ *                     error:
+ *                       type: string
+ *                       nullable: true
+ *                       description: Error message if sync failed
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Order or store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete order"
+ */
 // DELETE an order from the system
 exports.deleteOrder = async (req, res) => {
   const { orderId } = req.params;
@@ -1154,6 +2112,94 @@ function getDateFilter(timeRange) {
   return { $gte: startDate };
 }
 
+/**
+ * @swagger
+ * /api/orders/analytics/cross-store/{organizationId}:
+ *   get:
+ *     summary: Get cross-store performance analytics
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Cross-store performance analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                       description: Total orders across all stores
+ *                       example: 150
+ *                     totalRevenue:
+ *                       type: number
+ *                       description: Total revenue across all stores
+ *                       example: 15000.00
+ *                     avgOrderValue:
+ *                       type: number
+ *                       description: Average order value across all stores
+ *                       example: 100.00
+ *                 stores:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       storeId:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: Store ID
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       orderCount:
+ *                         type: integer
+ *                         description: Number of orders for this store
+ *                         example: 75
+ *                       totalRevenue:
+ *                         type: number
+ *                         description: Total revenue for this store
+ *                         example: 7500.00
+ *                       avgOrderValue:
+ *                         type: number
+ *                         description: Average order value for this store
+ *                         example: 100.00
+ *                       statusDistribution:
+ *                         type: object
+ *                         description: Distribution of order statuses
+ *                         properties:
+ *                           completed:
+ *                             type: integer
+ *                             example: 50
+ *                           pending:
+ *                             type: integer
+ *                             example: 15
+ *                           cancelled:
+ *                             type: integer
+ *                             example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 1. Cross-Store Performance Analytics (without time range filter)
 exports.getCrossStorePerformance = async (req, res) => {
   try {
@@ -1213,6 +2259,83 @@ exports.getCrossStorePerformance = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/temporal/{organizationId}:
+ *   get:
+ *     summary: Get temporal analytics for orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: timeRange
+ *         schema:
+ *           type: string
+ *           default: "30d"
+ *           enum: ["7d", "30d", "90d", "1y"]
+ *         description: Time range for analytics
+ *         example: "30d"
+ *     responses:
+ *       200:
+ *         description: Temporal analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 dailyTrends:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         format: date
+ *                         description: Date in YYYY-MM-DD format
+ *                         example: "2024-01-15"
+ *                       orders:
+ *                         type: integer
+ *                         description: Number of orders for this date
+ *                         example: 25
+ *                       revenue:
+ *                         type: number
+ *                         description: Total revenue for this date
+ *                         example: 2500.00
+ *                 hourlyPatterns:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: integer
+ *                         description: Hour of day (0-23)
+ *                         example: 14
+ *                       orders:
+ *                         type: integer
+ *                         description: Number of orders for this hour
+ *                         example: 8
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 2. Temporal Analytics
 exports.getTemporalAnalytics = async (req, res) => {
   try {
@@ -1254,6 +2377,77 @@ exports.getTemporalAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/customers/{organizationId}:
+ *   get:
+ *     summary: Get customer analytics and insights
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of top customers to return
+ *         example: 10
+ *     responses:
+ *       200:
+ *         description: Customer analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   customerId:
+ *                     type: string
+ *                     format: ObjectId
+ *                     description: Customer ID
+ *                     example: "507f1f77bcf86cd799439011"
+ *                   totalSpent:
+ *                     type: number
+ *                     description: Total amount spent by customer
+ *                     example: 1500.00
+ *                   orderCount:
+ *                     type: integer
+ *                     description: Number of orders placed by customer
+ *                     example: 15
+ *                   storesUsed:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: ObjectId
+ *                     description: Array of store IDs where customer has ordered
+ *                     example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *                   avgDaysBetweenOrders:
+ *                     type: number
+ *                     description: Average days between orders
+ *                     example: 30.5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 3. Customer Insights
 exports.getCustomerAnalytics = async (req, res) => {
   try {
@@ -1296,6 +2490,78 @@ exports.getCustomerAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/products/{organizationId}:
+ *   get:
+ *     summary: Get product performance analytics
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: timeRange
+ *         schema:
+ *           type: string
+ *           default: "30d"
+ *           enum: ["7d", "30d", "90d", "1y"]
+ *         description: Time range for analytics
+ *         example: "30d"
+ *     responses:
+ *       200:
+ *         description: Product performance analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                     format: ObjectId
+ *                     description: Product ID
+ *                     example: "507f1f77bcf86cd799439011"
+ *                   name:
+ *                     type: string
+ *                     description: Product name
+ *                     example: "Premium Widget"
+ *                   totalSold:
+ *                     type: integer
+ *                     description: Total quantity sold
+ *                     example: 150
+ *                   totalRevenue:
+ *                     type: number
+ *                     description: Total revenue generated
+ *                     example: 7500.00
+ *                   storesSoldIn:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: ObjectId
+ *                     description: Array of store IDs where product was sold
+ *                     example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 4. Product Performance
 exports.getProductPerformance = async (req, res) => {
   try {
@@ -1329,6 +2595,75 @@ exports.getProductPerformance = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/financial/{organizationId}:
+ *   get:
+ *     summary: Get financial analytics for orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Financial analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalRevenue:
+ *                   type: number
+ *                   description: Total revenue across all orders
+ *                   example: 50000.00
+ *                 totalTax:
+ *                   type: number
+ *                   description: Total tax collected
+ *                   example: 4000.00
+ *                 totalShipping:
+ *                   type: number
+ *                   description: Total shipping charges
+ *                   example: 2500.00
+ *                 totalDiscounts:
+ *                   type: number
+ *                   description: Total discounts applied
+ *                   example: 3000.00
+ *                 paymentMethodDistribution:
+ *                   type: object
+ *                   description: Distribution of payment methods used
+ *                   example:
+ *                     stripe: 150
+ *                     paypal: 75
+ *                     cash: 25
+ *                 netRevenue:
+ *                   type: number
+ *                   description: Net revenue after discounts
+ *                   example: 47000.00
+ *                 profitMargin:
+ *                   type: number
+ *                   description: Profit margin percentage
+ *                   example: 85.5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 5. Financial Analytics
 exports.getFinancialAnalytics = async (req, res) => {
   try {
@@ -1363,6 +2698,55 @@ exports.getFinancialAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/operations/{organizationId}:
+ *   get:
+ *     summary: Get operational metrics for orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Operational metrics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                     format: ObjectId
+ *                     description: Store ID
+ *                     example: "507f1f77bcf86cd799439011"
+ *                   avgProcessingTime:
+ *                     type: number
+ *                     description: Average order processing time in hours
+ *                     example: 2.5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 6. Operational Metrics
 exports.getOperationalMetrics = async (req, res) => {
   try {
@@ -1396,6 +2780,58 @@ exports.getOperationalMetrics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/geospatial/{organizationId}:
+ *   get:
+ *     summary: Get geospatial analytics for orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Geospatial analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                     description: Country code
+ *                     example: "US"
+ *                   orderCount:
+ *                     type: integer
+ *                     description: Number of orders from this country
+ *                     example: 150
+ *                   avgShippingCost:
+ *                     type: number
+ *                     description: Average shipping cost for this country
+ *                     example: 8.50
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 7. Geospatial Analysis
 exports.getGeospatialAnalytics = async (req, res) => {
   try {
@@ -1421,6 +2857,54 @@ exports.getGeospatialAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/status/{organizationId}:
+ *   get:
+ *     summary: Get order status distribution analytics
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Status distribution analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   status:
+ *                     type: string
+ *                     description: Order status
+ *                     example: "completed"
+ *                   count:
+ *                     type: integer
+ *                     description: Number of orders with this status
+ *                     example: 150
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 8. Status Distribution Analytics
 exports.getStatusDistribution = async (req, res) => {
   try {
@@ -1446,6 +2930,82 @@ exports.getStatusDistribution = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/funnel/{organizationId}:
+ *   get:
+ *     summary: Get sales funnel analysis
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Sales funnel analysis retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalVisitors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       count:
+ *                         type: integer
+ *                         description: Total number of visitors
+ *                         example: 1000
+ *                 initiatedCheckout:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       count:
+ *                         type: integer
+ *                         description: Number of visitors who initiated checkout
+ *                         example: 500
+ *                 completedOrders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       count:
+ *                         type: integer
+ *                         description: Number of completed orders
+ *                         example: 300
+ *                 conversionRates:
+ *                   type: object
+ *                   properties:
+ *                     checkoutToOrder:
+ *                       type: number
+ *                       description: Conversion rate from checkout to order
+ *                       example: 60.0
+ *                     visitorToOrder:
+ *                       type: number
+ *                       description: Conversion rate from visitor to order
+ *                       example: 30.0
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 9. Sales Funnel Analysis
 exports.getSalesFunnel = async (req, res) => {
   try {
@@ -1480,6 +3040,56 @@ exports.getSalesFunnel = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/analytics/ltv/{organizationId}:
+ *   get:
+ *     summary: Get customer lifetime value analytics
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Customer LTV analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 avgLTV:
+ *                   type: number
+ *                   description: Average customer lifetime value
+ *                   example: 250.00
+ *                 medianLTV:
+ *                   type: number
+ *                   description: Median customer lifetime value
+ *                   example: 180.00
+ *                 avgCustomerLifespan:
+ *                   type: number
+ *                   description: Average customer lifespan in days
+ *                   example: 365.5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 10. Customer Lifetime Value
 exports.getCustomerLTV = async (req, res) => {
   try {
@@ -1578,6 +3188,100 @@ exports.refundOrder = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/recent:
+ *   get:
+ *     summary: Get recent orders for dashboard
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 5
+ *         description: Number of recent orders to retrieve
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Recent orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         description: Order ID or order_id
+ *                         example: "ORD-12345"
+ *                       customer:
+ *                         type: string
+ *                         description: Customer name or email
+ *                         example: "John Doe"
+ *                       product:
+ *                         type: string
+ *                         description: Product name
+ *                         example: "Premium Widget"
+ *                       status:
+ *                         type: string
+ *                         description: Order status
+ *                         example: "completed"
+ *                       amount:
+ *                         type: string
+ *                         description: Formatted order total
+ *                         example: "$99.99"
+ *                       date:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Order creation date
+ *                         example: "2024-01-15T10:30:00.000Z"
+ *       400:
+ *         description: Bad request - Missing organization ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to fetch recent orders"
+ */
 // GET recent orders for dashboard
 exports.getRecentOrders = async (req, res) => {
   try {
@@ -1630,6 +3334,66 @@ exports.getRecentOrders = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/orders/with-shipping-label/{orderId}:
+ *   get:
+ *     summary: Get order with shipping label information
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Order with shipping label retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     order:
+ *                       $ref: '#/components/schemas/Order'
+ *                     shippingLabel:
+ *                       type: object
+ *                       nullable: true
+ *                       description: Shipping label information if exists
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // GET order with shipping label information
 exports.getOrderWithShippingLabel = async (req, res) => {
   try {

@@ -8,6 +8,77 @@ const logEvent = require('../helper/logEvent');
 const cloudinary = require('cloudinary').v2;
 const { notifyCustomerRegistered, notifyCustomerUpdated } = require('../helpers/notificationHelper');
 
+/**
+ * @swagger
+ * /api/customers/woocommerce/sync-customers/{storeId}/{organizationId}:
+ *   post:
+ *     summary: Sync customers from WooCommerce store
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who initiated the sync
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Customer synchronization started in the background
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Customer synchronization started in the background"
+ *       404:
+ *         description: Store or organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 exports.syncCustomers = async (req, res) => {
   try {
     const { storeId, organizationId } = req.params;
@@ -57,6 +128,159 @@ exports.syncCustomers = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/customers/create:
+ *   post:
+ *     summary: Create a new customer
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - storeId
+ *               - userId
+ *               - organizationId
+ *               - email
+ *               - first_name
+ *               - last_name
+ *             properties:
+ *               storeId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Store ID where customer belongs
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the customer
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email address
+ *                 example: "customer@example.com"
+ *               first_name:
+ *                 type: string
+ *                 description: Customer first name
+ *                 example: "John"
+ *               last_name:
+ *                 type: string
+ *                 description: Customer last name
+ *                 example: "Doe"
+ *               role:
+ *                 type: string
+ *                 description: Customer role
+ *                 example: "customer"
+ *               username:
+ *                 type: string
+ *                 description: Customer username
+ *                 example: "johndoe"
+ *               billing:
+ *                 type: object
+ *                 description: Billing address information
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                   last_name:
+ *                     type: string
+ *                   company:
+ *                     type: string
+ *                   address_1:
+ *                     type: string
+ *                   address_2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   postcode:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *               shipping:
+ *                 type: object
+ *                 description: Shipping address information
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                   last_name:
+ *                     type: string
+ *                   company:
+ *                     type: string
+ *                   address_1:
+ *                     type: string
+ *                   address_2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   postcode:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *               is_paying_customer:
+ *                 type: boolean
+ *                 description: Whether customer has made payments
+ *                 default: false
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Customer avatar image (optional)
+ *               syncToWooCommerce:
+ *                 type: boolean
+ *                 description: Whether to sync customer to WooCommerce
+ *                 default: false
+ *     responses:
+ *       201:
+ *         description: Customer created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Customer created successfully"
+ *                 customer:
+ *                   type: object
+ *                   description: Created customer data
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields: storeId, userId"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 exports.createCustomer = async (req, res) => {
     try {
       const {
@@ -320,6 +544,64 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/organization/{organizationId}:
+   *   get:
+   *     summary: Get all customers for an organization
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: organizationId
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Organization ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Customers retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Customers retrieved successfully for the organization."
+   *                 customers:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Customer'
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: No customers found for this organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "No customers found for this organization."
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Error retrieving customers by organization ID."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.getCustomersByOrganizationId = async (req, res) => {
     try {
       const { organizationId } = req.params;
@@ -347,6 +629,45 @@ exports.createCustomer = async (req, res) => {
     }
   }
 
+  /**
+   * @swagger
+   * /api/customers/all:
+   *   get:
+   *     summary: Get all customers
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Customers retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Customers retrieved successfully."
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Customer'
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Error retrieving customers."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.getAllCustomers = async (req, res) => {
     try {
       const customers = await Customer.find()
@@ -361,6 +682,62 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/{id}:
+   *   get:
+   *     summary: Get a customer by ID
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Customer ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Customer retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Customer retrieved successfully."
+   *                 data:
+   *                   $ref: '#/components/schemas/Customer'
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: Customer not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Customer not found."
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Error retrieving customer."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.getCustomerById = async (req, res) => {
     try {
       const { id } = req.params;
@@ -381,6 +758,119 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/{id}:
+   *   patch:
+   *     summary: Update a customer
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Customer ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               syncToWooCommerce:
+   *                 type: boolean
+   *                 description: Whether to sync changes to WooCommerce
+   *                 default: false
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 description: Customer email address
+   *               first_name:
+   *                 type: string
+   *                 description: Customer first name
+   *               last_name:
+   *                 type: string
+   *                 description: Customer last name
+   *               role:
+   *                 type: string
+   *                 description: Customer role
+   *               username:
+   *                 type: string
+   *                 description: Customer username
+   *               is_paying_customer:
+   *                 type: boolean
+   *                 description: Whether customer is a paying customer
+   *               avatar:
+   *                 type: string
+   *                 format: binary
+   *                 description: Customer avatar image file
+   *               billing:
+   *                 type: object
+   *                 description: Billing address information
+   *               shipping:
+   *                 type: object
+   *                 description: Shipping address information
+   *               meta_data:
+   *                 type: array
+   *                 description: Additional metadata
+   *     responses:
+   *       200:
+   *         description: Customer updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Customer updated successfully."
+   *                 data:
+   *                   $ref: '#/components/schemas/Customer'
+   *                 wooCommerceSync:
+   *                   type: object
+   *                   description: WooCommerce sync status
+   *       400:
+   *         description: Validation error
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: Customer or store not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer not found."
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Error updating customer."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.updateCustomer = async (req, res) => {
     try {
       const { id } = req.params;
@@ -629,6 +1119,82 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/{id}:
+   *   delete:
+   *     summary: Delete a customer
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Customer ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               syncToWooCommerce:
+   *                 type: boolean
+   *                 description: Whether to sync deletion to WooCommerce
+   *                 default: false
+   *     responses:
+   *       200:
+   *         description: Customer deleted successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Customer deleted successfully."
+   *                 data:
+   *                   $ref: '#/components/schemas/Customer'
+   *                 wooCommerceSync:
+   *                   type: object
+   *                   description: WooCommerce sync status
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: Customer or store not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer not found."
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Error deleting customer."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.deleteCustomer = async (req, res) => {
     try {
       const { id } = req.params;
@@ -715,6 +1281,54 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/store/{storeId}:
+   *   get:
+   *     summary: Get all customers for a store
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: storeId
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Store ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Customers retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Customers retrieved successfully for the store."
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Customer'
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Error retrieving customers by store ID."
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   exports.getCustomersByStoreId = async (req, res) => {
     try {
       const { storeId } = req.params;
@@ -856,6 +1470,87 @@ exports.createCustomer = async (req, res) => {
     }
   };
   
+  /**
+   * @swagger
+   * /api/customers/woocommerce/sync/{customerId}:
+   *   post:
+   *     summary: Manually sync a customer to WooCommerce
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: customerId
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Customer ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Customer synced to WooCommerce successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Customer created in WooCommerce successfully"
+   *                 data:
+   *                   $ref: '#/components/schemas/Customer'
+   *                 wooCommerceSync:
+   *                   type: object
+   *                   description: WooCommerce sync status
+   *       400:
+   *         description: Customer is not associated with a store
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer is not associated with a store"
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: Customer or store not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer not found"
+   *       500:
+   *         description: WooCommerce sync failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Failed to sync customer to WooCommerce"
+   *                 wooCommerceSync:
+   *                   type: object
+   *                   description: WooCommerce sync error details
+   */
   // MANUAL SYNC: Sync a customer to WooCommerce
   exports.syncCustomerToWooCommerce = async (req, res) => {
     const { customerId } = req.params;
@@ -979,6 +1674,87 @@ exports.createCustomer = async (req, res) => {
     }
   };
 
+  /**
+   * @swagger
+   * /api/customers/woocommerce/retry-sync/{customerId}:
+   *   post:
+   *     summary: Retry WooCommerce sync for a failed customer
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: customerId
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Customer ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Customer sync retry successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Customer created in WooCommerce successfully"
+   *                 data:
+   *                   $ref: '#/components/schemas/Customer'
+   *                 wooCommerceSync:
+   *                   type: object
+   *                   description: WooCommerce sync status
+   *       400:
+   *         description: Customer is not in failed sync status
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer is not in failed sync status"
+   *       401:
+   *         description: Unauthorized - Invalid or missing JWT token
+   *       404:
+   *         description: Customer not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Customer not found"
+   *       500:
+   *         description: WooCommerce sync retry failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Error retrying customer WooCommerce sync"
+   *                 error:
+   *                   type: string
+   *                   example: "Internal server error"
+   */
   // RETRY SYNC: Retry WooCommerce sync for failed customers
   exports.retryCustomerWooCommerceSync = async (req, res) => {
     const { customerId } = req.params;

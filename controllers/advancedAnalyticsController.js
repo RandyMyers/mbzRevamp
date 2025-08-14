@@ -33,6 +33,84 @@ const buildDateFilter = (period) => {
   return { date_created: { $gte: range[0], $lte: range[1] } };
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/total-revenue:
+ *   get:
+ *     summary: Get total revenue by time period with multi-currency support
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for revenue calculation
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID for currency preferences
+ *       - in: query
+ *         name: displayCurrency
+ *         schema:
+ *           type: string
+ *         description: Currency code for displaying amounts (e.g., USD, EUR)
+ *     responses:
+ *       200:
+ *         description: Total revenue data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalRevenue:
+ *                       type: number
+ *                       description: Total revenue in display currency
+ *                       example: 125000.50
+ *                     currency:
+ *                       type: string
+ *                       description: Display currency code
+ *                       example: "USD"
+ *                     currencyBreakdown:
+ *                       type: object
+ *                       description: Revenue breakdown by original currency
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 1. Total Revenue by period
 exports.totalRevenueByPeriod = async (req, res) => {
   try {
@@ -63,6 +141,108 @@ exports.totalRevenueByPeriod = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/revenue-by-product:
+ *   get:
+ *     summary: Get revenue breakdown by product with multi-currency support
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for revenue calculation
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID for currency preferences
+ *       - in: query
+ *         name: displayCurrency
+ *         schema:
+ *           type: string
+ *         description: Currency code for displaying amounts (e.g., USD, EUR)
+ *     responses:
+ *       200:
+ *         description: Revenue by product data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: Product inventory ID
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       name:
+ *                         type: string
+ *                         description: Product name
+ *                         example: "Premium Widget"
+ *                       sales:
+ *                         type: number
+ *                         description: Converted sales amount in display currency
+ *                         example: 5000.75
+ *                       quantity:
+ *                         type: number
+ *                         description: Total quantity sold
+ *                         example: 100
+ *                       originalSales:
+ *                         type: number
+ *                         description: Original sales amount in original currency
+ *                         example: 4500.00
+ *                       originalCurrency:
+ *                         type: string
+ *                         description: Original currency code
+ *                         example: "EUR"
+ *                       convertedCurrency:
+ *                         type: string
+ *                         description: Display currency code
+ *                         example: "USD"
+ *                 currency:
+ *                   type: string
+ *                   description: Display currency code
+ *                   example: "USD"
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 2. Revenue by Product
 exports.revenueByProduct = async (req, res) => {
   try {
@@ -132,6 +312,71 @@ exports.revenueByProduct = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/order-status-distribution:
+ *   get:
+ *     summary: Get order status distribution by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for order analysis
+ *     responses:
+ *       200:
+ *         description: Order status distribution data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         description: Order status
+ *                         example: "completed"
+ *                       count:
+ *                         type: number
+ *                         description: Number of orders with this status
+ *                         example: 150
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 3. Order Status Distribution
 exports.orderStatusDistribution = async (req, res) => {
   try {
@@ -154,6 +399,69 @@ exports.orderStatusDistribution = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/new-vs-returning-customers:
+ *   get:
+ *     summary: Get new vs returning customers analysis by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for customer analysis
+ *     responses:
+ *       200:
+ *         description: New vs returning customers data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     new:
+ *                       type: number
+ *                       description: Number of new customers in the period
+ *                       example: 25
+ *                     returning:
+ *                       type: number
+ *                       description: Number of returning customers in the period
+ *                       example: 75
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Improved New vs. Returning Customers
 exports.newVsReturningCustomers = async (req, res) => {
   try {
@@ -194,6 +502,75 @@ exports.newVsReturningCustomers = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/acquisition-sources:
+ *   get:
+ *     summary: Get customer acquisition sources analysis by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for acquisition analysis
+ *     responses:
+ *       200:
+ *         description: Acquisition sources data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       source:
+ *                         type: string
+ *                         description: Customer acquisition source
+ *                         example: "WooCommerce"
+ *                       customers:
+ *                         type: number
+ *                         description: Number of customers from this source
+ *                         example: 45
+ *                       percentage:
+ *                         type: number
+ *                         description: Percentage of total customers
+ *                         example: 60
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Improved Acquisition Sources (unique customers)
 exports.acquisitionSources = async (req, res) => {
   try {
@@ -223,6 +600,85 @@ exports.acquisitionSources = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/customer-lifetime-value:
+ *   get:
+ *     summary: Get customer lifetime value analysis with multi-currency support
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for LTV analysis
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID for currency preferences
+ *       - in: query
+ *         name: displayCurrency
+ *         schema:
+ *           type: string
+ *         description: Currency code for displaying amounts (e.g., USD, EUR)
+ *     responses:
+ *       200:
+ *         description: Customer lifetime value data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     lifetimeValue:
+ *                       type: number
+ *                       description: Average customer lifetime value in display currency
+ *                       example: 1250.75
+ *                     currency:
+ *                       type: string
+ *                       description: Display currency code
+ *                       example: "USD"
+ *                     customerCount:
+ *                       type: number
+ *                       description: Number of customers analyzed
+ *                       example: 150
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Customer Lifetime Value (LTV)
 exports.customerLifetimeValue = async (req, res) => {
   try {
@@ -285,6 +741,73 @@ exports.customerLifetimeValue = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/repeat-purchase-rate:
+ *   get:
+ *     summary: Get repeat purchase rate analysis by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for repeat purchase analysis
+ *     responses:
+ *       200:
+ *         description: Repeat purchase rate data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     repeatPurchaseRate:
+ *                       type: number
+ *                       description: Percentage of customers who made repeat purchases
+ *                       example: 35.5
+ *                     totalCustomers:
+ *                       type: number
+ *                       description: Total number of customers analyzed
+ *                       example: 200
+ *                     repeatCustomers:
+ *                       type: number
+ *                       description: Number of customers with repeat purchases
+ *                       example: 71
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Repeat Purchase Rate
 exports.repeatPurchaseRate = async (req, res) => {
   try {
@@ -304,6 +827,64 @@ exports.repeatPurchaseRate = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/retention-cohort:
+ *   get:
+ *     summary: Get customer retention cohort analysis for last 6 months
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Retention cohort data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       cohort:
+ *                         type: string
+ *                         description: Cohort period (YYYY-MM format)
+ *                         example: "2024-01"
+ *                       orders:
+ *                         type: number
+ *                         description: Number of orders in this cohort
+ *                         example: 150
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Retention Cohort (simple: orders per month for last 6 months)
 exports.retentionCohort = async (req, res) => {
   try {
@@ -333,6 +914,79 @@ exports.retentionCohort = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/geographic-distribution:
+ *   get:
+ *     summary: Get customer geographic distribution analysis by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for geographic analysis
+ *     responses:
+ *       200:
+ *         description: Geographic distribution data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       city:
+ *                         type: string
+ *                         description: City name
+ *                         example: "New York"
+ *                       state:
+ *                         type: string
+ *                         description: State/province name
+ *                         example: "NY"
+ *                       country:
+ *                         type: string
+ *                         description: Country name
+ *                         example: "USA"
+ *                       customers:
+ *                         type: number
+ *                         description: Number of customers in this region
+ *                         example: 25
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Improved Geographic Distribution (city, state, country, with fallbacks)
 exports.geographicDistribution = async (req, res) => {
   try {
@@ -380,6 +1034,75 @@ exports.geographicDistribution = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/low-stock:
+ *   get:
+ *     summary: Get products with low stock below threshold
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: threshold
+ *         schema:
+ *           type: number
+ *           default: 10
+ *         description: Stock quantity threshold for low stock alert
+ *     responses:
+ *       200:
+ *         description: Low stock products data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: Product ID
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       name:
+ *                         type: string
+ *                         description: Product name
+ *                         example: "Premium Widget"
+ *                       stock_quantity:
+ *                         type: number
+ *                         description: Current stock quantity
+ *                         example: 5
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 7. Low Stock
 exports.lowStock = async (req, res) => {
   try {
@@ -395,6 +1118,73 @@ exports.lowStock = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/advanced-analytics/abandoned-cart-rate:
+ *   get:
+ *     summary: Get abandoned cart rate analysis by time period
+ *     tags: [Advanced Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month, quarter, year, all]
+ *           default: all
+ *         description: Time period for abandoned cart analysis
+ *     responses:
+ *       200:
+ *         description: Abandoned cart rate data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     abandonedCartRate:
+ *                       type: number
+ *                       description: Percentage of abandoned carts
+ *                       example: 25.5
+ *                     totalCarts:
+ *                       type: number
+ *                       description: Total number of carts created
+ *                       example: 200
+ *                     abandonedCarts:
+ *                       type: number
+ *                       description: Number of abandoned carts
+ *                       example: 51
+ *       400:
+ *         description: Bad request - Missing required parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // 8. Abandoned Cart Rate
 exports.abandonedCartRate = async (req, res) => {
   try {

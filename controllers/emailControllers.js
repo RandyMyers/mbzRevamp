@@ -5,6 +5,186 @@ const { createAuditLog, logCRUDOperation } = require('../helpers/auditLogHelper'
 const sendEmail = require('../helper/senderEmail'); // Import the sendEmail helper
 const Sender = require('../models/sender'); // Import Sender model for email sending
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Email:
+ *       type: object
+ *       required:
+ *         - recipient
+ *         - subject
+ *         - body
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique email ID
+ *         recipient:
+ *           type: string
+ *           format: email
+ *           description: Email recipient address
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *         body:
+ *           type: string
+ *           description: Email body content (HTML)
+ *         variables:
+ *           type: object
+ *           description: Template variables for personalization
+ *         emailTemplate:
+ *           type: string
+ *           format: ObjectId
+ *           description: Email template ID
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the email
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         senderId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Sender ID for the email
+ *         campaign:
+ *           type: string
+ *           description: Campaign identifier
+ *         workflow:
+ *           type: string
+ *           description: Workflow identifier
+ *         status:
+ *           type: string
+ *           enum: [draft, sent, failed, pending]
+ *           description: Email status
+ *         messageId:
+ *           type: string
+ *           description: Unique message identifier
+ *         sentAt:
+ *           type: string
+ *           format: date-time
+ *           description: When email was sent
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Email creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Email last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/emails/create:
+ *   post:
+ *     summary: Create and send a new email
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipient
+ *               - subject
+ *               - body
+ *             properties:
+ *               recipient:
+ *                 type: string
+ *                 format: email
+ *                 description: Email recipient address
+ *                 example: "user@example.com"
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Welcome to our platform"
+ *               body:
+ *                 type: string
+ *                 description: Email body content (HTML)
+ *                 example: "<h1>Welcome!</h1><p>Thank you for joining us.</p>"
+ *               variables:
+ *                 type: object
+ *                 description: Template variables for personalization
+ *                 example: {"name": "John", "company": "Acme Corp"}
+ *               emailTemplate:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Email template ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               createdBy:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the email
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               senderId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Sender ID for the email
+ *                 example: "507f1f77bcf86cd799439011"
+ *               campaign:
+ *                 type: string
+ *                 description: Campaign identifier
+ *                 example: "welcome-campaign"
+ *               workflow:
+ *                 type: string
+ *                 description: Workflow identifier
+ *                 example: "onboarding"
+ *     responses:
+ *       201:
+ *         description: Email created and sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email sent successfully"
+ *                 email:
+ *                   $ref: '#/components/schemas/Email'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Recipient, subject, and body are required fields"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to send email"
+ */
 // CREATE a new email
 exports.createEmail = async (req, res) => {
   try {

@@ -7,6 +7,190 @@ const Organization = require('../models/organization');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { sendNotificationToAdmins } = require('../helpers/notificationHelper');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Feedback:
+ *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *         - rating
+ *         - userId
+ *         - organizationId
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique feedback ID
+ *         title:
+ *           type: string
+ *           description: Feedback title
+ *         description:
+ *           type: string
+ *           description: Feedback description
+ *         category:
+ *           type: string
+ *           default: general
+ *           description: Feedback category
+ *         rating:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 5
+ *           description: Rating from 1 to 5
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who submitted feedback
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Feedback tags
+ *         userAgent:
+ *           type: string
+ *           description: User agent string
+ *         ipAddress:
+ *           type: string
+ *           description: IP address
+ *         browser:
+ *           type: string
+ *           description: Browser information
+ *         device:
+ *           type: string
+ *           description: Device information
+ *         status:
+ *           type: string
+ *           enum: [pending, reviewed, resolved, closed]
+ *           description: Feedback status
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Feedback creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Feedback last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/feedback/create:
+ *   post:
+ *     summary: Create new feedback
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - rating
+ *               - userId
+ *               - organizationId
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Feedback title
+ *                 example: "Great user experience"
+ *               description:
+ *                 type: string
+ *                 description: Feedback description
+ *                 example: "The platform is very intuitive and easy to use"
+ *               category:
+ *                 type: string
+ *                 default: general
+ *                 description: Feedback category
+ *                 example: "user_experience"
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating from 1 to 5
+ *                 example: 5
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who submitted feedback
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Feedback tags
+ *                 example: ["ui", "usability"]
+ *               userAgent:
+ *                 type: string
+ *                 description: User agent string
+ *               ipAddress:
+ *                 type: string
+ *                 description: IP address
+ *               browser:
+ *                 type: string
+ *                 description: Browser information
+ *               device:
+ *                 type: string
+ *                 description: Device information
+ *     responses:
+ *       201:
+ *         description: Feedback created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback submitted successfully"
+ *                 feedback:
+ *                   $ref: '#/components/schemas/Feedback'
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields: title, description"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error creating feedback"
+ */
 // CREATE new feedback
 exports.createFeedback = async (req, res) => {
   try {

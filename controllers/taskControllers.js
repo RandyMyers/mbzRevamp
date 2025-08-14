@@ -3,6 +3,149 @@ const User = require("../models/users");
 const Organization = require("../models/organization");
 const logEvent = require('../helper/logEvent');
 
+/**
+ * @swagger
+ * /api/tasks/create:
+ *   post:
+ *     summary: Create a new task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - organizationId
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Task title
+ *                 example: "Complete project setup"
+ *               description:
+ *                 type: string
+ *                 description: Task description
+ *                 example: "Set up the development environment"
+ *               status:
+ *                 type: string
+ *                 enum: [pending, inProgress, review, completed, cancelled, onHold]
+ *                 default: pending
+ *                 description: Task status
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high]
+ *                 default: medium
+ *                 description: Task priority
+ *               dueDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Task due date
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *               assignedTo:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: ObjectId
+ *                 description: Array of user IDs assigned to the task
+ *                 example: ["507f1f77bcf86cd799439011"]
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID (required)
+ *                 example: "507f1f77bcf86cd799439011"
+ *               createdBy:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the task (optional, defaults to authenticated user)
+ *                 example: "507f1f77bcf86cd799439011"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Task tags
+ *                 example: ["urgent", "frontend"]
+ *               subtasks:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - title
+ *                     - createdBy
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       description: Subtask title
+ *                     status:
+ *                       type: string
+ *                       enum: [pending, completed]
+ *                       default: pending
+ *                       description: Subtask status
+ *                     createdBy:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID who created the subtask
+ *     responses:
+ *       201:
+ *         description: Task created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Task created successfully"
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Title, description, and organizationId are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Resource not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create task"
+ */
 // CREATE a new task with subtasks
 exports.createTask = async (req, res) => {
   const { title, description, status, priority, dueDate, assignedTo, organizationId, tags, createdBy, subtasks } = req.body;
@@ -129,6 +272,67 @@ exports.createTask = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/organization/{organizationId}:
+ *   get:
+ *     summary: Get all tasks for an organization
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Tasks retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 tasks:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: No tasks found for this organization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "No tasks found for this organization"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve tasks"
+ */
 // GET all tasks for an organization
 exports.getTasksByOrganization = async (req, res) => {
   const { organizationId } = req.params;
@@ -145,6 +349,65 @@ exports.getTasksByOrganization = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/get/{taskId}:
+ *   get:
+ *     summary: Get a task by ID
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Task retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve task"
+ */
 // GET task by ID
 exports.getTaskById = async (req, res) => {
   const { taskId } = req.params;
@@ -166,6 +429,119 @@ exports.getTaskById = async (req, res) => {
 };
 
 
+/**
+ * @swagger
+ * /api/tasks/update/{taskId}:
+ *   patch:
+ *     summary: Update a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Task title
+ *                 example: "Updated project setup"
+ *               description:
+ *                 type: string
+ *                 description: Task description
+ *                 example: "Updated development environment setup"
+ *               status:
+ *                 type: string
+ *                 enum: [pending, inProgress, review, completed, cancelled, onHold]
+ *                 description: Task status
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high]
+ *                 description: Task priority
+ *               dueDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Task due date
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *               assignedTo:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: ObjectId
+ *                 description: Array of user IDs assigned to the task
+ *                 example: ["507f1f77bcf86cd799439011"]
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Task tags
+ *                 example: ["urgent", "frontend"]
+ *     responses:
+ *       200:
+ *         description: Task updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "One or more assigned users not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update task"
+ */
 // UPDATE a task (including subtasks)
 exports.updateTask = async (req, res) => {
   const { taskId } = req.params;
@@ -211,6 +587,89 @@ exports.updateTask = async (req, res) => {
 };
 
 
+/**
+ * @swagger
+ * /api/tasks/subtasks/create/{taskId}:
+ *   post:
+ *     summary: Add a subtask to a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - createdBy
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Subtask title
+ *                 example: "Set up database connection"
+ *               createdBy:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the subtask
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       201:
+ *         description: Subtask added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Subtask added successfully"
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to add subtask"
+ */
 // ADD a subtask to a task
 exports.addSubtask = async (req, res) => {
   const { taskId } = req.params;
@@ -252,6 +711,105 @@ exports.addSubtask = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/subtasks/update/{subtaskId}:
+ *   patch:
+ *     summary: Update a subtask
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: subtaskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Subtask ID
+ *         example: "507f1f77bcf86cd799439012"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Subtask title
+ *                 example: "Updated database connection setup"
+ *               status:
+ *                 type: string
+ *                 enum: [pending, completed]
+ *                 description: Subtask status
+ *                 example: "completed"
+ *     responses:
+ *       200:
+ *         description: Subtask updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Subtask updated successfully"
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid status value. Must be 'pending' or 'completed'"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task or subtask not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update subtask"
+ */
 exports.updateSubtask = async (req, res) => {
   const { taskId, subtaskId } = req.params;
   const { status, title } = req.body;  // Get title from body, not params
@@ -308,6 +866,76 @@ exports.updateSubtask = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/subtasks/delete/{subtaskId}:
+ *   delete:
+ *     summary: Delete a subtask
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: subtaskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Subtask ID
+ *         example: "507f1f77bcf86cd799439012"
+ *     responses:
+ *       200:
+ *         description: Subtask deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Subtask deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task or subtask not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete subtask"
+ */
 // DELETE a subtask
 exports.deleteSubtask = async (req, res) => {
   const { taskId, subtaskId } = req.params;
@@ -343,6 +971,92 @@ exports.deleteSubtask = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/status/{taskId}:
+ *   patch:
+ *     summary: Update a task's status (for drag and drop)
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, inProgress, review, completed, cancelled, onHold]
+ *                 description: New task status
+ *                 example: "inProgress"
+ *     responses:
+ *       200:
+ *         description: Task status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Invalid status value
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid status. Must be one of: pending, inProgress, review, completed, cancelled, onHold"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update task status"
+ */
 // UPDATE a task's status (when moved between columns)
 exports.updateTaskStatus = async (req, res) => {
   const { taskId } = req.params;
@@ -392,6 +1106,66 @@ exports.updateTaskStatus = async (req, res) => {
 };
 
 
+/**
+ * @swagger
+ * /api/tasks/delete/{taskId}:
+ *   delete:
+ *     summary: Delete a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Task deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Task deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete task"
+ */
 // DELETE a task
 exports.deleteTask = async (req, res) => {
   const { taskId } = req.params;
@@ -424,6 +1198,105 @@ exports.deleteTask = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/comments:
+ *   post:
+ *     summary: Add a comment to a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: Comment text
+ *                 example: "This task is progressing well"
+ *                 minLength: 1
+ *     responses:
+ *       200:
+ *         description: Comment added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Comment text is required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Comment text is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User can only comment on tasks in their organization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You can only comment on tasks in your organization"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to add comment"
+ */
 // ADD a comment to a task
 exports.addComment = async (req, res) => {
   const { taskId } = req.params;
@@ -482,6 +1355,113 @@ exports.addComment = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/comments/{commentId}:
+ *   patch:
+ *     summary: Update a comment on a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Comment ID
+ *         example: "507f1f77bcf86cd799439012"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: Updated comment text
+ *                 example: "Updated comment text"
+ *                 minLength: 1
+ *     responses:
+ *       200:
+ *         description: Comment updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Comment text is required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Comment text is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User can only edit their own comments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You can only edit your own comments"
+ *       404:
+ *         description: Task or comment not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update comment"
+ */
 // UPDATE a comment
 exports.updateComment = async (req, res) => {
   const { taskId, commentId } = req.params;
@@ -537,6 +1517,86 @@ exports.updateComment = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/comments/{commentId}:
+ *   delete:
+ *     summary: Delete a comment from a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Comment ID
+ *         example: "507f1f77bcf86cd799439012"
+ *     responses:
+ *       200:
+ *         description: Comment deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       403:
+ *         description: Forbidden - User can only delete their own comments or be the task creator
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You can only delete your own comments or be the task creator"
+ *       404:
+ *         description: Task or comment not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete comment"
+ */
 // DELETE a comment
 exports.deleteComment = async (req, res) => {
   const { taskId, commentId } = req.params;
@@ -581,6 +1641,67 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/user/{userId}:
+ *   get:
+ *     summary: Get tasks by user ID (assigned, created, or with assigned subtasks)
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Tasks retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 tasks:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: No tasks found for this user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "No tasks found for this user"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve tasks"
+ */
 // GET tasks by userId with subtasks
 exports.getTasksByUserId = async (req, res) => {
   const { userId } = req.params;
@@ -607,6 +1728,103 @@ exports.getTasksByUserId = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/assignments:
+ *   patch:
+ *     summary: Update task assignments (add/remove/replace users)
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - assignedTo
+ *               - action
+ *             properties:
+ *               assignedTo:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: ObjectId
+ *                 description: Array of user IDs for assignment
+ *                 example: ["507f1f77bcf86cd799439011"]
+ *               action:
+ *                 type: string
+ *                 enum: [add, remove, replace]
+ *                 description: Action to perform on assignments
+ *                 example: "add"
+ *     responses:
+ *       200:
+ *         description: Task assignments updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Task assignments added successfully"
+ *       400:
+ *         description: Invalid action or validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid action. Use 'add', 'remove', or 'replace'"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task or users not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update task assignments"
+ */
 // UPDATE task assignments (add/remove users)
 exports.updateTaskAssignments = async (req, res) => {
   const { taskId } = req.params;
@@ -680,6 +1898,82 @@ exports.updateTaskAssignments = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/tasks/organization/{organizationId}/available-users:
+ *   get:
+ *     summary: Get users available for task assignment in organization
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Available users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: User ID
+ *                       name:
+ *                         type: string
+ *                         description: User name
+ *                       email:
+ *                         type: string
+ *                         description: User email
+ *                       role:
+ *                         type: string
+ *                         format: ObjectId
+ *                         description: User role ID
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: No users found in this organization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "No users found in this organization"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve available users"
+ */
 // GET users available for task assignment in organization
 exports.getAvailableUsersForAssignment = async (req, res) => {
   const { organizationId } = req.params;

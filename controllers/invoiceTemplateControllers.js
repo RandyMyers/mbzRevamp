@@ -3,7 +3,637 @@ const ReceiptTemplate = require('../models/ReceiptTemplate');
 const Organization = require('../models/organization');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     InvoiceTemplate:
+ *       type: object
+ *       required:
+ *         - name
+ *         - organizationId
+ *         - userId
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique invoice template ID
+ *         name:
+ *           type: string
+ *           description: Template name
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         templateType:
+ *           type: string
+ *           enum: [professional, casual, modern, classic]
+ *           default: professional
+ *           description: Template style type
+ *         isDefault:
+ *           type: boolean
+ *           default: false
+ *           description: Whether this is the default template
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *         companyInfo:
+ *           type: object
+ *           description: Company information for the template
+ *           properties:
+ *             name:
+ *               type: string
+ *               description: Company name
+ *             address:
+ *               type: string
+ *               description: Company address
+ *             phone:
+ *               type: string
+ *               description: Company phone
+ *             email:
+ *               type: string
+ *               format: email
+ *               description: Company email
+ *             logo:
+ *               type: string
+ *               description: Company logo URL
+ *         design:
+ *           type: object
+ *           description: Template design settings
+ *           properties:
+ *             colors:
+ *               type: object
+ *               description: Color scheme
+ *             fonts:
+ *               type: object
+ *               description: Font settings
+ *             spacing:
+ *               type: object
+ *               description: Spacing settings
+ *         layout:
+ *           type: object
+ *           description: Template layout configuration
+ *           properties:
+ *             header:
+ *               type: object
+ *               description: Header layout
+ *             body:
+ *               type: object
+ *               description: Body layout
+ *             footer:
+ *               type: object
+ *               description: Footer layout
+ *         content:
+ *           type: object
+ *           description: Template content structure
+ *           properties:
+ *             sections:
+ *               type: array
+ *               description: Template sections
+ *             placeholders:
+ *               type: array
+ *               description: Dynamic content placeholders
+ *         fields:
+ *           type: object
+ *           description: Template field mappings
+ *           properties:
+ *             customer:
+ *               type: object
+ *               description: Customer field mappings
+ *             items:
+ *               type: object
+ *               description: Items field mappings
+ *             totals:
+ *               type: object
+ *               description: Totals field mappings
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         updatedBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who last updated the template
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template last update timestamp
+ *     
+ *     ReceiptTemplate:
+ *       type: object
+ *       required:
+ *         - name
+ *         - organizationId
+ *         - userId
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique receipt template ID
+ *         name:
+ *           type: string
+ *           description: Template name
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         templateType:
+ *           type: string
+ *           enum: [professional, casual, modern, classic]
+ *           default: professional
+ *           description: Template style type
+ *         isDefault:
+ *           type: boolean
+ *           default: false
+ *           description: Whether this is the default template
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *         companyInfo:
+ *           type: object
+ *           description: Company information for the template
+ *         design:
+ *           type: object
+ *           description: Template design settings
+ *         layout:
+ *           type: object
+ *           description: Template layout configuration
+ *         content:
+ *           type: object
+ *           description: Template content structure
+ *         fields:
+ *           type: object
+ *           description: Template field mappings
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         updatedBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who last updated the template
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template last update timestamp
+ */
+
 // ==================== INVOICE TEMPLATES ====================
+
+/**
+ * @swagger
+ * /api/invoice-templates/create:
+ *   post:
+ *     summary: Create a new invoice template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Template name
+ *                 example: "Professional Invoice Template"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the template
+ *                 example: "507f1f77bcf86cd799439011"
+ *               templateType:
+ *                 type: string
+ *                 enum: [professional, casual, modern, classic]
+ *                 default: professional
+ *                 description: Template style type
+ *                 example: "professional"
+ *               isDefault:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether this is the default template
+ *                 example: false
+ *               companyInfo:
+ *                 type: object
+ *                 description: Company information for the template
+ *                 example: {"name": "My Company", "address": "123 Business St", "phone": "+1-555-0123", "email": "contact@mycompany.com"}
+ *               design:
+ *                 type: object
+ *                 description: Template design settings
+ *                 example: {"colors": {"primary": "#007bff"}, "fonts": {"heading": "Arial"}}
+ *               layout:
+ *                 type: object
+ *                 description: Template layout configuration
+ *                 example: {"header": {"height": "100px"}, "body": {"margin": "20px"}}
+ *               content:
+ *                 type: object
+ *                 description: Template content structure
+ *                 example: {"sections": ["header", "customer", "items", "totals", "footer"]}
+ *               fields:
+ *                 type: object
+ *                 description: Template field mappings
+ *                 example: {"customer": {"name": "customerName"}, "items": {"table": "itemsTable"}}
+ *     responses:
+ *       201:
+ *         description: Invoice template created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice template created successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/InvoiceTemplate'
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields: name, organizationId"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error creating invoice template"
+ */
+
+/**
+ * @swagger
+ * /api/invoice-templates:
+ *   get:
+ *     summary: Get all invoice templates with filters and pagination
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, casual, modern, classic]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: createdAt
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: Invoice templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/InvoiceTemplate'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       400:
+ *         description: Bad request - Invalid parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/invoice-templates/{id}:
+ *   get:
+ *     summary: Get a single invoice template by ID
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice template ID
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Invoice template retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 template:
+ *                   $ref: '#/components/schemas/InvoiceTemplate'
+ *       404:
+ *         description: Invoice template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/invoice-templates/{id}:
+ *   put:
+ *     summary: Update an invoice template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice template ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 required: true
+ *                 description: User ID making the update
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 required: true
+ *                 description: Organization ID
+ *               name:
+ *                 type: string
+ *                 description: Updated template name
+ *               templateType:
+ *                 type: string
+ *                 enum: [professional, casual, modern, classic]
+ *                 description: Updated template type
+ *               companyInfo:
+ *                 type: object
+ *                 description: Updated company information
+ *               design:
+ *                 type: object
+ *                 description: Updated design settings
+ *               layout:
+ *                 type: object
+ *                 description: Updated layout configuration
+ *               content:
+ *                 type: object
+ *                 description: Updated content structure
+ *               fields:
+ *                 type: object
+ *                 description: Updated field mappings
+ *     responses:
+ *       200:
+ *         description: Invoice template updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice template updated successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/InvoiceTemplate'
+ *       404:
+ *         description: Invoice template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/invoice-templates/{id}:
+ *   delete:
+ *     summary: Delete an invoice template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice template ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - organizationId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID deleting the template
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Invoice template deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice template deleted successfully"
+ *       404:
+ *         description: Invoice template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/invoice-templates/{id}/set-default:
+ *   post:
+ *     summary: Set an invoice template as default
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice template ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - organizationId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID setting the default
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Default invoice template set successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Default invoice template set successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/InvoiceTemplate'
+ *       404:
+ *         description: Invoice template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 
 // CREATE invoice template
 exports.createInvoiceTemplate = async (req, res) => {
@@ -307,6 +937,206 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
 
 // ==================== RECEIPT TEMPLATES ====================
 
+/**
+ * @swagger
+ * /api/receipt-templates/create:
+ *   post:
+ *     summary: Create a new receipt template
+ *     tags: [Receipt Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Template name
+ *                 example: "Professional Receipt Template"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the template
+ *                 example: "507f1f77bcf86cd799439011"
+ *               templateType:
+ *                 type: string
+ *                 enum: [professional, casual, modern, classic]
+ *                 default: professional
+ *                 description: Template style type
+ *                 example: "professional"
+ *               isDefault:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether this is the default template
+ *                 example: false
+ *               companyInfo:
+ *                 type: object
+ *                 description: Company information for the template
+ *                 example: {"name": "My Company", "address": "123 Business St", "phone": "+1-555-0123", "email": "contact@mycompany.com"}
+ *               design:
+ *                 type: object
+ *                 description: Template design settings
+ *                 example: {"colors": {"primary": "#007bff"}, "fonts": {"heading": "Arial"}}
+ *               layout:
+ *                 type: object
+ *                 description: Template layout configuration
+ *                 example: {"header": {"height": "100px"}, "body": {"margin": "20px"}}
+ *               content:
+ *                 type: object
+ *                 description: Template content structure
+ *                 example: {"sections": ["header", "customer", "items", "totals", "footer"]}
+ *               fields:
+ *                 type: object
+ *                 description: Template field mappings
+ *                 example: {"customer": {"name": "customerName"}, "items": {"table": "itemsTable"}}
+ *     responses:
+ *       201:
+ *         description: Receipt template created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Receipt template created successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/ReceiptTemplate'
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields: name, organizationId"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error creating receipt template"
+ */
+
+/**
+ * @swagger
+ * /api/receipt-templates:
+ *   get:
+ *     summary: Get all receipt templates with filters and pagination
+ *     tags: [Receipt Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, casual, modern, classic]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: createdAt
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: Receipt templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ReceiptTemplate'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       400:
+ *         description: Bad request - Invalid parameters
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
 // CREATE receipt template
 exports.createReceiptTemplate = async (req, res) => {
   try {
@@ -435,6 +1265,50 @@ exports.getReceiptTemplates = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/receipt-templates/{id}:
+ *   get:
+ *     summary: Get a single receipt template by ID
+ *     tags: [Receipt Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Receipt template ID
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Receipt template retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 template:
+ *                   $ref: '#/components/schemas/ReceiptTemplate'
+ *       404:
+ *         description: Receipt template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
 // GET single receipt template by ID
 exports.getReceiptTemplateById = async (req, res) => {
   try {
@@ -466,6 +1340,85 @@ exports.getReceiptTemplateById = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/receipt-templates/{id}:
+ *   put:
+ *     summary: Update a receipt template
+ *     tags: [Receipt Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Receipt template ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 required: true
+ *                 description: User ID making the update
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 required: true
+ *                 description: Organization ID
+ *               name:
+ *                 type: string
+ *                 description: Updated template name
+ *               templateType:
+ *                 type: string
+ *                 enum: [professional, casual, modern, classic]
+ *                 description: Updated template type
+ *               companyInfo:
+ *                 type: object
+ *                 description: Updated company information
+ *               design:
+ *                 type: object
+ *                 description: Updated design settings
+ *               layout:
+ *                 type: object
+ *                 description: Updated layout configuration
+ *               content:
+ *                 type: object
+ *                 description: Updated content structure
+ *               fields:
+ *                 type: object
+ *                 description: Updated field mappings
+ *     responses:
+ *       200:
+ *         description: Receipt template updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Receipt template updated successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/ReceiptTemplate'
+ *       404:
+ *         description: Receipt template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 
 // UPDATE receipt template
 exports.updateReceiptTemplate = async (req, res) => {
@@ -517,6 +1470,62 @@ exports.updateReceiptTemplate = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/receipt-templates/{id}:
+ *   delete:
+ *     summary: Delete a receipt template
+ *     tags: [Receipt Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Receipt template ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - organizationId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID deleting the template
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Receipt template deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Receipt template deleted successfully"
+ *       404:
+ *         description: Receipt template not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 
 // DELETE receipt template
 exports.deleteReceiptTemplate = async (req, res) => {

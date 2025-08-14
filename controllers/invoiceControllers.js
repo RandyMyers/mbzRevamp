@@ -11,6 +11,304 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Invoice:
+ *       type: object
+ *       required:
+ *         - customerId
+ *         - storeId
+ *         - organizationId
+ *         - userId
+ *         - customerName
+ *         - customerEmail
+ *         - items
+ *         - totalAmount
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique invoice ID
+ *         customerId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Customer ID
+ *         storeId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Store ID
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         userId:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the invoice
+ *         customerName:
+ *           type: string
+ *           description: Customer name
+ *         customerEmail:
+ *           type: string
+ *           format: email
+ *           description: Customer email
+ *         customerAddress:
+ *           type: object
+ *           description: Customer address
+ *         items:
+ *           type: array
+ *           items:
+ *             type: object
+ *             required:
+ *               - name
+ *               - quantity
+ *               - unitPrice
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Item name
+ *               quantity:
+ *                 type: number
+ *                 description: Item quantity
+ *               unitPrice:
+ *                 type: number
+ *                 description: Item unit price
+ *               total:
+ *                 type: number
+ *                 description: Item total price
+ *         subtotal:
+ *           type: number
+ *           description: Subtotal amount
+ *         taxAmount:
+ *           type: number
+ *           description: Tax amount
+ *         discountAmount:
+ *           type: number
+ *           description: Discount amount
+ *         totalAmount:
+ *           type: number
+ *           description: Total amount
+ *         currency:
+ *           type: string
+ *           enum: [USD, EUR, GBP, CAD, AUD, JPY, NGN]
+ *           description: Currency code
+ *         dueDate:
+ *           type: string
+ *           format: date-time
+ *           description: Invoice due date
+ *         notes:
+ *           type: string
+ *           description: Additional notes
+ *         terms:
+ *           type: string
+ *           description: Invoice terms
+ *         type:
+ *           type: string
+ *           description: Invoice type
+ *         templateId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Invoice template ID
+ *         status:
+ *           type: string
+ *           enum: [draft, sent, paid, overdue, cancelled]
+ *           description: Invoice status
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Invoice creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Invoice last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/invoices/create:
+ *   post:
+ *     summary: Create a new invoice
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customerId
+ *               - storeId
+ *               - organizationId
+ *               - userId
+ *               - customerName
+ *               - customerEmail
+ *               - items
+ *               - totalAmount
+ *             properties:
+ *               customerId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Customer ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               storeId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Store ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the invoice
+ *                 example: "507f1f77bcf86cd799439011"
+ *               customerName:
+ *                 type: string
+ *                 description: Customer name
+ *                 example: "John Doe"
+ *               customerEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email
+ *                 example: "john@example.com"
+ *               customerAddress:
+ *                 type: object
+ *                 description: Customer address
+ *                 example: {"street": "123 Main St", "city": "Anytown", "state": "CA", "zip": "12345"}
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - name
+ *                     - quantity
+ *                     - unitPrice
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       description: Item name
+ *                       example: "Premium Widget"
+ *                     quantity:
+ *                       type: number
+ *                       description: Item quantity
+ *                       example: 2
+ *                     unitPrice:
+ *                       type: number
+ *                       description: Item unit price
+ *                       example: 29.99
+ *                     total:
+ *                       type: number
+ *                       description: Item total price
+ *                       example: 59.98
+ *               subtotal:
+ *                 type: number
+ *                 description: Subtotal amount
+ *                 example: 59.98
+ *               taxAmount:
+ *                 type: number
+ *                 description: Tax amount
+ *                 example: 5.99
+ *               discountAmount:
+ *                 type: number
+ *                 description: Discount amount
+ *                 example: 0
+ *               totalAmount:
+ *                 type: number
+ *                 description: Total amount
+ *                 example: 65.97
+ *               currency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP, CAD, AUD, JPY, NGN]
+ *                 default: USD
+ *                 description: Currency code
+ *                 example: "USD"
+ *               dueDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Invoice due date
+ *                 example: "2024-12-31T23:59:59.000Z"
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes
+ *                 example: "Thank you for your business!"
+ *               terms:
+ *                 type: string
+ *                 description: Invoice terms
+ *                 example: "Net 30"
+ *               type:
+ *                 type: string
+ *                 description: Invoice type
+ *                 example: "standard"
+ *               templateId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Invoice template ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       201:
+ *         description: Invoice created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice created successfully"
+ *                 invoice:
+ *                   $ref: '#/components/schemas/Invoice'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields: customerId, storeId"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Customer, store, organization, or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Customer not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create invoice"
+ */
 // CREATE a new invoice
 exports.createInvoice = async (req, res) => {
   try {
@@ -218,6 +516,143 @@ exports.createInvoice = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/list:
+ *   get:
+ *     summary: Get all invoices with filters
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, sent, paid, overdue, cancelled]
+ *         description: Filter by invoice status
+ *         example: "paid"
+ *       - in: query
+ *         name: customerId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Filter by customer ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: storeId
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Filter by store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering (YYYY-MM-DD)
+ *         example: "2024-12-31"
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in invoice number, customer name, or email
+ *         example: "INV-001"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of invoices per page
+ *         example: 10
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: "createdAt"
+ *           enum: [createdAt, updatedAt, dueDate, totalAmount, customerName]
+ *         description: Field to sort by
+ *         example: "createdAt"
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           default: "desc"
+ *           enum: [asc, desc]
+ *         description: Sort order
+ *         example: "desc"
+ *     responses:
+ *       200:
+ *         description: Invoices retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 invoices:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Invoice'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 50
+ *                     pages:
+ *                       type: integer
+ *                       example: 5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error fetching invoices"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // GET all invoices with filters
 exports.getInvoices = async (req, res) => {
   try {
@@ -292,6 +727,73 @@ exports.getInvoices = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/{id}:
+ *   get:
+ *     summary: Get single invoice by ID
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invoice retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 invoice:
+ *                   $ref: '#/components/schemas/Invoice'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invoice not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error fetching invoice"
+ */
 // GET single invoice by ID
 exports.getInvoiceById = async (req, res) => {
   try {
@@ -327,6 +829,148 @@ exports.getInvoiceById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/{id}:
+ *   put:
+ *     summary: Update invoice
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               customerName:
+ *                 type: string
+ *                 description: Customer name
+ *                 example: "John Doe"
+ *               customerEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email
+ *                 example: "john@example.com"
+ *               customerAddress:
+ *                 type: object
+ *                 description: Customer address
+ *                 example: {"street": "123 Main St", "city": "Anytown", "state": "CA", "zip": "12345"}
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       description: Item name
+ *                       example: "Premium Widget"
+ *                     quantity:
+ *                       type: number
+ *                       description: Item quantity
+ *                       example: 2
+ *                     unitPrice:
+ *                       type: number
+ *                       description: Item unit price
+ *                       example: 29.99
+ *                     total:
+ *                       type: number
+ *                       description: Item total price
+ *                       example: 59.98
+ *               subtotal:
+ *                 type: number
+ *                 description: Subtotal amount
+ *                 example: 59.98
+ *               taxAmount:
+ *                 type: number
+ *                 description: Tax amount
+ *                 example: 5.99
+ *               discountAmount:
+ *                 type: number
+ *                 description: Discount amount
+ *                 example: 0
+ *               totalAmount:
+ *                 type: number
+ *                 description: Total amount
+ *                 example: 65.97
+ *               currency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP, CAD, AUD, JPY, NGN]
+ *                 description: Currency code
+ *                 example: "USD"
+ *               dueDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Invoice due date
+ *                 example: "2024-02-15T00:00:00.000Z"
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes
+ *                 example: "Payment due within 30 days"
+ *               terms:
+ *                 type: string
+ *                 description: Invoice terms
+ *                 example: "Net 30"
+ *               status:
+ *                 type: string
+ *                 enum: [draft, sent, paid, overdue, cancelled]
+ *                 description: Invoice status
+ *                 example: "sent"
+ *     responses:
+ *       200:
+ *         description: Invoice updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice updated successfully"
+ *                 invoice:
+ *                   $ref: '#/components/schemas/Invoice'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invoice not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error updating invoice"
+ */
 // UPDATE invoice
 exports.updateInvoice = async (req, res) => {
   try {
@@ -384,6 +1028,68 @@ exports.updateInvoice = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/{id}:
+ *   delete:
+ *     summary: Delete invoice (soft delete)
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Invoice deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice deleted successfully"
+ *                 invoice:
+ *                   $ref: '#/components/schemas/Invoice'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invoice not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error deleting invoice"
+ */
 // DELETE invoice (soft delete)
 exports.deleteInvoice = async (req, res) => {
   try {
@@ -431,6 +1137,61 @@ exports.deleteInvoice = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/{id}/download:
+ *   get:
+ *     summary: Download invoice as PDF
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: PDF file generated successfully
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *             description: PDF file content
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invoice not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error generating PDF"
+ */
 // DOWNLOAD invoice as PDF
 exports.downloadInvoice = async (req, res) => {
   try {
@@ -492,6 +1253,108 @@ exports.downloadInvoice = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/invoices/{id}/email:
+ *   post:
+ *     summary: Email invoice
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Invoice ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               customMessage:
+ *                 type: string
+ *                 description: Custom message to include in email
+ *                 example: "Please find your invoice attached."
+ *               cc:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *                 description: CC recipients
+ *                 example: ["manager@company.com"]
+ *               bcc:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *                 description: BCC recipients
+ *                 example: ["accounting@company.com"]
+ *     responses:
+ *       200:
+ *         description: Invoice emailed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice sent successfully"
+ *                 emailDetails:
+ *                   type: object
+ *                   properties:
+ *                     to:
+ *                       type: string
+ *                       format: email
+ *                       description: Recipient email
+ *                       example: "customer@example.com"
+ *                     subject:
+ *                       type: string
+ *                       description: Email subject
+ *                       example: "Invoice INV-001 from Company Name"
+ *                     sentAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Email sent timestamp
+ *                       example: "2024-01-15T10:30:00.000Z"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Invoice not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invoice not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error sending invoice email"
+ */
 // EMAIL invoice
 exports.emailInvoice = async (req, res) => {
   try {
@@ -549,7 +1412,157 @@ exports.emailInvoice = async (req, res) => {
   }
 };
 
-// BULK generate invoices
+/**
+ * @swagger
+ * /api/invoices/bulk-generate:
+ *   post:
+ *     summary: Bulk generate invoices from orders
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - organizationId
+ *               - userId
+ *               - orders
+ *             properties:
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID creating the invoices
+ *                 example: "507f1f77bcf86cd799439011"
+ *               orders:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - orderId
+ *                     - customerId
+ *                     - storeId
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Order ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     customerId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Customer ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     storeId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Store ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     customNotes:
+ *                       type: string
+ *                       description: Custom notes for this invoice
+ *                       example: "Bulk generated from order"
+ *                     dueDate:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Custom due date for this invoice
+ *                       example: "2024-02-15T00:00:00.000Z"
+ *               templateId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Invoice template ID to use
+ *                 example: "507f1f77bcf86cd799439011"
+ *               defaultCurrency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP, CAD, AUD, JPY, NGN]
+ *                 description: Default currency for invoices
+ *                 example: "USD"
+ *               defaultTerms:
+ *                 type: string
+ *                 description: Default payment terms
+ *                 example: "Net 30"
+ *     responses:
+ *       200:
+ *         description: Invoices generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bulk invoice generation completed"
+ *                 results:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Total orders processed
+ *                       example: 10
+ *                     successful:
+ *                       type: integer
+ *                       description: Number of invoices created successfully
+ *                       example: 8
+ *                     failed:
+ *                       type: integer
+ *                       description: Number of invoices that failed to create
+ *                       example: 2
+ *                     invoices:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Invoice'
+ *                       description: Array of created invoices
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           orderId:
+ *                             type: string
+ *                             description: Order ID that failed
+ *                           error:
+ *                             type: string
+ *                             description: Error message
+ *       400:
+ *         description: Bad request - Invalid data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid request data"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error generating invoices"
+ */
+// BULK generate invoices from orders
 exports.bulkGenerateInvoices = async (req, res) => {
   try {
     const { organizationId, userId, orders } = req.body;

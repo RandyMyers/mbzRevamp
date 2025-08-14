@@ -1,6 +1,212 @@
 const NotificationTemplate = require('../models/notificationTemplates');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     NotificationTemplate:
+ *       type: object
+ *       required:
+ *         - templateName
+ *         - subject
+ *         - body
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique notification template ID
+ *         templateName:
+ *           type: string
+ *           description: Template name
+ *           example: "Welcome Email Template"
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *           example: "Welcome to our platform!"
+ *         body:
+ *           type: string
+ *           description: Template body content (HTML)
+ *           example: "<h1>Welcome {{userName}}!</h1><p>Thank you for joining us.</p>"
+ *         type:
+ *           type: string
+ *           enum: [email, system]
+ *           default: system
+ *           description: Notification type
+ *           example: "email"
+ *         triggerEvent:
+ *           type: string
+ *           enum: [subscriptionEnd, reminder, invoiceCreated, accountUpdate, custom]
+ *           default: custom
+ *           description: Event that triggers this notification
+ *           example: "subscriptionEnd"
+ *         variables:
+ *           type: object
+ *           description: Template variables for personalization
+ *           example: {"userName": "string", "companyName": "string"}
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *           example: true
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *           example: "507f1f77bcf86cd799439011"
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *           example: "507f1f77bcf86cd799439011"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template last update timestamp
+ *     
+ *     NotificationTemplateCreate:
+ *       type: object
+ *       required:
+ *         - templateName
+ *         - subject
+ *         - body
+ *       properties:
+ *         templateName:
+ *           type: string
+ *           description: Template name
+ *           example: "Welcome Email Template"
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *           example: "Welcome to our platform!"
+ *         body:
+ *           type: string
+ *           description: Template body content (HTML)
+ *           example: "<h1>Welcome {{userName}}!</h1><p>Thank you for joining us.</p>"
+ *         type:
+ *           type: string
+ *           enum: [email, system]
+ *           default: system
+ *           description: Notification type
+ *           example: "email"
+ *         triggerEvent:
+ *           type: string
+ *           enum: [subscriptionEnd, reminder, invoiceCreated, accountUpdate, custom]
+ *           default: custom
+ *           description: Event that triggers this notification
+ *           example: "subscriptionEnd"
+ *         variables:
+ *           type: object
+ *           description: Template variables for personalization
+ *           example: {"userName": "string", "companyName": "string"}
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *           example: true
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID (optional, defaults to user's organization)
+ *           example: "507f1f77bcf86cd799439011"
+ *     
+ *     NotificationTemplateUpdate:
+ *       type: object
+ *       properties:
+ *         templateName:
+ *           type: string
+ *           description: Updated template name
+ *           example: "Updated Welcome Email Template"
+ *         subject:
+ *           type: string
+ *           description: Updated email subject line
+ *           example: "Updated Welcome Message"
+ *         body:
+ *           type: string
+ *           description: Updated template body content (HTML)
+ *           example: "<h1>Welcome {{userName}}!</h1><p>We're excited to have you!</p>"
+ *         type:
+ *           type: string
+ *           enum: [email, system]
+ *           description: Updated notification type
+ *           example: "email"
+ *         triggerEvent:
+ *           type: string
+ *           enum: [subscriptionEnd, reminder, invoiceCreated, accountUpdate, custom]
+ *           description: Updated trigger event
+ *           example: "subscriptionEnd"
+ *         variables:
+ *           type: object
+ *           description: Updated template variables
+ *           example: {"userName": "string", "companyName": "string", "planType": "string"}
+ *         isActive:
+ *           type: boolean
+ *           description: Whether template is active
+ *           example: true
+ */
+
+/**
+ * @swagger
+ * /api/notification-templates:
+ *   post:
+ *     summary: Create a new notification template
+ *     tags: [Notification Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NotificationTemplateCreate'
+ *     responses:
+ *       201:
+ *         description: Notification template created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification template created successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/NotificationTemplate'
+ *       400:
+ *         description: Bad request - Missing required fields or invalid data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Template name, subject, and body are required"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error creating notification template"
+ */
+
 // CREATE a new notification template
 exports.createNotificationTemplate = async (req, res) => {
   try {
@@ -105,7 +311,109 @@ exports.createNotificationTemplate = async (req, res) => {
   }
 };
 
-// GET all notification templates with pagination and filtering
+/**
+ * @swagger
+ * /api/notification-templates:
+ *   get:
+ *     summary: Get all notification templates with filters and pagination
+ *     tags: [Notification Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organization
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID to filter templates
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [email, system]
+ *         description: Filter by notification type
+ *       - in: query
+ *         name: triggerEvent
+ *         schema:
+ *           type: string
+ *           enum: [subscriptionEnd, reminder, invoiceCreated, accountUpdate, custom]
+ *         description: Filter by trigger event
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: createdAt
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: Notification templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/NotificationTemplate'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error retrieving notification templates"
+ */
+
+// GET all notification templates
 exports.getAllNotificationTemplates = async (req, res) => {
   try {
     const { 
@@ -160,7 +468,70 @@ exports.getAllNotificationTemplates = async (req, res) => {
   }
 };
 
-// GET notification template by ID
+/**
+ * @swagger
+ * /api/notification-templates/{id}:
+ *   get:
+ *     summary: Get a single notification template by ID
+ *     tags: [Notification Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Notification template ID
+ *       - in: query
+ *         name: organization
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID for context
+ *     responses:
+ *       200:
+ *         description: Notification template retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 template:
+ *                   $ref: '#/components/schemas/NotificationTemplate'
+ *       404:
+ *         description: Notification template not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Notification template not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error retrieving notification template"
+ */
+
+// GET single notification template by ID
 exports.getNotificationTemplateById = async (req, res) => {
   try {
     const { templateId } = req.params;

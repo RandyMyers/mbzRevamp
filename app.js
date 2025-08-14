@@ -10,6 +10,10 @@ const dotenv = require('dotenv');
 const fileUpload = require('express-fileupload');
 const receiverEvent = require('./helper/receiverEvent');
 //const currencyEvent = require('./helper/exchangeRateEvent')
+
+// Import Swagger configuration
+const { specs, swaggerUi } = require('./swagger');
+
 // Importing route files
 const userRoutes = require('./routes/userRoutes');
 //const policiesRoutes = require('./routes/policyRoutes');
@@ -52,7 +56,7 @@ const taskRoutes = require('./routes/taskRoutes');
 //const workflowRoutes = require('./routes/workflowRoutes');
 //const siteRoutes = require('./routes/siteRoutes');
 //const subscriptionRoutes = require('./routes/subscriptionRoutes');  // New Subscription Routes
-//const discountRoutes = require('./routes/discountRoutes');  // New Discount Routes
+//const discountRoutes = require('./routes/discountRoutes');  // New Discount Usage Routes
 //const discountUsageRoutes = require('./routes/discountUsageRoutes');  // New Discount Usage Routes
 const paymentRoutes = require('./routes/paymentRoutes');
 //const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');  // New Subscription Plan Routes
@@ -135,6 +139,29 @@ app.use(
     limits: { fileSize: 10 * 1024 * 1024 }
   })
 );
+
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'MBZ Tech Platform API Documentation',
+  customfavIcon: '/favicon.ico',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    deepLinking: true
+  }
+}));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    success: true, 
+    message: 'MBZ Tech Platform API is running',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
 
 // Using imported routes
 app.use('/api/auth', authRoutes);

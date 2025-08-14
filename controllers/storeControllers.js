@@ -187,6 +187,121 @@ const syncCategoriesWithWooCommerce = async (storeId, organizationId, userId) =>
 };
 
 // CREATE a new store
+/**
+ * @swagger
+ * /api/stores/create:
+ *   post:
+ *     summary: Create a new store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - organizationId
+ *               - userId
+ *               - platformType
+ *               - url
+ *               - apiKey
+ *               - secretKey
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Store name
+ *                 example: "My Online Store"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who owns the store
+ *                 example: "507f1f77bcf86cd799439011"
+ *               description:
+ *                 type: string
+ *                 description: Store description (optional)
+ *                 example: "A great online store"
+ *               platformType:
+ *                 type: string
+ *                 enum: [woocommerce, shopify, magento, bigcommerce, custom]
+ *                 description: E-commerce platform type
+ *                 example: "woocommerce"
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *                 description: Store website URL
+ *                 example: "https://mystore.com"
+ *               apiKey:
+ *                 type: string
+ *                 description: Platform API key
+ *                 example: "ck_1234567890abcdef"
+ *               secretKey:
+ *                 type: string
+ *                 description: Platform secret key
+ *                 example: "cs_1234567890abcdef"
+ *               createWebhooks:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether to create default webhooks automatically
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Store logo file (optional)
+ *     responses:
+ *       201:
+ *         description: Store created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store created successfully"
+ *                 store:
+ *                   $ref: '#/components/schemas/Store'
+ *                 webhookResults:
+ *                   type: object
+ *                   description: Results of webhook creation (if applicable)
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
 exports.createStore = async (req, res) => {
   const { name, organizationId, userId, description, platformType, url, apiKey, secretKey, createWebhooks = true } = req.body;
   console.log(req.body, req.files);
@@ -299,6 +414,68 @@ exports.getAllStores = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/get/{storeId}:
+ *   get:
+ *     summary: Get a single store by ID
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Store retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 store:
+ *                   $ref: '#/components/schemas/Store'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error fetching store"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Get a single store by ID
 exports.getStoreById = async (req, res) => {
   const { storeId  } = req.params;
@@ -314,6 +491,113 @@ exports.getStoreById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/update/{storeId}:
+ *   patch:
+ *     summary: Update a store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Store name
+ *                 example: "My Updated Store"
+ *               description:
+ *                 type: string
+ *                 description: Store description
+ *                 example: "Updated store description"
+ *               platformType:
+ *                 type: string
+ *                 enum: [woocommerce, shopify, magento, bigcommerce, custom]
+ *                 description: E-commerce platform type
+ *                 example: "woocommerce"
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *                 description: Store website URL
+ *                 example: "https://updatedstore.com"
+ *               apiKey:
+ *                 type: string
+ *                 description: Platform API key
+ *                 example: "ck_updated1234567890abcdef"
+ *               secretKey:
+ *                 type: string
+ *                 description: Platform secret key
+ *                 example: "cs_updated1234567890abcdef"
+ *               lastSyncDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Last sync date
+ *                 example: "2024-01-15T10:30:00.000Z"
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether the store is active
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Store updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store updated successfully"
+ *                 store:
+ *                   $ref: '#/components/schemas/Store'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error updating store"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Update a store
 exports.updateStore = async (req, res) => {
   const { storeId } = req.params;
@@ -335,6 +619,71 @@ exports.updateStore = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/delete/{storeId}:
+ *   delete:
+ *     summary: Delete a store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Store deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store deleted successfully"
+ *                 store:
+ *                   $ref: '#/components/schemas/Store'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error deleting store"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Delete a store
 exports.deleteStore = async (req, res) => {
   const { storeId  } = req.params;
@@ -350,6 +699,57 @@ exports.deleteStore = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/organization/{organizationId}:
+ *   get:
+ *     summary: Get all stores for a specific organization
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Stores retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 stores:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Store'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error fetching stores"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Get all stores for a specific organization
 exports.getStoresByOrganization = async (req, res) => {
   const { organizationId } = req.params;
@@ -373,6 +773,69 @@ exports.getStoresByUser = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error fetching stores', error: error.message });
   }
 };
+
+/**
+ * @swagger
+ * /api/stores/sync/{storeId}:
+ *   patch:
+ *     summary: Sync store with WooCommerce
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Store synced with WooCommerce successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store synced with WooCommerce"
+ *                 store:
+ *                   $ref: '#/components/schemas/Store'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to sync store with WooCommerce"
+ */
 // Sync store with WooCommerce (dummy example)
 exports.syncStoreWithWooCommerce = async (req, res) => {
   const { storeId } = req.params;
@@ -393,6 +856,112 @@ exports.syncStoreWithWooCommerce = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/{storeId}/webhooks:
+ *   post:
+ *     summary: Create default webhooks for an existing store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               topics:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Webhook topics to create
+ *                 example: ["order.created", "product.updated"]
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID creating the webhooks
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Webhooks created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhooks created successfully"
+ *                 store:
+ *                   type: string
+ *                   description: Store name
+ *                   example: "My Store"
+ *                 webhookResults:
+ *                   type: object
+ *                   description: Results of webhook creation
+ *       400:
+ *         description: Bad request - Store not ready for webhook creation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not ready for webhook creation"
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid store configuration"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create webhooks"
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
 // Create default webhooks for an existing store
 exports.createStoreWebhooks = async (req, res) => {
   const { storeId } = req.params;
@@ -434,6 +1003,93 @@ exports.createStoreWebhooks = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/stores/{storeId}/webhooks/status:
+ *   get:
+ *     summary: Get webhook status for a store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Store ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Webhook status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 status:
+ *                   type: object
+ *                   description: Webhook status information
+ *                   properties:
+ *                     storeId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Store ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     webhooks:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: Webhook ID
+ *                             example: "12345"
+ *                           topic:
+ *                             type: string
+ *                             description: Webhook topic
+ *                             example: "order.created"
+ *                           status:
+ *                             type: string
+ *                             description: Webhook status
+ *                             example: "active"
+ *                           deliveryUrl:
+ *                             type: string
+ *                             description: Webhook delivery URL
+ *                             example: "https://api.example.com/webhooks"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Store not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get webhook status"
+ */
 // Get webhook status for a store
 exports.getStoreWebhookStatus = async (req, res) => {
   const { storeId } = req.params;

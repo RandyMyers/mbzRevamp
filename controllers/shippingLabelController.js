@@ -6,6 +6,151 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 const logEvent = require('../helper/logEvent');
 const PDFDocument = require('pdfkit');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ShippingLabel:
+ *       type: object
+ *       required:
+ *         - orderId
+ *         - organizationId
+ *         - storeId
+ *         - trackingNumber
+ *         - carrier
+ *         - serviceType
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique shipping label ID
+ *         orderId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Order ID
+ *         organizationId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         storeId:
+ *           type: string
+ *           format: ObjectId
+ *           description: Store ID
+ *         trackingNumber:
+ *           type: string
+ *           description: Unique tracking number
+ *         carrier:
+ *           type: string
+ *           description: Shipping carrier
+ *           example: "USPS"
+ *         serviceType:
+ *           type: string
+ *           description: Shipping service type
+ *           example: "Priority"
+ *         labelData:
+ *           type: object
+ *           description: Shipping label data
+ *           properties:
+ *             fromAddress:
+ *               type: object
+ *               description: Sender address
+ *             toAddress:
+ *               type: object
+ *               description: Recipient address
+ *             packageDetails:
+ *               type: object
+ *               description: Package information
+ *         status:
+ *           type: string
+ *           enum: [generated, printed, shipped, delivered]
+ *           description: Shipping label status
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Label creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Label last update timestamp
+ */
+
+/**
+ * @swagger
+ * /api/shipping-labels/{orderId}/generate:
+ *   post:
+ *     summary: Generate shipping label for an order
+ *     tags: [Shipping Labels]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               carrier:
+ *                 type: string
+ *                 default: USPS
+ *                 description: Shipping carrier
+ *                 example: "USPS"
+ *               serviceType:
+ *                 type: string
+ *                 default: Priority
+ *                 description: Shipping service type
+ *                 example: "Priority"
+ *     responses:
+ *       200:
+ *         description: Shipping label generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Shipping label generated successfully"
+ *                 shippingLabel:
+ *                   $ref: '#/components/schemas/ShippingLabel'
+ *       400:
+ *         description: Bad request - Shipping label already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Shipping label already exists for this order"
+ *                 data:
+ *                   $ref: '#/components/schemas/ShippingLabel'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Server error
+ */
 // Generate shipping label for an order
 exports.generateShippingLabel = async (req, res) => {
   try {

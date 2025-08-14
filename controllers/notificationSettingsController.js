@@ -1,6 +1,231 @@
 const User = require('../models/users');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     NotificationSettings:
+ *       type: object
+ *       properties:
+ *         email:
+ *           type: object
+ *           properties:
+ *             enabled:
+ *               type: boolean
+ *               description: Whether email notifications are enabled
+ *               example: true
+ *             categories:
+ *               type: object
+ *               properties:
+ *                 system:
+ *                   type: boolean
+ *                   description: System notifications
+ *                   example: true
+ *                 orders:
+ *                   type: boolean
+ *                   description: Order notifications
+ *                   example: true
+ *                 inventory:
+ *                   type: boolean
+ *                   description: Inventory notifications
+ *                   example: true
+ *                 customers:
+ *                   type: boolean
+ *                   description: Customer notifications
+ *                   example: true
+ *                 security:
+ *                   type: boolean
+ *                   description: Security notifications
+ *                   example: true
+ *         inApp:
+ *           type: object
+ *           properties:
+ *             enabled:
+ *               type: boolean
+ *               description: Whether in-app notifications are enabled
+ *               example: true
+ *             categories:
+ *               type: object
+ *               properties:
+ *                 system:
+ *                   type: boolean
+ *                   description: System notifications
+ *                   example: true
+ *                 orders:
+ *                   type: boolean
+ *                   description: Order notifications
+ *                   example: true
+ *                 inventory:
+ *                   type: boolean
+ *                   description: Inventory notifications
+ *                   example: true
+ *                 customers:
+ *                   type: boolean
+ *                   description: Customer notifications
+ *                   example: true
+ *                 security:
+ *                   type: boolean
+ *                   description: Security notifications
+ *                   example: true
+ *         frequency:
+ *           type: string
+ *           enum: [immediate, daily, weekly]
+ *           description: Notification frequency
+ *           example: "immediate"
+ *         quietHours:
+ *           type: object
+ *           properties:
+ *             enabled:
+ *               type: boolean
+ *               description: Whether quiet hours are enabled
+ *               example: false
+ *             start:
+ *               type: string
+ *               description: Quiet hours start time (HH:MM)
+ *               example: "22:00"
+ *             end:
+ *               type: string
+ *               description: Quiet hours end time (HH:MM)
+ *               example: "08:00"
+ *             timezone:
+ *               type: string
+ *               description: Timezone for quiet hours
+ *               example: "UTC"
+ *     
+ *     NotificationSettingsUpdate:
+ *       type: object
+ *       properties:
+ *         email:
+ *           type: object
+ *           description: Email notification settings
+ *         inApp:
+ *           type: object
+ *           description: In-app notification settings
+ *         frequency:
+ *           type: string
+ *           enum: [immediate, daily, weekly]
+ *           description: Notification frequency
+ *         quietHours:
+ *           type: object
+ *           description: Quiet hours settings
+ *     
+ *     NotificationCategoryUpdate:
+ *       type: object
+ *       required:
+ *         - channel
+ *         - category
+ *         - enabled
+ *       properties:
+ *         channel:
+ *           type: string
+ *           enum: [email, inApp]
+ *           description: Notification channel
+ *           example: "email"
+ *         category:
+ *           type: string
+ *           enum: [system, orders, inventory, customers, security]
+ *           description: Notification category
+ *           example: "orders"
+ *         enabled:
+ *           type: boolean
+ *           description: Whether category is enabled
+ *           example: true
+ *     
+ *     NotificationSettingsSummary:
+ *       type: object
+ *       properties:
+ *         totalUsers:
+ *           type: number
+ *           description: Total number of users
+ *           example: 150
+ *         emailEnabled:
+ *           type: number
+ *           description: Users with email enabled
+ *           example: 120
+ *         inAppEnabled:
+ *           type: number
+ *           description: Users with in-app enabled
+ *           example: 140
+ *         frequencyDistribution:
+ *           type: object
+ *           description: Distribution of notification frequencies
+ *         categoryStats:
+ *           type: object
+ *           description: Statistics by notification category
+ */
+
+/**
+ * @swagger
+ * /api/notification-settings/{userId}:
+ *   get:
+ *     summary: Get user notification settings
+ *     tags: [Notification Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to get notification settings for
+ *     responses:
+ *       200:
+ *         description: Notification settings retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       description: User email
+ *                     fullName:
+ *                       type: string
+ *                       description: User full name
+ *                     settings:
+ *                       $ref: '#/components/schemas/NotificationSettings'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get notification settings"
+ */
+
 // GET user notification settings
 exports.getUserNotificationSettings = async (req, res) => {
   try {
@@ -67,6 +292,92 @@ exports.getUserNotificationSettings = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/notification-settings/{userId}:
+ *   put:
+ *     summary: Update user notification settings
+ *     tags: [Notification Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to update notification settings for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NotificationSettingsUpdate'
+ *     responses:
+ *       200:
+ *         description: Notification settings updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification settings updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID
+ *                     settings:
+ *                       $ref: '#/components/schemas/NotificationSettings'
+ *       400:
+ *         description: Bad request - Invalid frequency or quiet hours
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid frequency. Must be 'immediate', 'daily', or 'weekly'"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update notification settings"
+ */
 
 // UPDATE user notification settings
 exports.updateUserNotificationSettings = async (req, res) => {
@@ -156,6 +467,102 @@ exports.updateUserNotificationSettings = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/notification-settings/{userId}/category:
+ *   put:
+ *     summary: Update specific notification category settings
+ *     tags: [Notification Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to update category settings for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NotificationCategoryUpdate'
+ *     responses:
+ *       200:
+ *         description: Notification category updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification category updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID
+ *                     channel:
+ *                       type: string
+ *                       description: Notification channel
+ *                       example: "email"
+ *                     category:
+ *                       type: string
+ *                       description: Notification category
+ *                       example: "orders"
+ *                     enabled:
+ *                       type: boolean
+ *                       description: Whether category is enabled
+ *                       example: true
+ *       400:
+ *         description: Bad request - Invalid channel or category
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid channel. Must be 'email' or 'inApp'"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update notification category"
+ */
 
 // UPDATE specific notification category settings
 exports.updateNotificationCategory = async (req, res) => {
@@ -254,6 +661,73 @@ exports.updateNotificationCategory = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/notification-settings/{userId}/reset:
+ *   post:
+ *     summary: Reset user notification settings to defaults
+ *     tags: [Notification Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: User ID to reset notification settings for
+ *     responses:
+ *       200:
+ *         description: Notification settings reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification settings reset to defaults"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID
+ *                     settings:
+ *                       $ref: '#/components/schemas/NotificationSettings'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to reset notification settings"
+ */
 
 // RESET user notification settings to defaults
 exports.resetUserNotificationSettings = async (req, res) => {
@@ -380,6 +854,49 @@ exports.getUsersNotificationSettings = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/notification-settings/summary:
+ *   get:
+ *     summary: Get notification settings summary for organization
+ *     tags: [Notification Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organization
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Notification settings summary retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/NotificationSettingsSummary'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get notification settings summary"
+ */
 
 // GET notification settings summary for organization
 exports.getNotificationSettingsSummary = async (req, res) => {
