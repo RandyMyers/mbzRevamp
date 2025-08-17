@@ -1,3 +1,72 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Payments
+ *     description: Payment processing endpoints
+ *
+ * /api/payments/initiate:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Initiate a payment
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, planId, gateway, amount, currency]
+ *             properties:
+ *               userId: { type: string }
+ *               planId: { type: string }
+ *               gateway: { type: string }
+ *               amount: { type: number }
+ *               currency: { type: string }
+ *     responses:
+ *       200: { description: Payment reference }
+ *       400: { description: Missing fields }
+ *       500: { description: Server error }
+ *
+ * /api/payments/upload-proof:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Upload payment proof
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               screenshot:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200: { description: Upload URL }
+ *       400: { description: No file uploaded }
+ *       500: { description: Server error }
+ *
+ * /api/payments/initiate-squad:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Initiate Squad payment
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, planId, amount, currency, email]
+ *             properties:
+ *               userId: { type: string }
+ *               planId: { type: string }
+ *               amount: { type: number }
+ *               currency: { type: string }
+ *               email: { type: string, format: email }
+ *               name: { type: string }
+ *     responses:
+ *       200: { description: Checkout URL }
+ *       500: { description: Server error }
+ */
 const Payment = require('../models/payment');
 const { v4: uuidv4 } = require('uuid');
 const cloudinary = require('cloudinary').v2;

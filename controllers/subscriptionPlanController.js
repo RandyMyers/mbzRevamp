@@ -1,3 +1,73 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Subscription Plans
+ *     description: Manage subscription plans
+ *
+ * /api/plans:
+ *   post:
+ *     tags: [Subscription Plans]
+ *     summary: Create a subscription plan
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *   get:
+ *     tags: [Subscription Plans]
+ *     summary: Get all subscription plans
+ *     responses:
+ *       200: { description: Plans list }
+ *       500: { description: Server error }
+ *
+ * /api/plans/{id}:
+ *   get:
+ *     tags: [Subscription Plans]
+ *     summary: Get a plan by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Plan }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   put:
+ *     tags: [Subscription Plans]
+ *     summary: Update a plan
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       400: { description: Validation error }
+ *   delete:
+ *     tags: [Subscription Plans]
+ *     summary: Delete a plan
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const SubscriptionPlan = require('../models/subscriptionPlans');
 
 // Create a new subscription plan

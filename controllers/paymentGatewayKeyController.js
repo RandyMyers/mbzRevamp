@@ -1,3 +1,88 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Payment Gateways
+ *     description: Manage payment gateway keys
+ *
+ * /api/payment-gateways:
+ *   get:
+ *     tags: [Payment Gateways]
+ *     summary: List all payment gateway keys
+ *     responses:
+ *       200: { description: Keys list }
+ *       500: { description: Server error }
+ *   post:
+ *     tags: [Payment Gateways]
+ *     summary: Create a payment gateway key
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [type, publicKey, secretKey]
+ *             properties:
+ *               type: { type: string }
+ *               name: { type: string }
+ *               description: { type: string }
+ *               logoUrl: { type: string }
+ *               publicKey: { type: string }
+ *               secretKey: { type: string }
+ *               isActive: { type: boolean }
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *
+ * /api/payment-gateways/{type}:
+ *   get:
+ *     tags: [Payment Gateways]
+ *     summary: Get payment gateway key by type
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Key }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   put:
+ *     tags: [Payment Gateways]
+ *     summary: Update payment gateway key by type
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               publicKey: { type: string }
+ *               secretKey: { type: string }
+ *               isActive: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       400: { description: Validation error }
+ *
+ * /api/payment-gateways/{type}/public-key:
+ *   get:
+ *     tags: [Payment Gateways]
+ *     summary: Get public key for a payment gateway (public)
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Public key }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const PaymentGatewayKey = require('../models/paymentGatewayKey');
 
 // GET /api/payment-gateways/ - List all keys

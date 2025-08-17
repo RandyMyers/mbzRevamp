@@ -1,3 +1,170 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Receivers
+ *     description: Inbound email receiver accounts
+ *
+ * /api/receivers/create:
+ *   post:
+ *     tags: [Receivers]
+ *     summary: Create a receiver
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [organizationId, userId, name, email]
+ *             properties:
+ *               organizationId: { type: string }
+ *               userId: { type: string }
+ *               name: { type: string }
+ *               email: { type: string, format: email }
+ *               imapHost: { type: string }
+ *               imapPort: { type: integer }
+ *               username: { type: string }
+ *               password: { type: string }
+ *               useTLS: { type: boolean }
+ *               maxEmailsPerFetch: { type: integer }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/user/{userId}:
+ *   get:
+ *     tags: [Receivers]
+ *     summary: Get receivers by user
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Receivers list }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}:
+ *   get:
+ *     tags: [Receivers]
+ *     summary: Get receiver by ID
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Receiver }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Receivers]
+ *     summary: Update receiver
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Receivers]
+ *     summary: Delete receiver
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}/deactivate:
+ *   patch:
+ *     tags: [Receivers]
+ *     summary: Deactivate receiver
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deactivated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}/check-incoming:
+ *   post:
+ *     tags: [Receivers]
+ *     summary: Manual trigger - check incoming emails
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Triggered }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}/full-sync:
+ *   post:
+ *     tags: [Receivers]
+ *     summary: Manual trigger - full email sync
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Triggered }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}/custom-sync:
+ *   post:
+ *     tags: [Receivers]
+ *     summary: Manual trigger - custom email sync
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncType: { type: string, enum: [incoming, full], default: incoming }
+ *     responses:
+ *       200: { description: Triggered }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/receivers/{receiverId}/fetch-emails:
+ *   post:
+ *     tags: [Receivers]
+ *     summary: Legacy manual email fetch (compatibility)
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Triggered }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Receiver = require("../models/receiver"); // Adjust the path as necessary
 const { incomingEmailListener, fullEmailSync, manualSync } = require("../helper/receiverEmail"); // Import new email sync functions
 

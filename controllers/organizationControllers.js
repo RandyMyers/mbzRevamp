@@ -1,3 +1,111 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Organizations
+ *     description: Organization management
+ *
+ * /api/organization/create:
+ *   post:
+ *     tags: [Organizations]
+ *     summary: Create an organization
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               address: { type: string }
+ *               phone: { type: string }
+ *               email: { type: string, format: email }
+ *               businessType: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *
+ * /api/organization/all:
+ *   get:
+ *     tags: [Organizations]
+ *     summary: Get all organizations
+ *     responses:
+ *       200: { description: Organizations list }
+ *       500: { description: Server error }
+ *
+ * /api/organization/get/{organizationId}:
+ *   get:
+ *     tags: [Organizations]
+ *     summary: Get organization by ID
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Organization }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/organization/update/{organizationId}:
+ *   patch:
+ *     tags: [Organizations]
+ *     summary: Update an organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/organization/delete/{organizationId}:
+ *   delete:
+ *     tags: [Organizations]
+ *     summary: Delete an organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/organization/logo/{organizationId}:
+ *   patch:
+ *     tags: [Organizations]
+ *     summary: Update organization logo
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200: { description: Updated }
+ *       400: { description: No file uploaded }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Organization = require("../models/organization"); // Import the Organization model
 const cloudinary = require('cloudinary').v2;
 

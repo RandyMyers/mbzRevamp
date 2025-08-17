@@ -1,3 +1,86 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Roles
+ *     description: Role management
+ *
+ * /api/roles:
+ *   post:
+ *     tags: [Roles]
+ *     summary: Create a role
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               permissions: { type: array, items: { type: string } }
+ *               organizationId: { type: string }
+ *               userId: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Roles]
+ *     summary: Get all roles
+ *     responses:
+ *       200: { description: Roles list }
+ *       500: { description: Server error }
+ *
+ * /api/roles/{roleId}:
+ *   get:
+ *     tags: [Roles]
+ *     summary: Get a role by ID
+ *     parameters:
+ *       - in: path
+ *         name: roleId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Role }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Roles]
+ *     summary: Update a role
+ *     parameters:
+ *       - in: path
+ *         name: roleId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               permissions: { type: array, items: { type: string } }
+ *               organizationId: { type: string }
+ *               userId: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Roles]
+ *     summary: Delete a role
+ *     parameters:
+ *       - in: path
+ *         name: roleId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Role = require('../models/role');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 

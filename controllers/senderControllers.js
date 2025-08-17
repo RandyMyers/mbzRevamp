@@ -1,3 +1,118 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Senders
+ *     description: Outbound email sender accounts
+ *
+ * /api/senders/create:
+ *   post:
+ *     tags: [Senders]
+ *     summary: Create a sender
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [organizationId, userId, name, email]
+ *             properties:
+ *               organizationId: { type: string }
+ *               userId: { type: string }
+ *               name: { type: string }
+ *               email: { type: string, format: email }
+ *               smtpHost: { type: string }
+ *               smtpPort: { type: integer }
+ *               username: { type: string }
+ *               password: { type: string }
+ *               maxDailyLimit: { type: integer }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *
+ * /api/senders/user/{userId}:
+ *   get:
+ *     tags: [Senders]
+ *     summary: Get senders by user
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Senders list }
+ *       500: { description: Server error }
+ *
+ * /api/senders/organization/{organizationId}:
+ *   get:
+ *     tags: [Senders]
+ *     summary: Get senders by organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Senders list }
+ *       500: { description: Server error }
+ *
+ * /api/senders/{senderId}:
+ *   get:
+ *     tags: [Senders]
+ *     summary: Get sender by ID
+ *     parameters:
+ *       - in: path
+ *         name: senderId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Sender }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Senders]
+ *     summary: Update sender
+ *     parameters:
+ *       - in: path
+ *         name: senderId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Senders]
+ *     summary: Delete sender
+ *     parameters:
+ *       - in: path
+ *         name: senderId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/senders/reset-limit/{senderId}:
+ *   patch:
+ *     tags: [Senders]
+ *     summary: Reset daily email limit for a sender
+ *     parameters:
+ *       - in: path
+ *         name: senderId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Reset }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Sender = require("../models/sender"); // Import the Sender model
 const Organization = require("../models/organization"); // If needed to check organization
 const User = require("../models/users"); // If needed to check user
