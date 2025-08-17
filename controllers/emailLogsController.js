@@ -1,3 +1,45 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Email Analytics
+ *     description: Email delivery and engagement analytics
+ *
+ * /api/analytics/email/delivery-stats:
+ *   get:
+ *     tags: [Email Analytics]
+ *     summary: Get email delivery status distribution
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Delivery stats by status
+ *       500:
+ *         description: Server error
+ *
+ * /api/analytics/email/device-stats:
+ *   get:
+ *     tags: [Email Analytics]
+ *     summary: Get device type distribution
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Device stats by deviceType
+ *       500:
+ *         description: Server error
+ *
+ * /api/analytics/email/geo-stats:
+ *   get:
+ *     tags: [Email Analytics]
+ *     summary: Get geographic distribution
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Geo stats by country
+ *       500:
+ *         description: Server error
+ */
 const EmailLogs = require("../models/emailLogs");
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');

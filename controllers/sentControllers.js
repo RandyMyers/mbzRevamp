@@ -1,3 +1,80 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Sent Emails
+ *     description: Manage sent emails
+ *
+ * /api/sent:
+ *   get:
+ *     tags: [Sent Emails]
+ *     summary: Get all sent emails
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Sent emails list }
+ *       500: { description: Server error }
+ *
+ * /api/sent/organization/{organizationId}:
+ *   get:
+ *     tags: [Sent Emails]
+ *     summary: Get sent emails by organization
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Sent emails list }
+ *       500: { description: Server error }
+ *
+ * /api/sent/{sentEmailId}:
+ *   get:
+ *     tags: [Sent Emails]
+ *     summary: Get a sent email by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sentEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Sent email }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Sent Emails]
+ *     summary: Delete a sent email
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sentEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/sent/{sentEmailId}/resend:
+ *   post:
+ *     tags: [Sent Emails]
+ *     summary: Resend a sent email
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sentEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Email resent }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');
 

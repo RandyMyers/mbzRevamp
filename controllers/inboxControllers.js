@@ -1,3 +1,103 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Inbox
+ *     description: Manage inbox emails
+ *
+ * /api/inbox/create:
+ *   post:
+ *     tags: [Inbox]
+ *     summary: Create an inbox email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sender: { type: string }
+ *               subject: { type: string }
+ *               body: { type: string }
+ *               replyTo: { type: string }
+ *               status: { type: string, enum: [unread, read, archived] }
+ *               organization: { type: string }
+ *               user: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/all:
+ *   get:
+ *     tags: [Inbox]
+ *     summary: Get all inbox emails
+ *     responses:
+ *       200: { description: Inbox emails list }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/get/{inboxEmailId}:
+ *   get:
+ *     tags: [Inbox]
+ *     summary: Get inbox email by ID
+ *     parameters:
+ *       - in: path
+ *         name: inboxEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Inbox email }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/update/{inboxEmailId}:
+ *   patch:
+ *     tags: [Inbox]
+ *     summary: Update inbox email status
+ *     parameters:
+ *       - in: path
+ *         name: inboxEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status: { type: string, enum: [unread, read, archived] }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/delete/{inboxEmailId}:
+ *   delete:
+ *     tags: [Inbox]
+ *     summary: Delete inbox email
+ *     parameters:
+ *       - in: path
+ *         name: inboxEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/organization/{organizationId}:
+ *   get:
+ *     tags: [Inbox]
+ *     summary: Get inbox emails by organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Inbox emails list }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ */
 const Inbox = require("../models/inbox"); // Import the Inbox model
 
 // CREATE a new email in the inbox (e.g., when receiving an email)

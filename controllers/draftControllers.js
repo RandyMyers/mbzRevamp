@@ -1,3 +1,128 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Drafts
+ *     description: Manage email drafts
+ *
+ * /api/drafts:
+ *   post:
+ *     tags: [Drafts]
+ *     summary: Create a draft
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recipient: { type: string }
+ *               subject: { type: string }
+ *               body: { type: string }
+ *               variables: { type: object }
+ *               emailTemplate: { type: string }
+ *               organization: { type: string }
+ *               user: { type: string }
+ *     responses:
+ *       201: { description: Draft created }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Drafts]
+ *     summary: Get all drafts
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Drafts list }
+ *       500: { description: Server error }
+ *
+ * /api/drafts/organization/{organizationId}:
+ *   get:
+ *     tags: [Drafts]
+ *     summary: Get drafts by organization
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Drafts list }
+ *       500: { description: Server error }
+ *
+ * /api/drafts/{draftId}:
+ *   get:
+ *     tags: [Drafts]
+ *     summary: Get a draft by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: draftId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Draft }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Drafts]
+ *     summary: Update a draft
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: draftId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recipient: { type: string }
+ *               subject: { type: string }
+ *               body: { type: string }
+ *               variables: { type: object }
+ *               emailTemplate: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Drafts]
+ *     summary: Delete a draft
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: draftId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/drafts/{draftId}/send:
+ *   post:
+ *     tags: [Drafts]
+ *     summary: Send a draft
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: draftId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Sent }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Draft = require("../models/draft");
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');

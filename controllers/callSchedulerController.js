@@ -1,3 +1,136 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Call Scheduler
+ *     description: Schedule and manage calls
+ *
+ * /api/calls:
+ *   post:
+ *     tags: [Call Scheduler]
+ *     summary: Create a call
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [organizationId, userId]
+ *             properties:
+ *               organizationId: { type: string }
+ *               userId: { type: string }
+ *               startTime: { type: string, format: date-time }
+ *               endTime: { type: string, format: date-time }
+ *               title: { type: string }
+ *               notes: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Missing required fields }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Call Scheduler]
+ *     summary: Get calls for an organization (optionally by user)
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         required: false
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Calls list }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/calls/{id}:
+ *   get:
+ *     tags: [Call Scheduler]
+ *     summary: Get a call by ID (must belong to organization)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Call }
+ *       400: { description: Missing organizationId }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   put:
+ *     tags: [Call Scheduler]
+ *     summary: Update a call
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               organizationId: { type: string }
+ *               startTime: { type: string, format: date-time }
+ *               endTime: { type: string, format: date-time }
+ *               title: { type: string }
+ *               notes: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       400: { description: Missing organizationId }
+ *       404: { description: Not found or unauthorized }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Call Scheduler]
+ *     summary: Delete a call
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               organizationId: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       400: { description: Missing organizationId }
+ *       404: { description: Not found or unauthorized }
+ *       500: { description: Server error }
+ *
+ * /api/calls/{id}/cancel:
+ *   patch:
+ *     tags: [Call Scheduler]
+ *     summary: Cancel a call
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               organizationId: { type: string }
+ *     responses:
+ *       200: { description: Cancelled }
+ *       400: { description: Missing organizationId }
+ *       404: { description: Not found or unauthorized }
+ *       500: { description: Server error }
+ */
 const CallScheduler = require('../models/callScheduler');
 
 // Create a new call
