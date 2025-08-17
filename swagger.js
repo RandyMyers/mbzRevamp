@@ -1039,7 +1039,7 @@ const options = {
              },
              scriptId: {
                type: 'string',
-               description: 'Provider script ID for integration'
+               description: 'Provider script ID for integration',
                example: 'script_12345'
              },
              propertyUrl: {
