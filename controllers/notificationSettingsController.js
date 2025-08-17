@@ -157,7 +157,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/notification-settings/{userId}:
+ * /api/notification-settings/user/{userId}:
  *   get:
  *     summary: Get user notification settings
  *     tags: [Notification Settings]
@@ -295,8 +295,8 @@ exports.getUserNotificationSettings = async (req, res) => {
 
 /**
  * @swagger
- * /api/notification-settings/{userId}:
- *   put:
+ * /api/notification-settings/user/{userId}:
+ *   patch:
  *     summary: Update user notification settings
  *     tags: [Notification Settings]
  *     security:
@@ -470,8 +470,8 @@ exports.updateUserNotificationSettings = async (req, res) => {
 
 /**
  * @swagger
- * /api/notification-settings/{userId}/category:
- *   put:
+ * /api/notification-settings/user/{userId}/category:
+ *   patch:
  *     summary: Update specific notification category settings
  *     tags: [Notification Settings]
  *     security:
@@ -664,7 +664,7 @@ exports.updateNotificationCategory = async (req, res) => {
 
 /**
  * @swagger
- * /api/notification-settings/{userId}/reset:
+ * /api/notification-settings/user/{userId}/reset:
  *   post:
  *     summary: Reset user notification settings to defaults
  *     tags: [Notification Settings]
