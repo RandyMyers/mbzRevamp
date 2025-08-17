@@ -189,7 +189,7 @@ const { sendNotificationToAdmins } = require('../helpers/notificationHelper');
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Error creating feedback"
+ *                   example: "Failed to create feedback"
  */
 // CREATE new feedback
 exports.createFeedback = async (req, res) => {
@@ -280,6 +280,122 @@ exports.createFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/list:
+ *   get:
+ *     summary: Get all feedback with filters
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [pending, reviewed, resolved, closed]
+ *         description: Filter by feedback status
+ *         example: "pending"
+ *       - in: query
+ *         name: category
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Filter by feedback category
+ *         example: "user_experience"
+ *       - in: query
+ *         name: rating
+ *         required: false
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 5
+ *         description: Filter by rating
+ *         example: 5
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of feedback items to return
+ *         example: 50
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Feedback retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 feedback:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Feedback'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 50
+ *                     total:
+ *                       type: integer
+ *                       example: 150
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       400:
+ *         description: Bad request - Organization ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve feedback"
+ */
 // GET all feedback with filters
 exports.getFeedback = async (req, res) => {
   try {
@@ -355,6 +471,78 @@ exports.getFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/{id}:
+ *   get:
+ *     summary: Get single feedback by ID
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Feedback ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Feedback retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 feedback:
+ *                   $ref: '#/components/schemas/Feedback'
+ *       400:
+ *         description: Bad request - Invalid feedback ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid feedback ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Feedback not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve feedback"
+ */
 // GET single feedback by ID
 exports.getFeedbackById = async (req, res) => {
   try {
@@ -395,6 +583,117 @@ exports.getFeedbackById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/{id}:
+ *   put:
+ *     summary: Update feedback
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Feedback ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Feedback title
+ *                 example: "Updated feedback title"
+ *               description:
+ *                 type: string
+ *                 description: Feedback description
+ *                 example: "Updated feedback description"
+ *               category:
+ *                 type: string
+ *                 description: Feedback category
+ *                 example: "bug_report"
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating from 1 to 5
+ *                 example: 4
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Feedback tags
+ *                 example: ["bug", "critical"]
+ *               status:
+ *                 type: string
+ *                 enum: [pending, reviewed, resolved, closed]
+ *                 description: Feedback status
+ *                 example: "resolved"
+ *     responses:
+ *       200:
+ *         description: Feedback updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback updated successfully"
+ *                 feedback:
+ *                   $ref: '#/components/schemas/Feedback'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Feedback not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update feedback"
+ */
 // UPDATE feedback
 exports.updateFeedback = async (req, res) => {
   try {
@@ -446,6 +745,79 @@ exports.updateFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/{id}:
+ *   delete:
+ *     summary: Delete feedback
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Feedback ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Feedback deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback deleted successfully"
+ *       400:
+ *         description: Bad request - Invalid feedback ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid feedback ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Feedback not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete feedback"
+ */
 // DELETE feedback
 exports.deleteFeedback = async (req, res) => {
   try {
@@ -491,6 +863,127 @@ exports.deleteFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/{id}/respond:
+ *   post:
+ *     summary: Respond to feedback
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Feedback ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - response
+ *               - responderId
+ *             properties:
+ *               response:
+ *                 type: string
+ *                 description: Response message to the feedback
+ *                 example: "Thank you for your feedback. We are working on this issue."
+ *               responderId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who is responding
+ *                 example: "507f1f77bcf86cd799439011"
+ *               isInternal:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether this is an internal response
+ *                 example: false
+ *               status:
+ *                 type: string
+ *                 enum: [pending, reviewed, resolved, closed]
+ *                 description: Updated feedback status
+ *                 example: "resolved"
+ *     responses:
+ *       200:
+ *         description: Response added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Response added successfully"
+ *                 feedbackResponse:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       format: ObjectId
+ *                     feedbackId:
+ *                       type: string
+ *                       format: ObjectId
+ *                     response:
+ *                       type: string
+ *                     responderId:
+ *                       type: string
+ *                       format: ObjectId
+ *                     isInternal:
+ *                       type: boolean
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Response and responderId are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Feedback not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to add response"
+ */
 // RESPOND to feedback
 exports.respondToFeedback = async (req, res) => {
   try {
@@ -556,6 +1049,141 @@ exports.respondToFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/analytics/summary:
+ *   get:
+ *     summary: Get feedback analytics summary
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for analytics (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for analytics (YYYY-MM-DD)
+ *         example: "2024-12-31"
+ *     responses:
+ *       200:
+ *         description: Analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 analytics:
+ *                   type: object
+ *                   properties:
+ *                     totalFeedback:
+ *                       type: integer
+ *                       description: Total number of feedback items
+ *                       example: 150
+ *                     averageRating:
+ *                       type: number
+ *                       description: Average rating across all feedback
+ *                       example: 4.2
+ *                     statusBreakdown:
+ *                       type: object
+ *                       description: Breakdown by status
+ *                       properties:
+ *                         pending:
+ *                           type: integer
+ *                           example: 25
+ *                         reviewed:
+ *                           type: integer
+ *                           example: 50
+ *                         resolved:
+ *                           type: integer
+ *                           example: 60
+ *                         closed:
+ *                           type: integer
+ *                           example: 15
+ *                     categoryBreakdown:
+ *                       type: object
+ *                       description: Breakdown by category
+ *                       properties:
+ *                         user_experience:
+ *                           type: integer
+ *                           example: 45
+ *                         bug_report:
+ *                           type: integer
+ *                           example: 30
+ *                         feature_request:
+ *                           type: integer
+ *                           example: 25
+ *                         general:
+ *                           type: integer
+ *                           example: 50
+ *                     ratingDistribution:
+ *                       type: object
+ *                       description: Distribution by rating
+ *                       properties:
+ *                         "1":
+ *                           type: integer
+ *                           example: 5
+ *                         "2":
+ *                           type: integer
+ *                           example: 10
+ *                         "3":
+ *                           type: integer
+ *                           example: 20
+ *                         "4":
+ *                           type: integer
+ *                           example: 60
+ *                         "5":
+ *                           type: integer
+ *                           example: 55
+ *       400:
+ *         description: Bad request - Organization ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve analytics"
+ */
 // GET feedback analytics
 exports.getFeedbackAnalytics = async (req, res) => {
   try {
@@ -626,6 +1254,102 @@ exports.getFeedbackAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/feedback/bulk/status:
+ *   put:
+ *     summary: Bulk update feedback status
+ *     tags: [Feedback]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - feedbackIds
+ *               - status
+ *             properties:
+ *               feedbackIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: ObjectId
+ *                 description: Array of feedback IDs to update
+ *                 example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *               status:
+ *                 type: string
+ *                 enum: [pending, reviewed, resolved, closed]
+ *                 description: New status for all selected feedback
+ *                 example: "resolved"
+ *               updateReason:
+ *                 type: string
+ *                 description: Reason for the status update
+ *                 example: "Bulk resolution of resolved issues"
+ *     responses:
+ *       200:
+ *         description: Feedback status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback status updated successfully"
+ *                 updatedCount:
+ *                   type: integer
+ *                   description: Number of feedback items updated
+ *                   example: 5
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     updated:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         format: ObjectId
+ *                       example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *                     failed:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         format: ObjectId
+ *                       example: []
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Feedback IDs and status are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update feedback status"
+ */
 // BULK update feedback status
 exports.bulkUpdateFeedbackStatus = async (req, res) => {
   try {

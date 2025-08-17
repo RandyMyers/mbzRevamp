@@ -294,7 +294,45 @@ exports.createEmailTemplate = async (req, res) => {
   }
 };
 
-
+/**
+ * @swagger
+ * /api/email-templates/all:
+ *   get:
+ *     summary: Get all email templates
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Email templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/EmailTemplate'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve email templates"
+ */
 // GET all email templates
 exports.getAllEmailTemplates = async (req, res) => {
   try {
@@ -323,6 +361,67 @@ exports.getAllEmailTemplates = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/email-templates/organization/{organizationId}:
+ *   get:
+ *     summary: Get email templates by organization
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/EmailTemplate'
+ *       400:
+ *         description: Bad request - Invalid organization ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid organization ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve email templates"
+ */
 // GET email templates by organization
 exports.getEmailTemplatesByOrganization = async (req, res) => {
   const { organizationId } = req.params; // Assuming organizationId is passed in the URL
@@ -356,6 +455,78 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/email-templates/get/{emailTemplateId}:
+ *   get:
+ *     summary: Get a specific email template by ID
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailTemplateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email template ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email template retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 template:
+ *                   $ref: '#/components/schemas/EmailTemplate'
+ *       400:
+ *         description: Bad request - Invalid template ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid template ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email template not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email template not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve email template"
+ */
 // GET a single email template by ID
 exports.getEmailTemplateById = async (req, res) => {
   const { emailTemplateId } = req.params;
@@ -373,6 +544,110 @@ exports.getEmailTemplateById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/email-templates/update/{emailTemplateId}:
+ *   patch:
+ *     summary: Update an existing email template
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailTemplateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email template ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 100
+ *                 description: Template name
+ *                 example: "Updated Welcome Email"
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Updated welcome message"
+ *               body:
+ *                 type: string
+ *                 description: Email body content (HTML)
+ *                 example: "<h1>Updated Welcome!</h1><p>Hello {{firstName}}, welcome back!</p>"
+ *               variables:
+ *                 type: object
+ *                 description: Template variables for personalization
+ *                 example: {"firstName": "string", "company": "string", "lastName": "string"}
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether template is active
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Email template updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email template updated successfully"
+ *                 template:
+ *                   $ref: '#/components/schemas/EmailTemplate'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email template not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email template not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update email template"
+ */
 // UPDATE an existing email template
 exports.updateEmailTemplate = async (req, res) => {
   const { emailTemplateId } = req.params;
@@ -413,6 +688,79 @@ exports.updateEmailTemplate = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/email-templates/delete/{emailTemplateId}:
+ *   delete:
+ *     summary: Delete an email template
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailTemplateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email template ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email template deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email template deleted successfully"
+ *       400:
+ *         description: Bad request - Invalid template ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid template ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email template not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email template not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete email template"
+ */
 // DELETE an email template
 exports.deleteEmailTemplate = async (req, res) => {
   const { emailTemplateId } = req.params;

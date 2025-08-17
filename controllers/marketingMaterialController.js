@@ -2,6 +2,82 @@ const MarketingMaterial = require('../models/MarketingMaterial');
 const Affiliate = require('../models/Affiliate');
 const { NotFoundError, BadRequestError } = require('../utils/errors');
 
+/**
+ * @swagger
+ * /api/marketing-materials:
+ *   get:
+ *     summary: Get all marketing materials with pagination and filters
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [banner, video, document, link]
+ *         description: Filter by material type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by material status
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [social, email, website, print, other]
+ *         description: Filter by material category
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Comma-separated tags to filter by
+ *     responses:
+ *       200:
+ *         description: Marketing materials retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 materials:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/MarketingMaterial'
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 5
+ *                 totalMaterials:
+ *                   type: integer
+ *                   example: 50
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Get all marketing materials with pagination and filters
 exports.getMarketingMaterials = async (req, res) => {
   try {
@@ -37,6 +113,51 @@ exports.getMarketingMaterials = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/{id}:
+ *   get:
+ *     summary: Get single marketing material by ID
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Marketing material retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MarketingMaterial'
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Get single marketing material by ID
 exports.getMarketingMaterial = async (req, res) => {
   try {
@@ -53,6 +174,83 @@ exports.getMarketingMaterial = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/create:
+ *   post:
+ *     summary: Create new marketing material
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - type
+ *               - url
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Marketing material title
+ *                 example: "Summer Sale Banner"
+ *               type:
+ *                 type: string
+ *                 enum: [banner, video, document, link]
+ *                 description: Type of marketing material
+ *               url:
+ *                 type: string
+ *                 description: URL or file path to the material
+ *                 example: "https://example.com/banner.jpg"
+ *               metadata:
+ *                 type: object
+ *                 description: Additional metadata for the material
+ *                 properties:
+ *                   size:
+ *                     type: string
+ *                     example: "2.5 MB"
+ *                   format:
+ *                     type: string
+ *                     example: "JPEG"
+ *                   dimensions:
+ *                     type: string
+ *                     example: "1920x1080"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tags for categorization
+ *                 example: ["summer", "sale", "banner"]
+ *               category:
+ *                 type: string
+ *                 enum: [social, email, website, print, other]
+ *                 default: "other"
+ *                 description: Material category
+ *               affiliateId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Optional affiliate ID to associate with
+ *     responses:
+ *       201:
+ *         description: Marketing material created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MarketingMaterial'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Create new marketing material
 exports.createMarketingMaterial = async (req, res) => {
   try {
@@ -86,6 +284,86 @@ exports.createMarketingMaterial = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/update/{id}:
+ *   patch:
+ *     summary: Update marketing material
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Marketing material title
+ *                 example: "Updated Summer Sale Banner"
+ *               type:
+ *                 type: string
+ *                 enum: [banner, video, document, link]
+ *                 description: Type of marketing material
+ *               url:
+ *                 type: string
+ *                 description: URL or file path to the material
+ *                 example: "https://example.com/updated-banner.jpg"
+ *               metadata:
+ *                 type: object
+ *                 description: Additional metadata for the material
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tags for categorization
+ *               category:
+ *                 type: string
+ *                 enum: [social, email, website, print, other]
+ *                 description: Material category
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 description: Material status
+ *     responses:
+ *       200:
+ *         description: Marketing material updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MarketingMaterial'
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Update marketing material
 exports.updateMarketingMaterial = async (req, res) => {
   try {
@@ -111,6 +389,55 @@ exports.updateMarketingMaterial = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/delete/{id}:
+ *   delete:
+ *     summary: Delete marketing material
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Marketing material deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material deleted successfully"
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Delete marketing material
 exports.deleteMarketingMaterial = async (req, res) => {
   try {
@@ -132,6 +459,55 @@ exports.deleteMarketingMaterial = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/{id}/track-view:
+ *   post:
+ *     summary: Track material view
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: View tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "View tracked successfully"
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Track material view
 exports.trackView = async (req, res) => {
   try {
@@ -147,6 +523,105 @@ exports.trackView = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/{id}/track-click:
+ *   post:
+ *     summary: Track material click
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Click tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Click tracked successfully"
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
+
+/**
+ * @swagger
+ * /api/marketing-materials/{id}/track-click:
+ *   post:
+ *     summary: Track material click
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Click tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Click tracked successfully"
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Track material click
 exports.trackClick = async (req, res) => {
   try {
@@ -162,6 +637,55 @@ exports.trackClick = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/marketing-materials/{id}/track-conversion:
+ *   post:
+ *     summary: Track material conversion
+ *     tags: [Marketing Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Marketing material ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Conversion tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Conversion tracked successfully"
+ *       404:
+ *         description: Marketing material not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Marketing material not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error message"
+ */
 // Track material conversion
 exports.trackConversion = async (req, res) => {
   try {

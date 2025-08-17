@@ -3,6 +3,91 @@ const Inbox = require("../models/inbox");
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');
 
+/**
+ * @swagger
+ * /api/trash/move:
+ *   post:
+ *     summary: Move email to trash
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - emailId
+ *               - originalFolder
+ *             properties:
+ *               emailId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID of the email to move to trash
+ *                 example: "507f1f77bcf86cd799439011"
+ *               originalFolder:
+ *                 type: string
+ *                 enum: [inbox, sent, drafts, outbox, archived]
+ *                 description: Original folder where the email was stored
+ *                 example: "inbox"
+ *     responses:
+ *       200:
+ *         description: Email moved to trash successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email moved to trash"
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to move email to trash"
+ */
+
 // Move email to trash
 exports.moveToTrash = async (req, res) => {
   try {
@@ -59,6 +144,46 @@ exports.moveToTrash = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/trash:
+ *   get:
+ *     summary: Get all trash emails
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Trash emails retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 trashEmails:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Trash'
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve trash emails"
+ */
+
 // Get all trash emails
 exports.getTrashEmails = async (req, res) => {
   try {
@@ -72,6 +197,67 @@ exports.getTrashEmails = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to retrieve trash emails" });
   }
 };
+
+/**
+ * @swagger
+ * /api/trash/restore/{trashId}:
+ *   post:
+ *     summary: Restore email from trash
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: trashId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID of the trash email to restore
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email restored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email restored successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Trash email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Trash email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to restore email"
+ */
 
 // Restore email from trash
 exports.restoreFromTrash = async (req, res) => {
@@ -130,6 +316,67 @@ exports.restoreFromTrash = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to restore email" });
   }
 };
+
+/**
+ * @swagger
+ * /api/trash/{trashId}:
+ *   delete:
+ *     summary: Permanently delete email from trash
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: trashId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID of the trash email to permanently delete
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email permanently deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email permanently deleted"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Trash email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Trash email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete email"
+ */
 
 // Permanently delete from trash
 exports.deleteFromTrash = async (req, res) => {

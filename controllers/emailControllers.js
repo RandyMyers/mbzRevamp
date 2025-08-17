@@ -168,7 +168,7 @@ const Sender = require('../models/sender'); // Import Sender model for email sen
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Recipient, subject, and body are required fields"
+ *                   example: "Validation error"
  *       401:
  *         description: Unauthorized - Invalid or missing JWT token
  *       500:
@@ -341,6 +341,98 @@ exports.createEmail = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/emails/all:
+ *   get:
+ *     summary: Get all emails for an organization
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of emails to return
+ *         example: 50
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Emails retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 emails:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Email'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 50
+ *                     total:
+ *                       type: integer
+ *                       example: 150
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       400:
+ *         description: Bad request - Organization ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve emails"
+ */
 // GET all emails
 exports.getAllEmails = async (req, res) => {
   try {
@@ -354,6 +446,78 @@ exports.getAllEmails = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/emails/get/{emailId}:
+ *   get:
+ *     summary: Get a specific email by ID
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 email:
+ *                   $ref: '#/components/schemas/Email'
+ *       400:
+ *         description: Bad request - Invalid email ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid email ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve email"
+ */
 // GET a single email by ID
 exports.getEmailById = async (req, res) => {
   const { emailId } = req.params;
@@ -371,6 +535,106 @@ exports.getEmailById = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/emails/status/{status}:
+ *   get:
+ *     summary: Get emails by status
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [draft, sent, failed, pending]
+ *         description: Email status to filter by
+ *         example: "sent"
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of emails to return
+ *         example: 50
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Emails retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 emails:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Email'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 50
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 1
+ *       400:
+ *         description: Bad request - Invalid status or missing organization ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid status or organization ID required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to retrieve emails"
+ */
 // GET emails by status
 exports.getEmailsByStatus = async (req, res) => {
     const { status } = req.params;
@@ -395,6 +659,113 @@ exports.getEmailsByStatus = async (req, res) => {
   };
   
 
+/**
+ * @swagger
+ * /api/emails/update/{emailId}:
+ *   patch:
+ *     summary: Update an existing email
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject:
+ *                 type: string
+ *                 description: Email subject line
+ *                 example: "Updated subject line"
+ *               body:
+ *                 type: string
+ *                 description: Email body content (HTML)
+ *                 example: "<h1>Updated content</h1><p>New email body.</p>"
+ *               variables:
+ *                 type: object
+ *                 description: Template variables for personalization
+ *                 example: {"name": "Jane", "company": "Tech Corp"}
+ *               status:
+ *                 type: string
+ *                 enum: [draft, sent, failed, pending]
+ *                 description: Email status
+ *                 example: "draft"
+ *               campaign:
+ *                 type: string
+ *                 description: Campaign identifier
+ *                 example: "updated-campaign"
+ *               workflow:
+ *                 type: string
+ *                 description: Workflow identifier
+ *                 example: "updated-workflow"
+ *     responses:
+ *       200:
+ *         description: Email updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email updated successfully"
+ *                 email:
+ *                   $ref: '#/components/schemas/Email'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update email"
+ */
 // UPDATE an existing email
 exports.updateEmail = async (req, res) => {
   const { emailId } = req.params;
@@ -439,6 +810,79 @@ exports.updateEmail = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/emails/delete/{emailId}:
+ *   delete:
+ *     summary: Delete an email
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: emailId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Email ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Email deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email deleted successfully"
+ *       400:
+ *         description: Bad request - Invalid email ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid email ID"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to delete email"
+ */
 // DELETE an email
 exports.deleteEmail = async (req, res) => {
   const { emailId } = req.params;
@@ -476,7 +920,116 @@ exports.deleteEmail = async (req, res) => {
   }
 };
 
-// Example: Add a function to log analytics info (to be called from webhook or tracking pixel endpoint)
+/**
+ * @swagger
+ * /api/emails/analytics/log:
+ *   post:
+ *     summary: Log email analytics data
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - emailId
+ *               - eventType
+ *             properties:
+ *               emailId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Email ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               eventType:
+ *                 type: string
+ *                 enum: [open, click, bounce, delivered, failed]
+ *                 description: Type of email event
+ *                 example: "open"
+ *               timestamp:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Event timestamp
+ *                 example: "2024-01-01T12:00:00.000Z"
+ *               ipAddress:
+ *                 type: string
+ *                 description: IP address of the event
+ *                 example: "192.168.1.1"
+ *               userAgent:
+ *                 type: string
+ *                 description: User agent string
+ *                 example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+ *               location:
+ *                 type: object
+ *                 description: Geographic location data
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                     example: "US"
+ *                   city:
+ *                     type: string
+ *                     example: "New York"
+ *                   region:
+ *                     type: string
+ *                     example: "NY"
+ *               deviceInfo:
+ *                 type: object
+ *                 description: Device information
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     example: "desktop"
+ *                   browser:
+ *                     type: string
+ *                     example: "Chrome"
+ *                   os:
+ *                     type: string
+ *                     example: "Windows"
+ *     responses:
+ *       200:
+ *         description: Analytics logged successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Analytics logged successfully"
+ *       400:
+ *         description: Bad request - Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email ID and event type are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to log analytics"
+ */
 exports.logEmailAnalytics = async (req, res) => {
   try {
     const { emailId, status, deviceType, client, country } = req.body;
@@ -495,7 +1048,97 @@ exports.logEmailAnalytics = async (req, res) => {
   }
 };
 
-// Test endpoint to create a sample email
+/**
+ * @swagger
+ * /api/emails/test/create:
+ *   post:
+ *     summary: Create a test email for testing purposes
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipient
+ *               - subject
+ *               - body
+ *             properties:
+ *               recipient:
+ *                 type: string
+ *                 format: email
+ *                 description: Test email recipient address
+ *                 example: "test@example.com"
+ *               subject:
+ *                 type: string
+ *                 description: Test email subject line
+ *                 example: "Test Email"
+ *               body:
+ *                 type: string
+ *                 description: Test email body content (HTML)
+ *                 example: "<h1>Test Email</h1><p>This is a test email.</p>"
+ *               variables:
+ *                 type: object
+ *                 description: Template variables for personalization
+ *                 example: {"name": "Test User", "company": "Test Corp"}
+ *               emailTemplate:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Email template ID (optional)
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       201:
+ *         description: Test email created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Test email created successfully"
+ *                 email:
+ *                   $ref: '#/components/schemas/Email'
+ *       400:
+ *         description: Bad request - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create test email"
+ */
 exports.createTestEmail = async (req, res) => {
   try {
     const testEmail = new Email({
@@ -515,7 +1158,91 @@ exports.createTestEmail = async (req, res) => {
   }
 };
 
-// Test endpoint to get email count
+/**
+ * @swagger
+ * /api/emails/test/count:
+ *   get:
+ *     summary: Get email count for testing purposes
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [draft, sent, failed, pending]
+ *         description: Filter by email status
+ *         example: "sent"
+ *     responses:
+ *       200:
+ *         description: Email count retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   description: Total number of emails
+ *                   example: 150
+ *                 breakdown:
+ *                   type: object
+ *                   description: Breakdown by status
+ *                   properties:
+ *                     draft:
+ *                       type: integer
+ *                       example: 25
+ *                     sent:
+ *                       type: integer
+ *                       example: 100
+ *                     failed:
+ *                       type: integer
+ *                       example: 15
+ *                     pending:
+ *                       type: integer
+ *                       example: 10
+ *       400:
+ *         description: Bad request - Organization ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to get email count"
+ */
 exports.getEmailCount = async (req, res) => {
   try {
     const count = await Email.countDocuments();

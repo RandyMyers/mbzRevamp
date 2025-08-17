@@ -2,7 +2,70 @@ const Product = require('../models/product'); // Import Product model
 const SubscriptionPlan = require('../models/subscriptionPlans'); // Import SubscriptionPlan model (assuming it exists)
 const logEvent = require('../helper/logEvent');
 
-
+/**
+ * @swagger
+ * /api/products/create:
+ *   post:
+ *     summary: Create a new product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Product name
+ *                 example: "Premium Plan"
+ *               description:
+ *                 type: string
+ *                 description: Product description
+ *                 example: "Our most comprehensive plan with all features included"
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether the product is active
+ *                 default: true
+ *     responses:
+ *       201:
+ *         description: Product created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product created successfully"
+ *                 product:
+ *                   $ref: '#/components/schemas/Product'
+ *       400:
+ *         description: Product already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product already exists"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
   // Create a new product
   exports.createProduct = async (req, res) => {
     try {
@@ -38,6 +101,34 @@ const logEvent = require('../helper/logEvent');
     }
   },
 
+  /**
+   * @swagger
+   * /api/products/all:
+   *   get:
+   *     summary: Get all products
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of all products retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Product'
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
   // Get all products
   exports.getAllProducts = async (req, res) => {
     try {
@@ -49,6 +140,51 @@ const logEvent = require('../helper/logEvent');
     }
   },
 
+  /**
+   * @swagger
+   * /api/products/get/{id}:
+   *   get:
+   *     summary: Get product by ID
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Product ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Product retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Product'
+   *       404:
+   *         description: Product not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
   // Get product by ID
   exports.getProductById = async (req, res) => {
     try {
@@ -66,6 +202,76 @@ const logEvent = require('../helper/logEvent');
     }
   },
 
+  /**
+   * @swagger
+   * /api/products/update/{id}:
+   *   patch:
+   *     summary: Update a product
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Product ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *                 description: Product name
+   *                 example: "Updated Premium Plan"
+   *               description:
+   *                 type: string
+   *                 description: Product description
+   *                 example: "Updated description with new features"
+   *               isActive:
+   *                 type: boolean
+   *                 description: Whether the product is active
+   *                 example: true
+   *     responses:
+   *       200:
+   *         description: Product updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product updated successfully"
+ *                 product:
+ *                   $ref: '#/components/schemas/Product'
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
   // Update a product
   exports.updateProduct = async (req, res) => {
     try {
@@ -100,6 +306,55 @@ const logEvent = require('../helper/logEvent');
     }
   },
 
+  /**
+   * @swagger
+   * /api/products/delete/{id}:
+   *   delete:
+   *     summary: Delete a product
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: ObjectId
+   *         description: Product ID
+   *         example: "507f1f77bcf86cd799439011"
+   *     responses:
+   *       200:
+   *         description: Product deleted successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Product deleted successfully"
+   *       404:
+   *         description: Product not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Product not found"
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Server error"
+   */
   // Delete a product
   exports.deleteProduct = async (req, res) => {
     try {
@@ -126,6 +381,68 @@ const logEvent = require('../helper/logEvent');
     }
   },
 
+  /**
+   * @swagger
+   * /api/products/add-subscription:
+   *   post:
+   *     summary: Add subscription plan to product
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - productId
+   *               - subscriptionPlanId
+   *             properties:
+   *               productId:
+   *                 type: string
+   *                 format: ObjectId
+   *                 description: Product ID
+   *                 example: "507f1f77bcf86cd799439011"
+   *               subscriptionPlanId:
+   *                 type: string
+   *                 format: ObjectId
+   *                 description: Subscription Plan ID
+   *                 example: "507f1f77bcf86cd799439012"
+   *     responses:
+   *       200:
+   *         description: Subscription plan added to product successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Subscription plan added to product"
+   *                 product:
+   *                   $ref: '#/components/schemas/Product'
+   *       404:
+   *         description: Product or subscription plan not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Product not found"
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Server error"
+   */
   // Add subscription plan to product
   exports.addSubscriptionPlanToProduct = async (req, res) => {
     try {
