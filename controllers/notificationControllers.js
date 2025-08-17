@@ -1,3 +1,83 @@
+/**
+ * @swagger
+ * /api/notifications:
+ *   post:
+ *     tags: [Notifications]
+ *     summary: Create a notification
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [user, subject, body]
+ *             properties:
+ *               user:
+ *                 type: string
+ *                 description: User ID
+ *               template:
+ *                 type: string
+ *                 description: Notification template ID
+ *               subject:
+ *                 type: string
+ *               body:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [email, system]
+ *                 default: system
+ *               status:
+ *                 type: string
+ *                 enum: [pending, sent, read, failed]
+ *                 default: pending
+ *               organization:
+ *                 type: string
+ *                 description: Organization ID
+ *     responses:
+ *       201:
+ *         description: Notification created
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Server error
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get all notifications (paginated)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, sent, read, failed] }
+ *       - in: query
+ *         name: type
+ *         schema: { type: string, enum: [email, system] }
+ *       - in: query
+ *         name: user
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organization
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sortBy
+ *         schema: { type: string, default: createdAt }
+ *       - in: query
+ *         name: sortOrder
+ *         schema: { type: string, enum: [asc, desc], default: desc }
+ *     responses:
+ *       200:
+ *         description: Notifications list
+ *       500:
+ *         description: Server error
+ */
 const Notification = require('../models/notification');
 const NotificationTemplate = require('../models/notificationTemplates');
 const User = require('../models/users');
@@ -140,7 +220,24 @@ exports.getAllNotifications = async (req, res) => {
   }
 };
 
-// GET notification by ID
+/**
+ * @swagger
+ * /api/notifications/{notificationId}:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get a notification by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: notificationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Notification }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 exports.getNotificationById = async (req, res) => {
   try {
     const { notificationId } = req.params;
@@ -171,7 +268,36 @@ exports.getNotificationById = async (req, res) => {
   }
 };
 
-// UPDATE notification
+/**
+ * @swagger
+ * /api/notifications/{notificationId}:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Update a notification
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: notificationId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject: { type: string }
+ *               body: { type: string }
+ *               status: { type: string, enum: [pending, sent, read, failed] }
+ *               deliveryStatus: { type: string }
+ *               errorMessage: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 exports.updateNotification = async (req, res) => {
   try {
     const { notificationId } = req.params;
@@ -239,7 +365,24 @@ exports.updateNotification = async (req, res) => {
   }
 };
 
-// DELETE notification
+/**
+ * @swagger
+ * /api/notifications/{notificationId}:
+ *   delete:
+ *     tags: [Notifications]
+ *     summary: Delete a notification
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: notificationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 exports.deleteNotification = async (req, res) => {
   try {
     const { notificationId } = req.params;
@@ -287,7 +430,24 @@ exports.deleteNotification = async (req, res) => {
   }
 };
 
-// MARK notification as read
+/**
+ * @swagger
+ * /api/notifications/{notificationId}/read:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark a notification as read
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: notificationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Marked as read }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 exports.markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
@@ -318,7 +478,23 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// MARK all notifications as read for a user
+/**
+ * @swagger
+ * /api/notifications/user/{userId}/read-all:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark all notifications as read for a user
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: All marked as read }
+ *       500: { description: Server error }
+ */
 exports.markAllAsRead = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -345,7 +521,41 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
-// GET notifications by user
+/**
+ * @swagger
+ * /api/notifications/user/{userId}:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get notifications by user (paginated)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, sent, read, failed] }
+ *       - in: query
+ *         name: type
+ *         schema: { type: string, enum: [email, system] }
+ *       - in: query
+ *         name: sortBy
+ *         schema: { type: string, default: createdAt }
+ *       - in: query
+ *         name: sortOrder
+ *         schema: { type: string, enum: [asc, desc], default: desc }
+ *     responses:
+ *       200: { description: Notifications list }
+ *       500: { description: Server error }
+ */
 exports.getNotificationsByUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -404,7 +614,22 @@ exports.getNotificationsByUser = async (req, res) => {
   }
 };
 
-// GET notification statistics
+/**
+ * @swagger
+ * /api/notifications/stats:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get notification statistics
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: organization
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Stats object }
+ *       500: { description: Server error }
+ */
 exports.getNotificationStats = async (req, res) => {
   try {
     const { organization } = req.query;
