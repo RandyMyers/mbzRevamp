@@ -19,11 +19,11 @@ const options = {
     },
     servers: [
       {
-        url: 'https://mbzrevamp.onrender.com/api',
+        url: 'https://mbzrevamp.onrender.com',
         description: 'Production server'
       },
       {
-        url: 'http://localhost:8800/api',
+        url: 'http://localhost:8800',
         description: 'Development server'
       }
     ],
@@ -735,7 +735,674 @@ const options = {
               description: 'Invoice last update timestamp'
             }
           }
-        }
+        },
+                 // Affiliate Schema
+         Affiliate: {
+           type: 'object',
+           required: ['userId', 'commissionRate'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Affiliate ID'
+             },
+             userId: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'User ID who is an affiliate',
+               example: '507f1f77bcf86cd799439011'
+             },
+             status: {
+               type: 'string',
+               enum: ['pending', 'active', 'suspended', 'terminated'],
+               default: 'pending',
+               description: 'Affiliate status'
+             },
+             commissionRate: {
+               type: 'number',
+               minimum: 0,
+               maximum: 100,
+               description: 'Commission rate percentage',
+               example: 15
+             },
+             earnings: {
+               type: 'object',
+               properties: {
+                 total: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Total earnings'
+                 },
+                 pending: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Pending earnings'
+                 },
+                 paid: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Paid earnings'
+                 }
+               }
+             },
+             paymentDetails: {
+               type: 'object',
+               properties: {
+                 paymentMethod: {
+                   type: 'string',
+                   enum: ['bank_transfer', 'paypal', 'stripe'],
+                   description: 'Payment method'
+                 },
+                 bankName: {
+                   type: 'string',
+                   description: 'Bank name'
+                 },
+                 accountNumber: {
+                   type: 'string',
+                   description: 'Bank account number'
+                 },
+                 accountName: {
+                   type: 'string',
+                   description: 'Account holder name'
+                 },
+                 swiftCode: {
+                   type: 'string',
+                   description: 'SWIFT/BIC code'
+                 },
+                 paypalEmail: {
+                   type: 'string',
+                   description: 'PayPal email address'
+                 },
+                 stripeAccountId: {
+                   type: 'string',
+                   description: 'Stripe account ID'
+                 }
+               }
+             },
+             trackingCode: {
+               type: 'string',
+               description: 'Unique tracking code for affiliate'
+             },
+             marketingMaterials: {
+               type: 'array',
+               items: {
+                 type: 'string',
+                 format: 'ObjectId'
+               },
+               description: 'Array of marketing material IDs'
+             },
+             performance: {
+               type: 'object',
+               properties: {
+                 totalReferrals: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Total number of referrals'
+                 },
+                 activeReferrals: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Number of active referrals'
+                 },
+                 conversionRate: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Conversion rate percentage'
+                 },
+                 averageOrderValue: {
+                   type: 'number',
+                   default: 0,
+                   description: 'Average order value'
+                 }
+               }
+             },
+             settings: {
+               type: 'object',
+               properties: {
+                 minimumPayout: {
+                   type: 'number',
+                   default: 1000,
+                   description: 'Minimum payout amount'
+                 },
+                 autoPayout: {
+                   type: 'boolean',
+                   default: false,
+                   description: 'Enable automatic payouts'
+                 },
+                 notifications: {
+                   type: 'object',
+                   properties: {
+                     newReferral: {
+                       type: 'boolean',
+                       default: true,
+                       description: 'Notify on new referral'
+                     },
+                     conversion: {
+                       type: 'boolean',
+                       default: true,
+                       description: 'Notify on conversion'
+                     },
+                     payout: {
+                       type: 'boolean',
+                       default: true,
+                       description: 'Notify on payout'
+                     }
+                   }
+                 }
+               }
+             },
+             metadata: {
+               type: 'object',
+               properties: {
+                 website: {
+                   type: 'string',
+                   description: 'Affiliate website URL'
+                 },
+                 socialMedia: {
+                   type: 'array',
+                   items: {
+                     type: 'string'
+                   },
+                   description: 'Social media profiles'
+                 },
+                 description: {
+                   type: 'string',
+                   description: 'Affiliate description'
+                 },
+                 categories: {
+                   type: 'array',
+                   items: {
+                     type: 'string'
+                   },
+                   description: 'Affiliate categories'
+                 },
+                 languages: {
+                   type: 'array',
+                   items: {
+                     type: 'string'
+                   },
+                   description: 'Supported languages'
+                 }
+               }
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Affiliate creation timestamp'
+             },
+             lastActive: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Last activity timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Affiliate last update timestamp'
+             }
+           }
+         },
+         // Trash Schema
+         Trash: {
+           type: 'object',
+           required: ['sender', 'subject', 'body', 'originalFolder'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Trash email ID'
+             },
+             sender: {
+               type: 'string',
+               description: 'Email sender address',
+               example: 'sender@example.com'
+             },
+             subject: {
+               type: 'string',
+               description: 'Email subject line',
+               example: 'Important meeting reminder'
+             },
+             body: {
+               type: 'string',
+               description: 'Email body content'
+             },
+             replyTo: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to original email for replies'
+             },
+             status: {
+               type: 'string',
+               enum: ['unread', 'read'],
+               default: 'unread',
+               description: 'Email read status'
+             },
+             receivedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'When email was originally received'
+             },
+             deletedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'When email was moved to trash'
+             },
+             emailLogs: {
+               type: 'array',
+               items: {
+                 type: 'string',
+                 format: 'ObjectId'
+               },
+               description: 'Array of email log IDs'
+             },
+             organization: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Organization ID'
+             },
+             user: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'User ID who owns the email'
+             },
+             originalFolder: {
+               type: 'string',
+               enum: ['inbox', 'sent', 'drafts', 'outbox', 'archived'],
+               description: 'Original folder where email was stored'
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Trash entry creation timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Trash entry last update timestamp'
+             }
+           }
+         },
+         // ChatIntegration Schema
+         ChatIntegration: {
+           type: 'object',
+           required: ['provider'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Chat integration ID'
+             },
+             provider: {
+               type: 'string',
+               description: 'Chat service provider name',
+               example: 'Intercom'
+             },
+             scriptId: {
+               type: 'string',
+               description: 'Provider script ID for integration'
+               example: 'script_12345'
+             },
+             propertyUrl: {
+               type: 'string',
+               description: 'Website URL where chat widget is deployed',
+               example: 'https://example.com'
+             },
+             ticketEmail: {
+               type: 'string',
+               format: 'email',
+               description: 'Email for ticket notifications',
+               example: 'support@example.com'
+             },
+             jsApiKey: {
+               type: 'string',
+               description: 'JavaScript API key for the provider',
+               example: 'api_key_12345'
+             },
+             widgetId: {
+               type: 'string',
+               description: 'Widget identifier',
+               example: 'widget_67890'
+             },
+             directChatLink: {
+               type: 'string',
+               description: 'Direct link to chat conversation',
+               example: 'https://chat.provider.com/conversation/123'
+             },
+             isActive: {
+               type: 'boolean',
+               default: true,
+               description: 'Whether the integration is active'
+             },
+             status: {
+               type: 'string',
+               default: 'connected',
+               description: 'Integration connection status'
+             },
+             showOnCustomerDashboard: {
+               type: 'boolean',
+               default: true,
+               description: 'Show chat widget on customer dashboard'
+             },
+             showOnAdminDashboard: {
+               type: 'boolean',
+               default: false,
+               description: 'Show chat widget on admin dashboard'
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Integration creation timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Integration last update timestamp'
+             }
+           }
+         },
+         // SupportTicket Schema
+         SupportTicket: {
+           type: 'object',
+           required: ['subject', 'description', 'customer', 'organizationId'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Support ticket ID'
+             },
+             subject: {
+               type: 'string',
+               description: 'Ticket subject line',
+               example: 'Payment issue with subscription'
+             },
+             description: {
+               type: 'string',
+               description: 'Detailed description of the issue',
+               example: 'I am unable to process my monthly payment'
+             },
+             category: {
+               type: 'string',
+               enum: ['technical', 'billing', 'account', 'general'],
+               default: 'general',
+               description: 'Ticket category'
+             },
+             priority: {
+               type: 'string',
+               enum: ['low', 'medium', 'high'],
+               default: 'medium',
+               description: 'Ticket priority level'
+             },
+             status: {
+               type: 'string',
+               enum: ['open', 'in-progress', 'resolved', 'closed'],
+               default: 'open',
+               description: 'Current ticket status'
+             },
+             customer: {
+               type: 'object',
+               required: ['name', 'email'],
+               properties: {
+                 name: {
+                   type: 'string',
+                   description: 'Customer name',
+                   example: 'John Doe'
+                 },
+                 email: {
+                   type: 'string',
+                   format: 'email',
+                   description: 'Customer email address',
+                   example: 'john@example.com'
+                 },
+                 avatar: {
+                   type: 'string',
+                   description: 'Customer avatar URL'
+                 }
+               }
+             },
+             organizationId: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Organization ID'
+             },
+             messages: {
+               type: 'array',
+               items: {
+                 type: 'object',
+                 properties: {
+                   sender: {
+                     type: 'string',
+                     enum: ['customer', 'support'],
+                     description: 'Message sender type'
+                   },
+                   content: {
+                     type: 'string',
+                     description: 'Message content'
+                   },
+                   timestamp: {
+                     type: 'string',
+                     format: 'date-time',
+                     description: 'Message timestamp'
+                   },
+                   readStatus: {
+                     type: 'boolean',
+                     description: 'Whether message has been read'
+                   }
+                 }
+               }
+             },
+             hasUnreadMessages: {
+               type: 'boolean',
+               default: false,
+               description: 'Whether ticket has unread messages'
+             },
+             chatIntegrations: {
+               type: 'array',
+               items: {
+                 type: 'object',
+                 properties: {
+                   provider: {
+                     type: 'string',
+                     description: 'Chat provider name',
+                     example: 'tawk'
+                   },
+                   name: {
+                     type: 'string',
+                     description: 'Integration name',
+                     example: 'Main Support Chat'
+                   },
+                   apiKey: {
+                     type: 'string',
+                     description: 'Provider API key'
+                   },
+                   propertyId: {
+                     type: 'string',
+                     description: 'Provider property ID'
+                   },
+                   widgetId: {
+                     type: 'string',
+                     description: 'Widget identifier'
+                   },
+                   config: {
+                     type: 'object',
+                     description: 'Additional configuration options'
+                   }
+                 }
+               }
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Ticket creation timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Ticket last update timestamp'
+             }
+           }
+         },
+                   // Product Schema
+          Product: {
+            type: 'object',
+            required: ['name', 'description'],
+            properties: {
+              _id: {
+                type: 'string',
+                format: 'ObjectId',
+                description: 'Product ID'
+              },
+              name: {
+                type: 'string',
+                description: 'Product name',
+                example: 'Premium Plan'
+              },
+              description: {
+                type: 'string',
+                description: 'Product description',
+                example: 'Our most comprehensive plan with all features included'
+              },
+              isActive: {
+                type: 'boolean',
+                default: true,
+                description: 'Whether the product is active'
+              },
+              subscriptionPlans: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  format: 'ObjectId'
+                },
+                description: 'Array of subscription plan IDs associated with this product'
+              },
+              createdAt: {
+                type: 'string',
+                format: 'date-time',
+                description: 'Product creation timestamp'
+              },
+              updatedAt: {
+                type: 'string',
+                format: 'date-time',
+                description: 'Product last update timestamp'
+              }
+            }
+          },
+          // MarketingMaterial Schema
+          MarketingMaterial: {
+            type: 'object',
+            required: ['title', 'type', 'url', 'createdBy'],
+            properties: {
+              _id: {
+                type: 'string',
+                format: 'ObjectId',
+                description: 'Marketing material ID'
+              },
+              title: {
+                type: 'string',
+                description: 'Marketing material title',
+                example: 'Summer Sale Banner'
+              },
+              type: {
+                type: 'string',
+                enum: ['banner', 'video', 'document', 'link'],
+                description: 'Type of marketing material'
+              },
+              url: {
+                type: 'string',
+                description: 'URL or file path to the material',
+                example: 'https://example.com/banner.jpg'
+              },
+              status: {
+                type: 'string',
+                enum: ['active', 'inactive'],
+                default: 'active',
+                description: 'Material status'
+              },
+              metadata: {
+                type: 'object',
+                properties: {
+                  size: {
+                    type: 'string',
+                    description: 'File size description',
+                    example: '2.5 MB'
+                  },
+                  format: {
+                    type: 'string',
+                    description: 'File format',
+                    example: 'JPEG'
+                  },
+                  dimensions: {
+                    type: 'string',
+                    description: 'Image dimensions',
+                    example: '1920x1080'
+                  },
+                  duration: {
+                    type: 'number',
+                    description: 'Video duration in seconds',
+                    example: 30
+                  },
+                  fileSize: {
+                    type: 'number',
+                    description: 'File size in bytes',
+                    example: 2621440
+                  },
+                  mimeType: {
+                    type: 'string',
+                    description: 'MIME type',
+                    example: 'image/jpeg'
+                  }
+                }
+              },
+              tags: {
+                type: 'array',
+                items: {
+                  type: 'string'
+                },
+                description: 'Array of tags for categorization',
+                example: ['summer', 'sale', 'banner']
+              },
+              category: {
+                type: 'string',
+                enum: ['social', 'email', 'website', 'print', 'other'],
+                default: 'other',
+                description: 'Material category'
+              },
+              usage: {
+                type: 'object',
+                properties: {
+                  views: {
+                    type: 'number',
+                    default: 0,
+                    description: 'Number of views'
+                  },
+                  clicks: {
+                    type: 'number',
+                    default: 0,
+                    description: 'Number of clicks'
+                  },
+                  conversions: {
+                    type: 'number',
+                    default: 0,
+                    description: 'Number of conversions'
+                  }
+                }
+              },
+              createdBy: {
+                type: 'string',
+                format: 'ObjectId',
+                description: 'User ID who created the material'
+              },
+              createdAt: {
+                type: 'string',
+                format: 'date-time',
+                description: 'Material creation timestamp'
+              },
+              updatedAt: {
+                type: 'string',
+                format: 'date-time',
+                description: 'Material last update timestamp'
+              }
+            }
+          }
       }
     },
     security: [
@@ -811,7 +1478,27 @@ const options = {
       {
         name: 'Analytics',
         description: 'Analytics and reporting operations'
-      }
+      },
+             {
+         name: 'Affiliates',
+         description: 'Affiliate management operations'
+       },
+       {
+         name: 'Trash',
+         description: 'Email trash management operations'
+       },
+       {
+         name: 'Chat Integration',
+         description: 'Chat service integration management operations'
+       },
+       {
+         name: 'Support',
+         description: 'Support ticket management operations'
+       },
+       {
+         name: 'Marketing Materials',
+         description: 'Marketing material management operations'
+       }
     ]
   },
   apis: [
