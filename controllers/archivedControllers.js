@@ -1,3 +1,105 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Archived
+ *     description: Manage archived emails
+ *
+ * /api/archived:
+ *   post:
+ *     tags: [Archived]
+ *     summary: Create an archived email
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject: { type: string }
+ *               body: { type: string }
+ *               sender: { type: string }
+ *               recipients: { type: array, items: { type: string } }
+ *               organizationId: { type: string }
+ *               originalFolder: { type: string, enum: [inbox, sent, drafts, outbox] }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Archived]
+ *     summary: Get archived emails for current user's organization
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Archived list }
+ *       500: { description: Server error }
+ *
+ * /api/archived/organization/{organizationId}:
+ *   get:
+ *     tags: [Archived]
+ *     summary: Get archived emails by organization
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Archived list }
+ *       500: { description: Server error }
+ *
+ * /api/archived/{archivedEmailId}:
+ *   get:
+ *     tags: [Archived]
+ *     summary: Get archived email by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: archivedEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Archived email }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Archived]
+ *     summary: Update archived email
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: archivedEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Archived]
+ *     summary: Delete archived email
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: archivedEmailId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Archived = require('../models/archived');
 const mongoose = require('mongoose');
 

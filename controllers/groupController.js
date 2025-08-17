@@ -1,3 +1,131 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Groups
+ *     description: User group management
+ *
+ * /api/groups:
+ *   post:
+ *     tags: [Groups]
+ *     summary: Create a group
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               organization: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Groups]
+ *     summary: Get groups (optionally by organization)
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Groups list }
+ *       500: { description: Server error }
+ *
+ * /api/groups/{groupId}:
+ *   get:
+ *     tags: [Groups]
+ *     summary: Get a group by ID
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Group }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   patch:
+ *     tags: [Groups]
+ *     summary: Update a group
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Groups]
+ *     summary: Delete a group
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/groups/{groupId}/add-user:
+ *   post:
+ *     tags: [Groups]
+ *     summary: Add a user to a group
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId]
+ *             properties:
+ *               userId: { type: string }
+ *     responses:
+ *       200: { description: Added }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/groups/{groupId}/remove-user:
+ *   post:
+ *     tags: [Groups]
+ *     summary: Remove a user from a group
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId]
+ *             properties:
+ *               userId: { type: string }
+ *     responses:
+ *       200: { description: Removed }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const Group = require('../models/group');
 const User = require('../models/users');
 

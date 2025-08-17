@@ -1,3 +1,109 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Audit Logs
+ *     description: System audit logs
+ *
+ * /api/audit-logs:
+ *   post:
+ *     tags: [Audit Logs]
+ *     summary: Create an audit log entry
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action: { type: string }
+ *               user: { type: string }
+ *               resource: { type: string }
+ *               resourceId: { type: string }
+ *               details: { type: object }
+ *               organization: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Audit Logs]
+ *     summary: Get audit logs (filterable)
+ *     parameters:
+ *       - in: query
+ *         name: user
+ *         schema: { type: string }
+ *       - in: query
+ *         name: resource
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organization
+ *         schema: { type: string }
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date-time }
+ *     responses:
+ *       200: { description: Logs list }
+ *       500: { description: Server error }
+ *
+ * /api/audit-logs/organization/{organizationId}:
+ *   get:
+ *     tags: [Audit Logs]
+ *     summary: Get audit logs by organization (filterable)
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: user
+ *         schema: { type: string }
+ *       - in: query
+ *         name: resource
+ *         schema: { type: string }
+ *       - in: query
+ *         name: severity
+ *         schema: { type: string }
+ *       - in: query
+ *         name: action
+ *         schema: { type: string }
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date-time }
+ *     responses:
+ *       200: { description: Logs list }
+ *       500: { description: Server error }
+ *
+ * /api/audit-logs/{logId}:
+ *   get:
+ *     tags: [Audit Logs]
+ *     summary: Get an audit log by ID
+ *     parameters:
+ *       - in: path
+ *         name: logId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Log }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Audit Logs]
+ *     summary: Delete an audit log by ID
+ *     parameters:
+ *       - in: path
+ *         name: logId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ */
 const AuditLog = require('../models/auditLog');
 
 // Create a new audit log entry

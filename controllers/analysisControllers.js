@@ -1,3 +1,211 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Analytics
+ *     description: Business analytics endpoints
+ *
+ * /api/analytics/total-revenue:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get total revenue for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Revenue summary }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/total-orders:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get total orders for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Orders count }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/new-customers:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get new customers for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: New customers count }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/average-order-value:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get average order value for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: AOV }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/return-rate:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get return rate percentage for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Return rate }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/lifetime-value:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get average customer lifetime value
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: LTV }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/customer-acquisition:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get customer acquisition by source for a time range
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Acquisition breakdown }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/product-performance:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get top product performance
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Product performance }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/funnel-data:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get funnel data across stages
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Funnel stages }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/retention-data:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get retention cohort data
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Retention data }
+ *       500: { description: Server error }
+ *
+ * /api/analytics/regional-sales:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get sales by region
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Regional sales }
+ *       500: { description: Server error }
+ */
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Product = require('../models/inventory');

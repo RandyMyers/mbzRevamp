@@ -1,3 +1,153 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Categories
+ *     description: Product category management
+ *
+ * /api/categories:
+ *   post:
+ *     tags: [Categories]
+ *     summary: Create a category
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, storeId, organizationId]
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               image: { type: object }
+ *               parent: { type: string }
+ *               storeId: { type: string }
+ *               organizationId: { type: string }
+ *               menuOrder: { type: integer, default: 0 }
+ *               syncToWooCommerce: { type: boolean, default: false }
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *       404: { description: Store or parent not found }
+ *       500: { description: Server error }
+ *   get:
+ *     tags: [Categories]
+ *     summary: Get categories (paginated)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *       - in: query
+ *         name: storeId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organizationId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: parent
+ *         schema: { type: string }
+ *       - in: query
+ *         name: isActive
+ *         schema: { type: boolean, default: true }
+ *       - in: query
+ *         name: sortBy
+ *         schema: { type: string, default: name }
+ *       - in: query
+ *         name: sortOrder
+ *         schema: { type: string, enum: [asc, desc], default: asc }
+ *     responses:
+ *       200: { description: Categories list }
+ *       500: { description: Server error }
+ *
+ * /api/categories/{id}:
+ *   get:
+ *     tags: [Categories]
+ *     summary: Get category by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Category }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   put:
+ *     tags: [Categories]
+ *     summary: Update a category
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   delete:
+ *     tags: [Categories]
+ *     summary: Delete a category
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       400: { description: Has dependencies }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/categories/store/{storeId}:
+ *   get:
+ *     tags: [Categories]
+ *     summary: Get categories by store
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: tree
+ *         schema: { type: boolean, default: false }
+ *     responses:
+ *       200: { description: Categories list }
+ *       500: { description: Server error }
+ *
+ * /api/categories/sync/{storeId}:
+ *   post:
+ *     tags: [Categories]
+ *     summary: Sync categories with WooCommerce
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId: { type: string }
+ *               organizationId: { type: string }
+ *     responses:
+ *       200: { description: Sync result }
+ *       404: { description: Store not found }
+ *       500: { description: Server error }
+ */
 const Category = require('../models/Category');
 const Store = require('../models/store');
 const logEvent = require('../helper/logEvent');
