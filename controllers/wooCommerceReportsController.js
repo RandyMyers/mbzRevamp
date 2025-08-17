@@ -1,3 +1,205 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: WooCommerce Reports
+ *     description: Aggregated WooCommerce reports across stores
+ *
+ * /api/woocommerce/reports/sales:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store sales totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: period
+ *         schema: { type: string }
+ *       - in: query
+ *         name: after
+ *         schema: { type: string }
+ *       - in: query
+ *         name: before
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Sales summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/orders:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store order totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: period
+ *         schema: { type: string }
+ *       - in: query
+ *         name: after
+ *         schema: { type: string }
+ *       - in: query
+ *         name: before
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Orders summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/products:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store product totals and types
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: period
+ *         schema: { type: string }
+ *       - in: query
+ *         name: after
+ *         schema: { type: string }
+ *       - in: query
+ *         name: before
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Products summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/customers:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store customer totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Customers summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/coupons:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store coupon totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Coupons summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/reviews:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store review totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Reviews summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/categories:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store category totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Categories summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/tags:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store tag totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Tags summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/attributes:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store attribute totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Attributes summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/top-sellers:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store top sellers
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Top sellers }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/taxes:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store tax totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Taxes summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/downloads:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store download totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Downloads summary }
+ *       500: { description: Server error }
+ *
+ * /api/woocommerce/reports/stock:
+ *   get:
+ *     tags: [WooCommerce Reports]
+ *     summary: Get multi-store stock totals
+ *     parameters:
+ *       - in: query
+ *         name: orgId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Stock summary }
+ *       500: { description: Server error }
+ */
 const mongoose = require('mongoose');
 const Store = require('../models/store');
 const WooCommerceService = require('../services/wooCommerceService');

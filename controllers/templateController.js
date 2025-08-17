@@ -1,3 +1,108 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Templates
+ *     description: Email/website template management
+ *
+ * /api/template/create:
+ *   post:
+ *     tags: [Templates]
+ *     summary: Create a template
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *
+ * /api/template/all:
+ *   get:
+ *     tags: [Templates]
+ *     summary: Get all templates (filterable)
+ *     parameters:
+ *       - in: query
+ *         name: category
+ *         schema: { type: string }
+ *       - in: query
+ *         name: isPremium
+ *         schema: { type: boolean }
+ *     responses:
+ *       200: { description: Templates list }
+ *       500: { description: Server error }
+ *
+ * /api/template/get/{id}:
+ *   get:
+ *     tags: [Templates]
+ *     summary: Get template by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Template }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/template/update/{id}:
+ *   patch:
+ *     tags: [Templates]
+ *     summary: Update a template
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/template/delete/{id}:
+ *   delete:
+ *     tags: [Templates]
+ *     summary: Delete a template
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/template/user/{userId}:
+ *   get:
+ *     tags: [Templates]
+ *     summary: Get templates by user
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Templates list }
+ *       500: { description: Server error }
+ *
+ * /api/template/analytics/all:
+ *   get:
+ *     tags: [Templates]
+ *     summary: Get templates analytics (admin only)
+ *     responses:
+ *       200: { description: Analytics }
+ *       403: { description: Unauthorized }
+ *       500: { description: Server error }
+ */
 const Template = require('../models/template');
 const cloudinary = require('cloudinary').v2;
 

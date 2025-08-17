@@ -1,3 +1,122 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Subscriptions
+ *     description: Manage user subscriptions
+ *
+ * /api/subscriptions:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Create a subscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *   get:
+ *     tags: [Subscriptions]
+ *     summary: Get all subscriptions
+ *     responses:
+ *       200: { description: Subscriptions list }
+ *       500: { description: Server error }
+ *
+ * /api/subscriptions/{id}:
+ *   get:
+ *     tags: [Subscriptions]
+ *     summary: Get subscription by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Subscription }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *   put:
+ *     tags: [Subscriptions]
+ *     summary: Update subscription
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       400: { description: Validation error }
+ *   delete:
+ *     tags: [Subscriptions]
+ *     summary: Delete subscription
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       500: { description: Server error }
+ *
+ * /api/subscriptions/assign:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Assign or update a subscription for a user and plan
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user: { type: string }
+ *               plan: { type: string }
+ *               billingInterval: { type: string }
+ *               currency: { type: string }
+ *               startDate: { type: string, format: date-time }
+ *               endDate: { type: string, format: date-time }
+ *     responses:
+ *       200: { description: Assigned }
+ *       400: { description: Validation error }
+ *
+ * /api/subscriptions/{id}/renew:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Renew a subscription
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Renewed }
+ *       404: { description: Not found }
+ *       400: { description: Validation error }
+ *
+ * /api/subscriptions/{id}/cancel:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Cancel a subscription
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Canceled }
+ *       404: { description: Not found }
+ *       400: { description: Validation error }
+ */
 const Subscription = require('../models/subscriptions');
 const Payment = require('../models/payment');
 const SubscriptionPlan = require('../models/subscriptionPlans');

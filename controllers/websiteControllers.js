@@ -1,3 +1,169 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Websites
+ *     description: Website builder and management
+ *
+ * /api/websites/create:
+ *   post:
+ *     tags: [Websites]
+ *     summary: Create a website
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/check-domain:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Check domain availability
+ *     parameters:
+ *       - in: query
+ *         name: domain
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Availability }
+ *       400: { description: Missing/invalid domain }
+ *
+ * /api/websites/organization/{organizationId}:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Get organization websites
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Websites list }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/{id}:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Get website by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Website }
+ *       404: { description: Not found }
+ *   delete:
+ *     tags: [Websites]
+ *     summary: Delete a website
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *
+ * /api/websites/basic-info/{id}:
+ *   patch:
+ *     tags: [Websites]
+ *     summary: Update basic info
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/business-info/{id}:
+ *   patch:
+ *     tags: [Websites]
+ *     summary: Update business info
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/colors/{id}:
+ *   patch:
+ *     tags: [Websites]
+ *     summary: Update colors
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/emails/{id}:
+ *   patch:
+ *     tags: [Websites]
+ *     summary: Update custom emails
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/all/{userId}:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Get all websites (super admin)
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Websites list }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/analytics/{userId}:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Get overall websites analytics (super admin)
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Analytics }
+ *       403: { description: Unauthorized }
+ *
+ * /api/websites/analytics/organization/{organizationId}:
+ *   get:
+ *     tags: [Websites]
+ *     summary: Get organization websites analytics
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Analytics }
+ *       403: { description: Unauthorized }
+ */
 // controllers/websiteController.js
 const mongoose = require('mongoose');
 const Website = require('../models/website');

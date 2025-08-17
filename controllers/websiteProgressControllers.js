@@ -1,3 +1,274 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Website Progress
+ *     description: Track website build progress
+ *
+ * /api/website/progress/{websiteId}:
+ *   get:
+ *     tags: [Website Progress]
+ *     summary: Get website progress
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Progress }
+ *       404: { description: Not found }
+ *   patch:
+ *     tags: [Website Progress]
+ *     summary: Update current step
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               step: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/notes:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Add a progress note
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text: { type: string }
+ *     responses:
+ *       200: { description: Note added }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/notes/{noteId}:
+ *   patch:
+ *     tags: [Website Progress]
+ *     summary: Update note status
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: noteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               resolved: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/assets:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Upload design asset record
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type: { type: string }
+ *               url: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       200: { description: Asset recorded }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/designers:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Assign a designer
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               designerId: { type: string }
+ *               role: { type: string }
+ *     responses:
+ *       200: { description: Assigned }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/milestones:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Add milestone
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *               dueDate: { type: string, format: date-time }
+ *     responses:
+ *       200: { description: Added }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/milestones/{milestoneId}:
+ *   patch:
+ *     tags: [Website Progress]
+ *     summary: Update milestone status
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: milestoneId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               completed: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/approvals:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Record approval
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type: { type: string }
+ *               approved: { type: boolean }
+ *               comments: { type: string }
+ *     responses:
+ *       200: { description: Recorded }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/versions:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Add version
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               versionNumber: { type: string }
+ *               changes: { type: string }
+ *               snapshot: { type: string }
+ *     responses:
+ *       200: { description: Added }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/feedback:
+ *   post:
+ *     tags: [Website Progress]
+ *     summary: Add feedback
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type: { type: string }
+ *               text: { type: string }
+ *     responses:
+ *       200: { description: Submitted }
+ *       404: { description: Not found }
+ *
+ * /api/website/progress/{websiteId}/feedback/{feedbackId}:
+ *   patch:
+ *     tags: [Website Progress]
+ *     summary: Update feedback status
+ *     parameters:
+ *       - in: path
+ *         name: websiteId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: feedbackId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status: { type: string }
+ *               response: { type: string }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ */
 const WebsiteProgress = require('../models/websiteProgress');
 const Website = require('../models/website');
 const User = require('../models/users');
