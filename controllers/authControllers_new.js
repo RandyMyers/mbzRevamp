@@ -1,3 +1,187 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Authentication (New)
+ *     description: Super Admin, Organization, and Affiliate authentication
+ *
+ * /api/auth/super-admin/register:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Register a Super Admin
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, fullName, email, password]
+ *             properties:
+ *               username: { type: string }
+ *               fullName: { type: string }
+ *               email: { type: string, format: email }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       201: { description: Super Admin registered }
+ *       400: { description: Already exists }
+ *       500: { description: Server error }
+ *
+ * /api/auth/super-admin/login:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Login Super Admin
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200: { description: Login successful }
+ *       400: { description: Invalid credentials or not found }
+ *       500: { description: Server error }
+ *
+ * /api/auth/super-admin/change/password:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Change password (Super Admin)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, newPassword]
+ *             properties:
+ *               userId: { type: string }
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string }
+ *     responses:
+ *       200: { description: Password updated }
+ *       403: { description: Unauthorized }
+ *       404: { description: User not found }
+ *       400: { description: Incorrect current password }
+ *
+ * /api/auth/organization/register:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Register Organization User (creates organization)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fullName, businessName, email, password]
+ *             properties:
+ *               fullName: { type: string }
+ *               businessName: { type: string }
+ *               email: { type: string, format: email }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       201: { description: Organization user registered }
+ *       400: { description: Already exists or org exists }
+ *       500: { description: Server error }
+ *
+ * /api/auth/organization/login:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Login Organization User
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200: { description: Login successful }
+ *       400: { description: Invalid credentials or not found }
+ *       500: { description: Server error }
+ *
+ * /api/auth/organization/change/password:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Change password (Organization User)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, organizationId, currentPassword, newPassword]
+ *             properties:
+ *               userId: { type: string }
+ *               organizationId: { type: string }
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string }
+ *     responses:
+ *       200: { description: Password updated }
+ *       404: { description: Not found }
+ *       400: { description: Incorrect current password }
+ *
+ * /api/auth/affiliate/register:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Register Affiliate User
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fullName, email, password]
+ *             properties:
+ *               fullName: { type: string }
+ *               email: { type: string, format: email }
+ *               password: { type: string, format: password }
+ *               referralCode: { type: string }
+ *     responses:
+ *       201: { description: Affiliate registered }
+ *       400: { description: Already exists }
+ *       500: { description: Server error }
+ *
+ * /api/auth/affiliate/login:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Login Affiliate User
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200: { description: Login successful }
+ *       400: { description: Invalid credentials or not found }
+ *       500: { description: Server error }
+ *
+ * /api/auth/register:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Legacy register (redirects to organization register)
+ *     responses:
+ *       200: { description: Redirected }
+ *
+ * /api/auth/login:
+ *   post:
+ *     tags: [Authentication (New)]
+ *     summary: Legacy login (redirects to organization login)
+ *     responses:
+ *       200: { description: Redirected }
+ */
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
