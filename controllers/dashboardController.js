@@ -1,3 +1,91 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Dashboard
+ *     description: Dashboard metrics and widgets
+ *
+ * /api/dashboard/stats/{organizationId}:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get basic dashboard stats
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Stats }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/dashboard/sales-trend/{organizationId}:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get sales trend data
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *     responses:
+ *       200: { description: Trend data }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/dashboard/top-products/{organizationId}:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get top products
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *     responses:
+ *       200: { description: Top products }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/dashboard/customer-metrics/{organizationId}:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get customer metrics
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Metrics }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/dashboard/notifications/{organizationId}:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get dashboard notifications
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Notifications }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ */
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Inventory = require('../models/inventory');

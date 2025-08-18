@@ -1,3 +1,152 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Exchange Rates
+ *     description: Manage organization exchange rates
+ *
+ * /api/exchange-rates:
+ *   get:
+ *     tags: [Exchange Rates]
+ *     summary: Get exchange rates (by organization)
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: baseCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: targetCurrency
+ *         schema: { type: string }
+ *       - in: query
+ *         name: isActive
+ *         schema: { type: boolean }
+ *     responses:
+ *       200: { description: Rates list }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *   post:
+ *     tags: [Exchange Rates]
+ *     summary: Create an exchange rate
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [organizationId, baseCurrency, targetCurrency, rate]
+ *             properties:
+ *               organizationId: { type: string }
+ *               baseCurrency: { type: string }
+ *               targetCurrency: { type: string }
+ *               rate: { type: number }
+ *               isCustom: { type: boolean }
+ *               source: { type: string }
+ *     responses:
+ *       201: { description: Created }
+ *       400: { description: Validation error }
+ *
+ * /api/exchange-rates/convert:
+ *   get:
+ *     tags: [Exchange Rates]
+ *     summary: Convert currency amount
+ *     parameters:
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: amount
+ *         required: true
+ *         schema: { type: number }
+ *       - in: query
+ *         name: fromCurrency
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: toCurrency
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Conversion result }
+ *       400: { description: Missing parameters }
+ *       500: { description: Server error }
+ *
+ * /api/exchange-rates/bulk:
+ *   post:
+ *     tags: [Exchange Rates]
+ *     summary: Bulk create exchange rates
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [organizationId, rates]
+ *             properties:
+ *               organizationId: { type: string }
+ *               rates: { type: array, items: { type: object } }
+ *     responses:
+ *       200: { description: Bulk result }
+ *       400: { description: Validation error }
+ *
+ * /api/exchange-rates/{id}:
+ *   get:
+ *     tags: [Exchange Rates]
+ *     summary: Get a specific exchange rate
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Rate }
+ *       404: { description: Not found }
+ *       400: { description: Missing organizationId }
+ *   put:
+ *     tags: [Exchange Rates]
+ *     summary: Update an exchange rate
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               organizationId: { type: string }
+ *               rate: { type: number }
+ *               isActive: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       400: { description: Missing organizationId }
+ *   delete:
+ *     tags: [Exchange Rates]
+ *     summary: Delete an exchange rate
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Deleted }
+ *       404: { description: Not found }
+ *       400: { description: Missing organizationId }
+ */
 const ExchangeRate = require('../models/exchangeRate');
 const mongoose = require('mongoose');
 const exchangeRateApiService = require('../services/exchangeRateApiService');

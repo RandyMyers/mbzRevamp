@@ -1,3 +1,100 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Referrals
+ *     description: Affiliate referrals management
+ *
+ * /api/referrals:
+ *   get:
+ *     tags: [Referrals]
+ *     summary: Get referrals (paginated, filterable)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *       - in: query
+ *         name: affiliateId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Referrals list }
+ *       500: { description: Server error }
+ *
+ * /api/referrals/{id}:
+ *   get:
+ *     tags: [Referrals]
+ *     summary: Get referral by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Referral }
+ *       404: { description: Not found }
+ *
+ * /api/referrals/{id}/convert:
+ *   post:
+ *     tags: [Referrals]
+ *     summary: Convert a referral to a commission
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               conversionValue: { type: number }
+ *     responses:
+ *       200: { description: Converted }
+ *       404: { description: Not found }
+ *       400: { description: Invalid state }
+ *
+ * /api/referrals/{id}/cancel:
+ *   post:
+ *     tags: [Referrals]
+ *     summary: Cancel a referral
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Cancelled }
+ *       404: { description: Not found }
+ *       400: { description: Invalid state }
+ *
+ * /api/referrals/stats:
+ *   get:
+ *     tags: [Referrals]
+ *     summary: Get referral stats (filterable)
+ *     parameters:
+ *       - in: query
+ *         name: affiliateId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+ *     responses:
+ *       200: { description: Stats }
+ *       500: { description: Server error }
+ */
 const Referral = require('../models/Referral');
 const Affiliate = require('../models/Affiliate');
 const Commission = require('../models/Commission');

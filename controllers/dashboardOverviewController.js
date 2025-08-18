@@ -1,3 +1,32 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Dashboard Overview
+ *     description: Comprehensive dashboard overview
+ *
+ * /api/dashboard/overview/{organizationId}:
+ *   get:
+ *     tags: [Dashboard Overview]
+ *     summary: Get comprehensive dashboard overview
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m, ytd], default: 30d }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Overview payload }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ */
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Product = require('../models/inventory');

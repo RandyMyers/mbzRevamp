@@ -1,3 +1,32 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Contact
+ *     description: Public contact form endpoint
+ *
+ * /api/contact:
+ *   post:
+ *     tags: [Contact]
+ *     summary: Send a contact message
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, subject, message]
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string, format: email }
+ *               phone: { type: string }
+ *               subject: { type: string }
+ *               otherSubject: { type: string }
+ *               message: { type: string }
+ *     responses:
+ *       200: { description: Message sent }
+ *       400: { description: Missing required fields }
+ *       500: { description: Server error }
+ */
 const nodemailer = require('nodemailer');
 
 // POST /api/contact

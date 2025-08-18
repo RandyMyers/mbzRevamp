@@ -1,3 +1,100 @@
+/**
+ * @swagger
+ * tags:
+ *   - name: Commissions
+ *     description: Affiliate commissions management
+ *
+ * /api/commissions:
+ *   get:
+ *     tags: [Commissions]
+ *     summary: Get commissions (paginated, filterable)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *       - in: query
+ *         name: affiliateId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Commissions list }
+ *       500: { description: Server error }
+ *
+ * /api/commissions/{id}:
+ *   get:
+ *     tags: [Commissions]
+ *     summary: Get commission by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Commission }
+ *       404: { description: Not found }
+ *
+ * /api/commissions/{id}/mark-paid:
+ *   post:
+ *     tags: [Commissions]
+ *     summary: Mark commission as paid
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               payoutId: { type: string }
+ *     responses:
+ *       200: { description: Marked paid }
+ *       404: { description: Not found }
+ *       400: { description: Invalid state }
+ *
+ * /api/commissions/{id}/cancel:
+ *   post:
+ *     tags: [Commissions]
+ *     summary: Cancel a commission
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Cancelled }
+ *       404: { description: Not found }
+ *       400: { description: Invalid state }
+ *
+ * /api/commissions/stats:
+ *   get:
+ *     tags: [Commissions]
+ *     summary: Get commission stats (filterable)
+ *     parameters:
+ *       - in: query
+ *         name: affiliateId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+ *     responses:
+ *       200: { description: Stats }
+ *       500: { description: Server error }
+ */
 const Commission = require('../models/Commission');
 const Affiliate = require('../models/Affiliate');
 const Payout = require('../models/Payout');
