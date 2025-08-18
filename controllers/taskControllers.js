@@ -74,7 +74,6 @@ const logEvent = require('../helper/logEvent');
  *                   type: object
  *                   required:
  *                     - title
- *                     - createdBy
  *                   properties:
  *                     title:
  *                       type: string
@@ -87,7 +86,7 @@ const logEvent = require('../helper/logEvent');
  *                     createdBy:
  *                       type: string
  *                       format: ObjectId
- *                       description: User ID who created the subtask
+ *                       description: User ID who created the subtask (optional; defaults to authenticated user)
  *     responses:
  *       201:
  *         description: Task created successfully
@@ -209,6 +208,18 @@ exports.createTask = async (req, res) => {
       }
     }
 
+    // ✅ PROCESS SUBTASKS: optional; default createdBy to authenticated user when missing
+    let processedSubtasks = [];
+    if (Array.isArray(subtasks)) {
+      processedSubtasks = subtasks
+        .filter(s => s && typeof s.title === 'string' && s.title.trim() !== '')
+        .map(s => ({
+          title: s.title.trim(),
+          status: s.status === 'completed' ? 'completed' : 'pending',
+          createdBy: s.createdBy || (req.user && req.user._id)
+        }));
+    }
+
     // ✅ CREATE TASK
     const newTask = new Task({
       title: title.trim(),
@@ -220,7 +231,7 @@ exports.createTask = async (req, res) => {
       createdBy: createdBy || req.user._id, // Use authenticated user if not provided
       organization: organizationId,
       tags: tags || [],
-      subtasks: subtasks || []
+      subtasks: processedSubtasks
     });
 
     const savedTask = await newTask.save();
