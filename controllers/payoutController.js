@@ -2,58 +2,50 @@
  * @swagger
  * tags:
  *   - name: Payouts
- *     description: Affiliate payouts management
+ *     description: Affiliate payouts (scoped under affiliates)
  *
- * /api/payouts:
+ * /api/affiliates/{affiliateId}/payouts:
  *   get:
  *     tags: [Payouts]
- *     summary: Get payouts (paginated, filterable)
+ *     summary: Get payouts for an affiliate
  *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 10 }
- *       - in: query
- *         name: status
- *         schema: { type: string }
- *       - in: query
+ *       - in: path
  *         name: affiliateId
- *         schema: { type: string }
- *       - in: query
- *         name: startDate
- *         schema: { type: string }
- *       - in: query
- *         name: endDate
+ *         required: true
  *         schema: { type: string }
  *     responses:
  *       200: { description: Payouts list }
- *       500: { description: Server error }
  *   post:
  *     tags: [Payouts]
- *     summary: Create payout for affiliate (moves pending commissions)
+ *     summary: Create payout for an affiliate (moves pending commissions)
+ *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [affiliateId, amount]
+ *             required: [amount]
  *             properties:
- *               affiliateId: { type: string }
  *               amount: { type: number }
  *               paymentMethod: { type: string }
  *               paymentDetails: { type: object }
  *     responses:
  *       201: { description: Created }
- *       400: { description: Validation error }
  *
- * /api/payouts/{id}:
+ * /api/affiliates/{affiliateId}/payouts/{id}:
  *   get:
  *     tags: [Payouts]
- *     summary: Get payout by ID
+ *     summary: Get payout by ID (affiliate scoped)
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -63,8 +55,12 @@
  *       404: { description: Not found }
  *   patch:
  *     tags: [Payouts]
- *     summary: Update a payout
+ *     summary: Update payout
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -79,11 +75,15 @@
  *       200: { description: Updated }
  *       404: { description: Not found }
  *
- * /api/payouts/{id}/process:
+ * /api/affiliates/{affiliateId}/payouts/{id}/process:
  *   post:
  *     tags: [Payouts]
- *     summary: Mark payout as processing (simulated)
+ *     summary: Mark payout as processing
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -93,11 +93,15 @@
  *       404: { description: Not found }
  *       400: { description: Invalid state }
  *
- * /api/payouts/{id}/complete:
+ * /api/affiliates/{affiliateId}/payouts/{id}/complete:
  *   post:
  *     tags: [Payouts]
- *     summary: Complete a payout
+ *     summary: Complete payout
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -115,11 +119,15 @@
  *       404: { description: Not found }
  *       400: { description: Invalid state }
  *
- * /api/payouts/{id}/fail:
+ * /api/affiliates/{affiliateId}/payouts/{id}/fail:
  *   post:
  *     tags: [Payouts]
  *     summary: Mark payout as failed
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -136,21 +144,6 @@
  *       200: { description: Failed }
  *       404: { description: Not found }
  *       400: { description: Invalid state }
- *
- * /api/payouts/stats:
- *   get:
- *     tags: [Payouts]
- *     summary: Get payout stats (filterable by time/affiliate)
- *     parameters:
- *       - in: query
- *         name: affiliateId
- *         schema: { type: string }
- *       - in: query
- *         name: timeRange
- *         schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
- *     responses:
- *       200: { description: Stats }
- *       500: { description: Server error }
  */
 const Payout = require('../models/Payout');
 const Affiliate = require('../models/Affiliate');

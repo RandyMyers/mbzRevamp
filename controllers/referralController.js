@@ -2,40 +2,45 @@
  * @swagger
  * tags:
  *   - name: Referrals
- *     description: Affiliate referrals management
+ *     description: Affiliate referrals (scoped under affiliates)
  *
- * /api/referrals:
+ * /api/affiliates/{affiliateId}/referrals:
  *   get:
  *     tags: [Referrals]
- *     summary: Get referrals (paginated, filterable)
+ *     summary: Get referrals for an affiliate
  *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 10 }
- *       - in: query
- *         name: status
- *         schema: { type: string }
- *       - in: query
+ *       - in: path
  *         name: affiliateId
- *         schema: { type: string }
- *       - in: query
- *         name: startDate
- *         schema: { type: string }
- *       - in: query
- *         name: endDate
+ *         required: true
  *         schema: { type: string }
  *     responses:
  *       200: { description: Referrals list }
- *       500: { description: Server error }
+ *   post:
+ *     tags: [Referrals]
+ *     summary: Create a referral for an affiliate
+ *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201: { description: Created }
  *
- * /api/referrals/{id}:
+ * /api/affiliates/{affiliateId}/referrals/{id}:
  *   get:
  *     tags: [Referrals]
- *     summary: Get referral by ID
+ *     summary: Get referral by ID (affiliate scoped)
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -43,12 +48,14 @@
  *     responses:
  *       200: { description: Referral }
  *       404: { description: Not found }
- *
- * /api/referrals/{id}/convert:
- *   post:
+ *   patch:
  *     tags: [Referrals]
- *     summary: Convert a referral to a commission
+ *     summary: Update referral
  *     parameters:
+ *       - in: path
+ *         name: affiliateId
+ *         required: true
+ *         schema: { type: string }
  *       - in: path
  *         name: id
  *         required: true
@@ -59,41 +66,37 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               conversionValue: { type: number }
  *     responses:
- *       200: { description: Converted }
+ *       200: { description: Updated }
  *       404: { description: Not found }
- *       400: { description: Invalid state }
  *
- * /api/referrals/{id}/cancel:
- *   post:
- *     tags: [Referrals]
- *     summary: Cancel a referral
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200: { description: Cancelled }
- *       404: { description: Not found }
- *       400: { description: Invalid state }
- *
- * /api/referrals/stats:
+ * /api/affiliates/dashboard/referrals:
  *   get:
  *     tags: [Referrals]
- *     summary: Get referral stats (filterable)
- *     parameters:
- *       - in: query
- *         name: affiliateId
- *         schema: { type: string }
- *       - in: query
- *         name: timeRange
- *         schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+ *     summary: Get my referrals (affiliate dashboard)
+ *     responses:
+ *       200: { description: My referrals }
+ *
+ * /api/affiliates/performance/referrals:
+ *   get:
+ *     tags: [Referrals]
+ *     summary: Get my referral stats (affiliate dashboard)
  *     responses:
  *       200: { description: Stats }
- *       500: { description: Server error }
+ *
+ * /api/affiliates/reports/referrals:
+ *   get:
+ *     tags: [Referrals]
+ *     summary: Get my referral report (affiliate dashboard)
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string }
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Report }
  */
 const Referral = require('../models/Referral');
 const Affiliate = require('../models/Affiliate');

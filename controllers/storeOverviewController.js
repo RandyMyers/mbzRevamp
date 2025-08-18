@@ -21,6 +21,95 @@ const Store = require('../models/store');
 const mongoose = require('mongoose');
 const currencyUtils = require('../utils/currencyUtils');
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Store Overview
+ *     description: Store-level analytics and trends
+ *
+ * /api/store-overview/stats/{organizationId}:
+ *   get:
+ *     tags: [Store Overview]
+ *     summary: Get store overview statistics
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m], default: 30d }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Store stats }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/store-overview/alerts/{organizationId}:
+ *   get:
+ *     tags: [Store Overview]
+ *     summary: Get store alerts and notifications
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Alerts list }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/store-overview/performance/{organizationId}:
+ *   get:
+ *     tags: [Store Overview]
+ *     summary: Get cross-store performance comparison
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m], default: 30d }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Comparison data }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/store-overview/revenue-trends/{organizationId}:
+ *   get:
+ *     tags: [Store Overview]
+ *     summary: Get store revenue trends
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: timeRange
+ *         schema: { type: string, enum: [7d, 30d, 90d, 12m], default: 30d }
+ *       - in: query
+ *         name: userId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: displayCurrency
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Trends }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ */
 // Helper function to safely handle database queries with default values
 const safeQuery = async (queryFunction, defaultValue = 0) => {
   try {
