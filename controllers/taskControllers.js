@@ -149,6 +149,7 @@ const logEvent = require('../helper/logEvent');
 exports.createTask = async (req, res) => {
   const { title, description, status, priority, dueDate, assignedTo, organizationId, tags, createdBy, subtasks } = req.body;
   console.log(req.body);
+  console.log(req.user);
 
   try {
     // ✅ VALIDATION 1: Check required fields
@@ -594,6 +595,50 @@ exports.updateTask = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to update task" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/tasks/{taskId}/attachments:
+ *   post:
+ *     summary: Upload an attachment for a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200: { description: Attachment uploaded }
+ */
+exports.uploadAttachment = async (req, res) => {
+  const { taskId } = req.params;
+  try {
+    const task = await Task.findById(taskId);
+    if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
+    if (!req.files || !req.files.file) return res.status(400).json({ success: false, message: 'File is required' });
+    const file = req.files.file;
+    const cloudinary = require('cloudinary').v2;
+    const result = await cloudinary.uploader.upload(file.tempFilePath, { folder: 'task_attachments' });
+    task.attachments.push({ filename: file.name, url: result.secure_url, uploadedBy: req.user._id });
+    const updatedTask = await task.save();
+    res.status(200).json({ success: true, task: updatedTask });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to upload attachment' });
   }
 };
 

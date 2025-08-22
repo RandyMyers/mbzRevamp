@@ -68,6 +68,12 @@
  *       500: { description: Server error }
  */
 const Payment = require('../models/payment');
+const Referral = require('../models/Referral');
+const Commission = require('../models/Commission');
+const CommissionRuleSet = require('../models/CommissionRuleSet');
+const Subscription = require('../models/subscriptions');
+const SubscriptionPlan = require('../models/subscriptionPlans');
+const Affiliate = require('../models/Affiliate');
 const { v4: uuidv4 } = require('uuid');
 const cloudinary = require('cloudinary').v2;
 const PaymentGatewayKey = require('../models/paymentGatewayKey');
@@ -206,6 +212,65 @@ exports.processPayment = async (req, res) => {
       details: { ...payment.toObject() },
       organization: req.user.organization
     });
+    // === Affiliate Commission Engine (first payment conversion) ===
+    try {
+      // Resolve user and plan
+      const userId = payment.user || payment.userId || null;
+      let planId = payment.plan || payment.planId || null;
+      if (!planId && userId) {
+        const activeSub = await Subscription.findOne({ user: userId, status: 'active' }).select('plan');
+        planId = activeSub ? activeSub.plan : null;
+      }
+      const plan = planId ? await SubscriptionPlan.findById(planId) : null;
+
+      // Find referral for this user (pending)
+      const referral = userId ? await Referral.findOne({ referredUserId: userId, status: 'pending' }) : null;
+      if (referral && plan) {
+        // Determine commission percent by billing interval from active rule set
+        const rule = await CommissionRuleSet.findOne({ isActive: true });
+        let commissionPercent = 0;
+        const interval = (plan.billingInterval || '').toLowerCase();
+        if (interval === 'monthly') {
+          commissionPercent = rule?.monthlyPercent ?? 10;
+        } else if (interval === 'quarterly' || interval === 'quarterly') {
+          commissionPercent = rule?.quarterly?.firstPeriodPercent ?? 12;
+        } else if (interval === 'yearly') {
+          commissionPercent = rule?.yearly?.firstPeriodPercent ?? 15;
+        } else {
+          commissionPercent = rule?.monthlyPercent ?? 10;
+        }
+        const commissionAmount = Math.max(0, (payment.amount * commissionPercent) / 100);
+
+        // Create Commission record
+        const commission = await Commission.create({
+          affiliateId: referral.affiliateId,
+          referralId: referral._id,
+          amount: commissionAmount,
+          status: 'pending',
+          metadata: {
+            conversionValue: payment.amount,
+            commissionRate: commissionPercent,
+            currency: payment.currency
+          }
+        });
+
+        // Update referral as converted with computed commission
+        referral.status = 'converted';
+        referral.conversionValue = payment.amount;
+        referral.commission = commissionAmount;
+        referral.convertedAt = new Date();
+        await referral.save();
+
+        // Update affiliate earnings (pending)
+        const affiliate = await Affiliate.findById(referral.affiliateId);
+        if (affiliate) {
+          await affiliate.updateEarnings(commissionAmount);
+        }
+      }
+    } catch (affErr) {
+      console.warn('⚠️  Commission calculation failed:', affErr.message);
+    }
+
     return res.json({ message: 'Payment processed successfully' });
   } catch (err) {
     return res.status(500).json({ message: 'Server error', error: err.message });

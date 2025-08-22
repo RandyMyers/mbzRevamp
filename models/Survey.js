@@ -1,3 +1,5 @@
+// NOTE: This file previously had a duplicate Survey model definition added.
+// We keep the original schema below and remove the duplicate to avoid OverwriteModelError.
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 

@@ -1,6 +1,7 @@
 const SupportTicket = require('../models/support');
 const logEvent = require('../helper/logEvent');
 const mongoose = require('mongoose');
+const axios = require('axios');
 
 /**
  * @swagger
@@ -518,6 +519,88 @@ exports.addMessageToTicket = async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
     ticket.messages.push({ sender, content, readStatus: sender === 'support' ? false : true });
     ticket.hasUnreadMessages = sender === 'customer';
+    ticket.updatedAt = new Date();
+    await ticket.save();
+    res.json({ success: true, data: ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * Start a chat session with a customer (provider-agnostic placeholder)
+ * This can be wired to a provider SDK/API; for now it logs an event and appends a system message
+ */
+exports.startChatSession = async (req, res) => {
+  try {
+    const { organizationId } = req.body;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    ticket.messages.push({ sender: 'support', content: '[System] Chat session started', readStatus: false });
+    ticket.updatedAt = new Date();
+    await ticket.save();
+    res.json({ success: true, data: ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * Transfer chat session to another agent (recorded in messages for now)
+ */
+exports.transferChatSession = async (req, res) => {
+  try {
+    const { organizationId, toAgentName } = req.body;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    ticket.messages.push({ sender: 'support', content: `[System] Chat transferred to ${toAgentName}`, readStatus: false });
+    ticket.updatedAt = new Date();
+    await ticket.save();
+    res.json({ success: true, data: ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * Convert a chat session to a ticket is NOP here (already a ticket), but we log intent
+ */
+exports.convertChatToTicket = async (req, res) => {
+  try {
+    const { organizationId } = req.body;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    ticket.messages.push({ sender: 'support', content: '[System] Chat converted to ticket', readStatus: false });
+    await ticket.save();
+    res.json({ success: true, data: ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * PressOne call session stubs
+ */
+exports.startCallSession = async (req, res) => {
+  try {
+    const { organizationId } = req.body;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    ticket.messages.push({ sender: 'support', content: '[System] Call started', readStatus: false });
+    await ticket.save();
+    res.json({ success: true, data: ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+exports.endCallSession = async (req, res) => {
+  try {
+    const { organizationId, summary } = req.body;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    ticket.messages.push({ sender: 'support', content: `[System] Call ended. Summary: ${summary || ''}`, readStatus: false });
+    ticket.status = 'in-progress';
     ticket.updatedAt = new Date();
     await ticket.save();
     res.json({ success: true, data: ticket });

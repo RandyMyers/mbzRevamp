@@ -1,0 +1,145 @@
+SUPER ADMIN (NEXUS) IMPLEMENTATION PLAN – SERVER
+
+Scope & Objectives
+- Provide super admin/staff back-office capabilities (Nexus) alongside client dashboard (Storehubomale)
+- Centralize RBAC-controlled admin APIs for: user/staff management, subscriptions/billing, accounting, affiliates, HR/self-service, tasks/projects/meetings, tools (hosting/CRM/marketing), content, support, notifications, audit, and system integrations
+- Reuse existing modules where possible; add missing models/endpoints incrementally with tight audit and security
+
+Phasing (high-level)
+1) Auth/RBAC + Staff accounts + Admin aggregates
+2) Subscriptions & Plans (incl. trial) + Accounting foundation (CoA, journal, exchange rates)
+3) Affiliate mgmt (referrals, commissions, payouts, materials)
+4) HR + Self-service (attendance, requests, leave, directory, trainings, reviews, surveys, documents)
+5) Tasks/Projects/Meetings (Jitsi) + Calendar
+6) Tools mgmt (website hosting/requests, campaigns, leads, push, blog, materials)
+7) Live chat + Call sessions (PressOne)
+8) Content mgmt (KB, products/services, about, legal, newsletter)
+9) Notifications + Audit log improvements
+10) System integrations & security hardening (2FA rules, sessions, keys)
+
+Phase 1 – Auth, RBAC, Staff Accounts
+- Enforce roles: super_admin, staff, client; add granular permissions per module/action
+- Staff accounts: invite/create/update/suspend/activate/reset password; link to Employee Directory when available
+- 2FA state, password policy, active session list/termination (admin view)
+- Aggregation endpoints for admin dashboard (active users, pending tasks, support tickets, revenue, recent activities, today’s schedule)
+
+Phase 2 – Subscriptions & Plans (incl. 14-day Trial)
+- Subscription model: add isTrial, trialStart, trialEnd, trialConverted; enforce one active sub per org/user
+- Trial API: start trial, get status, convert trial; auto-compute trialEnd (+14 days); block repeated trials (hasUsedTrial flag on org/user)
+- Plan CRUD (admin): create/update/delete subscription plans (drives pricing pages); approvals for bank-transfer pending subs (with payment proof)
+- Approve/reject flows: send email; on approve -> activate subscription; on reject -> reason email
+
+Phase 2b – Accounting Foundation
+- ChartOfAccount: fixed core types (Assets, Liabilities, Equity, Revenue, Expenses) + CRUD subaccounts; protect core types
+- JournalEntry: manual + auto; double-entry validation (debits=credits); export CSV/PDF
+- ExchangeRate: daily rates CRUD; hold auto transactions as drafts until rate set; then post journal entries
+- BankAccount + BankTransaction: CRUD + exports
+- Invoicing: CRUD, share/send, delete; tie invoice payments into journal entries
+
+Phase 3 – Affiliate Management
+- Affiliates: approve/reject/activate/suspend; view KYC docs; edit
+- Referral tracking (link + manual code); cookie days config; attribution rules (last-click; code overrides cookie)
+- Commissions: rules per plan/interval (monthly 10% one-time; quarterly 12% month1 + 2% next2; yearly 15% month1 + 5% next11); compute on payment confirmation; ledger entries
+- Payout requests: pending/approved/paid; approve/reject; mark paid posts journal entries; min payout thresholds; monthly processing window
+- Links management: create/regenerate/deactivate; link analytics
+- Materials: upload/download/delete; requests approve/reject/assign/upload; resources/guides
+
+Phase 4 – HR & Self-Service
+- Employee Directory + Departments; add/import; terminate/suspend; export CSV/PDF
+- Attendance: daily check-in/out/breaks (self-service) mirrored to HR admin; manual overrides; reports
+- Time Off: leave requests (approve/reject with reason), leave balances (adjust), leave categories (accrual/carry-over); calendar; sync with self-service
+- Requests: expense/equipment/advance/adjustment with comments, status, history
+- Weekly Reports: submissions, review/feedback, reminders
+- Trainings: courses/materials, enroll/complete, certificates, analytics
+- Performance Reviews: schedule (in-person/online w/ Jitsi), feedback, acknowledgment
+- Surveys: create, publish, responses, analytics; statuses (available/completed/expired)
+- Documents: upload/assign to staff; view/download
+
+Phase 5 – Tasks, Projects, Meetings (Jitsi)
+- Projects CRUD; Tasks CRUD (list/kanban) with collaborators>1, attachments, comments, analytics; calendar overlays
+- Meetings: create/join (Jitsi), participants, edits, notifications; recurring patterns (series metadata view-only edits for creators)
+
+Phase 6 – Tools Management
+- Website hosting/requests: integrate Namecheap (domains/SSL/hosting); website requests CRUD/status; staff assignment triggers push + task assignment
+- CRM & Marketing: campaigns (emails/templates), leads (CSV import, notes), push notifications; blog (categories/posts); marketing materials collections
+
+Phase 7 – Live Chat & Call Sessions
+- Live chat: conversations (Active/Waiting/Resolved), messages, transfer between agents, priority/status, convert to ticket
+- Call sessions (PressOne): start/receive calls, log interactions; create tickets/leads from calls; tie into meeting/call scheduler if needed
+
+Phase 8 – Content & Marketing (Admin)
+- Knowledge Base/FAQs, Articles/Categories: CRUD; publish/draft/unpublish; sites selection
+- Products/Services/Contact info/About (history/values/leadership/milestones)
+- Newsletter: subscribers, campaigns, unsubscribe requests (can live under Tools)
+
+Phase 9 – Notifications & Audit Logs
+- Notifications: targeted/push/system; configuration endpoints; templates
+- Audit logs: detailed entries + related events (by IP), pagination and “view more”
+
+Phase 10 – System Integrations & Security
+- Integrations vault: store/manage API keys (Namecheap, PressOne, Jitsi, SMTP, WooCommerce/Shopify where relevant)
+- Global settings categories: feature flags, cookie days, payout thresholds, session/2FA rules
+
+Data Model Additions/Changes (summary)
+- Auth/RBAC: RolePermission (if needed), Staff metadata on User (department, status), Session model (optional)
+- Subscriptions: add trial fields; pending approval, payment proof; one active per org/user
+- Accounting: ChartOfAccount, JournalEntry, ExchangeRate, BankAccount, BankTransaction
+- HR: Department, Employee, Attendance, LeaveRequest, LeaveBalance, LeaveCategory, HRRequest (expense/equipment/advance/adjustment), WeeklyReport, Training, TrainingEnrollment, PerformanceReview, Survey, SurveyResponse, Document
+- Affiliates: AffiliateLink, Referral, CommissionRule, Commission, PayoutRequest, MarketingMaterial, AffiliateResource, MaterialRequest, AffiliateSettings
+- Tasks/Projects/Meetings: Project, Task (extend), Attachment, Meeting, RecurringPattern
+- Tools: WebsiteRequest, HostingPlan, DomainType, SslCertificate
+- Live Chat/Calls: Conversation, Message, CallSession
+- Content: Article, ArticleCategory, KnowledgeBaseItem, Product, Service, Milestone, LegalPolicy, NewsletterSubscriber, NewsletterCampaign
+- Admin: EmailSignature, IntegrationConfig, SystemSetting
+
+API Surface (groups)
+- /api/admin/analytics: dashboard aggregates (users/tasks/tickets/revenue/activities/schedule)
+- /api/admin/staff: staff accounts CRUD, status changes, invites, roles/permissions, sessions, 2FA
+- /api/plans, /api/subscriptions: plan CRUD; list/filter; approvals; trial start/status/convert; extend/upgrade/downgrade
+- /api/accounting: chart-of-accounts, journal-entries (manual/auto/drafts), exchange-rates, bank-accounts/transactions, invoices
+- /api/affiliates: affiliates, links, referrals, commissions, payouts, materials, resources, settings
+- /api/hr: employees, departments, attendance, leave-requests/balances/categories, requests, weekly-reports, trainings, reviews, surveys, documents
+- /api/tasks, /api/projects, /api/meetings: full CRUD + analytics + calendar feeds
+- /api/tools: website-requests, hosting/domains/ssl (Namecheap), campaigns, leads, push, blog, marketing-materials
+- /api/chat, /api/calls: live chat + call sessions (PressOne)
+- /api/content: knowledge-base, articles/categories, products/services, about, legal, newsletter
+- /api/notifications: templates, send/push, configurations
+- /api/audit-logs: list/view/related/paginate
+- /api/system: integrations (secrets), global settings
+
+Cross-Cutting Concerns
+- Authorization: route-level permission checks; super_admin bypass; staff scoped by role
+- Audit: logEvent for all state-changing actions with details (before/after, IP, UA)
+- Notifications/Emails: key lifecycle events (approvals, assignments, expiry notices, reminders)
+- Exports: CSV/PDF endpoints respecting filters
+- Background jobs: daily exchange-rate posting of drafts, trial expiry checker, payout processing window reminders
+- Telemetry: error/latency logging for admin endpoints
+
+Rollout & Ops
+- DB migrations per phase; seed fixed CoA core types and baseline settings
+- Backward-compatibility: version endpoints or feature-flag new modules
+- Security reviews: secrets storage, rate limiting, input validation/sanitization, file uploads (materials/docs)
+
+Acceptance Criteria (per phase)
+- Phase 1: RBAC enforced; staff CRUD; admin dashboard aggregates verifiable
+- Phase 2: Trials operable end-to-end; plan approvals with emails; accounting journals/exchange rates in place
+- Phase 3: Affiliate links/referrals tracked; commissions auto-calculated on payment; payouts posted to journals
+- Phase 4: HR/self-service flows round-trip (requests/approvals, attendance sync, leave balances, trainings, surveys)
+- Phase 5: Tasks/projects/meetings usable with calendar overlays; recurring metadata exposed
+- Phase 6: Website requests lifecycle managed; leads/campaigns/push/blog usable
+- Phase 7: Live chat/calls usable (MVP) with ticket/lead conversion
+- Phase 8: Content managed and visible on sites; newsletter operable
+- Phase 9: Notifications & audit provide full visibility; exports function
+- Phase 10: Integrations and security settings centrally managed
+
+Notes
+- Leverage existing controllers/models (users, roles, subscriptions, affiliates, emails, notifications, audit) and extend
+- Keep Swagger docs current for all admin routes; add request/response schemas
+- Prefer incremental PRs per sub-module with database migration scripts and seeders
+
+
+
+
+
+
+

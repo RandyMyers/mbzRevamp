@@ -11,6 +11,21 @@ const subscriptionSchema = new mongoose.Schema({
     ref: 'SubscriptionPlan',
     required: true,
   },
+  // Trial fields
+  isTrial: {
+    type: Boolean,
+    default: false,
+  },
+  trialStart: {
+    type: Date,
+  },
+  trialEnd: {
+    type: Date,
+  },
+  trialConverted: {
+    type: Boolean,
+    default: false,
+  },
   billingInterval: {
     type: String,
     enum: ['monthly', 'yearly'],

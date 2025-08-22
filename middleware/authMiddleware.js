@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const User = require('../models/users');
+const Role = require('../models/role');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 
 // Debug function to decode JWT token (Node-safe)
@@ -68,6 +69,7 @@ exports.protect = async (req, res, next) => {
     console.log('🔍 Database connection state:', require('mongoose').connection.readyState);
     console.log('🔍 Database name:', require('mongoose').connection.name);
     
+    // Load user without populating to avoid changing type of `role`
     const currentUser = await User.findById(userId);
     console.log('🔍 Database lookup result:', currentUser ? 'User found' : 'User not found');
     
@@ -100,6 +102,20 @@ exports.protect = async (req, res, next) => {
     // Grant access to protected route
     console.log('✅ Authentication successful - granting access');
     req.user = currentUser;
+    req.userId = currentUser._id;
+    // Normalize role name for RBAC checks without mutating `req.user.role`
+    if (typeof currentUser.role === 'string') {
+      req.userRoleName = currentUser.role;
+    } else if (currentUser.role) {
+      try {
+        const roleDoc = await Role.findById(currentUser.role).select('name');
+        req.userRoleName = roleDoc ? roleDoc.name : undefined;
+      } catch (e) {
+        req.userRoleName = undefined;
+      }
+    } else {
+      req.userRoleName = undefined;
+    }
     console.log('=== AUTH MIDDLEWARE DEBUG END ===');
     next();
   } catch (error) {
@@ -112,8 +128,13 @@ exports.protect = async (req, res, next) => {
 
 // Restrict access to certain roles
 exports.restrictTo = (...roles) => {
+  // Normalize roles: accept both 'super-admin' and 'super_admin'
+  const normalize = (r) => (r || '').toString().toLowerCase().replace(/_/g, '-');
+  const allowed = roles.map(normalize);
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const effectiveRole = req.userRoleName || req.user.role || '';
+    const normalizedUserRole = normalize(effectiveRole);
+    if (!allowed.includes(normalizedUserRole)) {
       return next(new ForbiddenError('You do not have permission to perform this action'));
     }
     next();

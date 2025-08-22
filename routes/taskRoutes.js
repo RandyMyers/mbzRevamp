@@ -31,6 +31,9 @@ router.post("/:taskId/comments", protect, taskController.addComment);
 router.patch("/:taskId/comments/:commentId", protect, taskController.updateComment);
 router.delete("/:taskId/comments/:commentId", protect, taskController.deleteComment);
 
+// Attachments
+router.post('/:taskId/attachments', protect, taskController.uploadAttachment);
+
 // User-specific tasks
 router.get("/user/:userId", protect, taskController.getTasksByUserId);
 

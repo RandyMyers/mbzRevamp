@@ -148,6 +148,8 @@
 const Payout = require('../models/Payout');
 const Affiliate = require('../models/Affiliate');
 const Commission = require('../models/Commission');
+const JournalEntry = require('../models/JournalEntry');
+const { Account } = require('../models/Account');
 const { NotFoundError, BadRequestError } = require('../utils/errors');
 
 // Get all payouts with pagination and filters
@@ -316,6 +318,31 @@ exports.completePayout = async (req, res) => {
     payout.completedAt = new Date();
     payout.paymentDetails.transactionId = transactionId;
     await payout.save();
+
+    // === Post accounting journal entry for payout ===
+    try {
+      // Resolve bank account (from paymentDetails.bankName or default payout account)
+      const bankAccount = await Account.findOne({ type: 'Assets', code: /BANK/i });
+      const affiliateCommissionExpense = await Account.findOne({ type: 'Expenses', code: /AFF_COMM/i });
+      if (bankAccount && affiliateCommissionExpense) {
+        const je = new JournalEntry({
+          date: new Date(),
+          currency: payout.metadata?.currency || 'NGN',
+          status: 'auto',
+          source: 'auto',
+          description: `Affiliate payout ${payout._id} to ${payout.affiliateId}`,
+          lines: [
+            { account: affiliateCommissionExpense._id, debit: payout.amount, credit: 0, description: 'Affiliate payout expense' },
+            { account: bankAccount._id, debit: 0, credit: payout.amount, description: 'Cash/Bank' }
+          ]
+        });
+        if (je.validateBalance()) {
+          await je.save();
+        }
+      }
+    } catch (jeErr) {
+      console.warn('⚠️  Failed to post payout journal entry:', jeErr.message);
+    }
 
     res.json(payout);
   } catch (error) {

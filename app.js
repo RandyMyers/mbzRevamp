@@ -81,6 +81,8 @@ const wooCommerceReportsRoutes = require('./routes/wooCommerceReportsRoutes');
 //const exportRoutes = require('./routes/exportRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const auditLogRoutes = require('./routes/auditLogRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+console.log('Loaded adminRoutes type:', typeof adminRoutes);
 const notificationRoutes = require('./routes/notificationRoutes');
 const notificationTemplateRoutes = require('./routes/notificationTemplateRoutes');
 const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes');
@@ -98,6 +100,7 @@ const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
 
 // New Shipping Label routes
 const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
+const { errorHandler } = require('./utils/errors');
 
 dotenv.config();
 
@@ -234,6 +237,7 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/notification-templates', notificationTemplateRoutes);
 app.use('/api/notification-settings', notificationSettingsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // New InvoicesAndReceipts & Feedback routes
 app.use('/api/invoices', invoiceRoutes);
@@ -262,3 +266,6 @@ const PORT = process.env.PORT || 8800;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+// Global error handler (must be after routes)
+app.use(errorHandler);

@@ -78,6 +78,10 @@ const OrganizationSchema = new Schema({
     }
   },
   subscriptions: [{ type: Schema.Types.ObjectId, ref: 'Subscription' }], // Link subscriptions
+  hasUsedTrial: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

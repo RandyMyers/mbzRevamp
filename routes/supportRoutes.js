@@ -10,6 +10,11 @@ router.get('/', supportControllers.getTickets);
 router.get('/:id', supportControllers.getTicketById);
 router.put('/:id', supportControllers.updateTicket);
 router.post('/:id/message', supportControllers.addMessageToTicket);
+router.post('/:id/chat/start', supportControllers.startChatSession);
+router.post('/:id/chat/transfer', supportControllers.transferChatSession);
+router.post('/:id/chat/convert', supportControllers.convertChatToTicket);
+router.post('/:id/call/start', supportControllers.startCallSession);
+router.post('/:id/call/end', supportControllers.endCallSession);
 router.patch('/:id/status', supportControllers.changeTicketStatus);
 router.delete('/:id', supportControllers.deleteTicket);
 
