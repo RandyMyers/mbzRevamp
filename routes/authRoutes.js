@@ -2,17 +2,29 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authControllers");
 
-// Register user (with organization)
+// ========================================
+// GENERAL USER ENDPOINTS (for storehubomale)
+// ========================================
+
+// Register user (creates organization and user)
 router.post('/register', authController.registerUser);
 
-// Login user (with organization code)
+// Login user (for organization users)
 router.post("/login", authController.loginUser);
+
+// ========================================
+// SUPER ADMIN ENDPOINTS (separate system)
+// ========================================
 
 // Register Super Admin
 router.post('/super-admin/register', authController.registerSuperAdmin);
 
 // Login Super Admin
-router.post('/super/admin/login', authController.loginSuperAdmin);
+router.post('/super-admin/login', authController.loginSuperAdmin);
+
+// ========================================
+// PASSWORD CHANGE ENDPOINTS
+// ========================================
 
 // Change password for a regular user (with organizationId)
 router.post('/change/password', authController.changePassword);

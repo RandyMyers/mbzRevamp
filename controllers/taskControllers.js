@@ -1,7 +1,8 @@
 const Task = require("../models/task");
 const User = require("../models/users");
 const Organization = require("../models/organization");
-const logEvent = require('../helper/logEvent');
+const { createAuditLog } = require('../helpers/auditLogHelper');
+const { handleFileUpload, deleteFile, getFileInfo } = require('../utils/attachmentHelper');
 
 /**
  * @swagger
@@ -70,6 +71,7 @@ const logEvent = require('../helper/logEvent');
  *                 example: ["urgent", "frontend"]
  *               subtasks:
  *                 type: array
+ *                 description: Optional array of subtasks (can be added later via separate endpoints)
  *                 items:
  *                   type: object
  *                   required:
@@ -78,6 +80,7 @@ const logEvent = require('../helper/logEvent');
  *                     title:
  *                       type: string
  *                       description: Subtask title
+ *                       example: "Install Node.js"
  *                     status:
  *                       type: string
  *                       enum: [pending, completed]
@@ -86,7 +89,8 @@ const logEvent = require('../helper/logEvent');
  *                     createdBy:
  *                       type: string
  *                       format: ObjectId
- *                       description: User ID who created the subtask (optional; defaults to authenticated user)
+ *                       description: User ID who created the subtask (optional; defaults to authenticated user if not provided or invalid)
+ *                       example: "507f1f77bcf86cd799439011"
  *     responses:
  *       201:
  *         description: Task created successfully
@@ -152,15 +156,34 @@ exports.createTask = async (req, res) => {
   console.log(req.user);
 
   try {
-    // ✅ VALIDATION 1: Check required fields
+    // ✅ VALIDATION 1: Check user authentication
+    if (!req.user || !req.user._id) {
+      console.log('❌ User not authenticated');
+      return res.status(401).json({ 
+        success: false, 
+        message: "User not authenticated" 
+      });
+    }
+
+    // ✅ VALIDATION 2: Check required fields
     if (!title || !description || !organizationId) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({ 
         success: false, 
         message: "Title, description, and organizationId are required" 
       });
     }
 
-    // ✅ VALIDATION 2: Handle assignedTo properly
+    // ✅ VALIDATION 3: Validate organization access
+    if (req.user.organizationId && req.user.organizationId.toString() !== organizationId) {
+      console.log('❌ User cannot create tasks for other organizations');
+      return res.status(403).json({ 
+        success: false, 
+        message: "You can only create tasks for your own organization" 
+      });
+    }
+
+    // ✅ VALIDATION 4: Handle assignedTo properly
     let validatedAssignedTo = [];
     if (assignedTo) {
       // Convert to array if single user ID is sent
@@ -173,6 +196,7 @@ exports.createTask = async (req, res) => {
         // Validate assigned users
         const users = await User.find({ _id: { $in: validUserIds } });
         if (users.length !== validUserIds.length) {
+          console.log('❌ Some assigned users not found');
           return res.status(404).json({ 
             success: false, 
             message: "One or more assigned users not found" 
@@ -182,16 +206,17 @@ exports.createTask = async (req, res) => {
       }
     }
 
-    // ✅ VALIDATION 3: Validate organization
+    // ✅ VALIDATION 5: Validate organization
     const org = await Organization.findById(organizationId);
     if (!org) {
+      console.log('❌ Organization not found');
       return res.status(404).json({ 
         success: false, 
         message: "Organization not found" 
       });
     }
 
-    // ✅ VALIDATION 4: Validate subtask assignees if provided
+    // ✅ VALIDATION 6: Validate subtask assignees if provided
     if (subtasks && Array.isArray(subtasks) && subtasks.length > 0) {
       const subtaskUserIds = subtasks
         .map(s => s.assignedTo)
@@ -201,6 +226,7 @@ exports.createTask = async (req, res) => {
       if (subtaskUserIds.length > 0) {
         const subtaskUsers = await User.find({ _id: { $in: subtaskUserIds } });
         if (subtaskUsers.length !== subtaskUserIds.length) {
+          console.log('❌ Some subtask assignees not found');
           return res.status(404).json({ 
             success: false, 
             message: "One or more subtask assignees not found" 
@@ -217,7 +243,8 @@ exports.createTask = async (req, res) => {
         .map(s => ({
           title: s.title.trim(),
           status: s.status === 'completed' ? 'completed' : 'pending',
-          createdBy: s.createdBy || (req.user && req.user._id)
+          // Only use createdBy if it's a valid ObjectId, otherwise default to authenticated user
+          createdBy: (s.createdBy && /^[0-9a-fA-F]{24}$/.test(s.createdBy)) ? s.createdBy : (req.user && req.user._id)
         }));
     }
 
@@ -238,7 +265,7 @@ exports.createTask = async (req, res) => {
     const savedTask = await newTask.save();
     
     // ✅ LOG EVENT
-    await logEvent({
+    await createAuditLog({
       action: 'create_task',
       user: req.user._id,
       resource: 'Task',
@@ -263,23 +290,36 @@ exports.createTask = async (req, res) => {
     
     // ✅ BETTER ERROR HANDLING
     if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(e => e.message);
+      console.log('❌ Validation errors:', validationErrors);
       return res.status(400).json({ 
         success: false, 
-        message: "Validation error: " + Object.values(error.errors).map(e => e.message).join(', ')
+        message: "Validation error: " + validationErrors.join(', ')
       });
     }
     
     if (error.code === 11000) {
+      console.log('❌ Duplicate key error:', error.message);
       return res.status(400).json({ 
         success: false, 
         message: "Task with this title already exists" 
       });
     }
     
+    if (error.name === 'CastError') {
+      console.log('❌ Cast error:', error.message);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid data format provided" 
+      });
+    }
+    
+    // For other errors, provide the actual error message
     res.status(500).json({ 
       success: false, 
       message: "Failed to create task",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -583,7 +623,7 @@ exports.updateTask = async (req, res) => {
     });
 
     const updatedTask = await task.save();
-    await logEvent({
+    await createAuditLog({
       action: 'update_task',
       user: req.user._id,
       resource: 'Task',
@@ -604,41 +644,206 @@ exports.updateTask = async (req, res) => {
  *   post:
  *     summary: Upload an attachment for a task
  *     tags: [Tasks]
+ *     description: |
+ *       Upload an attachment to a task using our hybrid storage system.
+ *       - **Images** (jpg, png, gif, etc.) → Uploaded to Cloudinary for optimization
+ *       - **Documents** (pdf, docx, csv, etc.) → Stored locally for cost-effectiveness
+ *       - **Archives** (zip, rar, etc.) → Stored locally
+ *       - **Media** (mp3, mp4, etc.) → Stored locally
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: taskId
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: ID of the task to attach file to
+ *         example: "507f1f77bcf86cd799439011"
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [file]
+ *             required:
+ *               - file
  *             properties:
  *               file:
  *                 type: string
  *                 format: binary
+ *                 description: |
+ *                   File to upload. Supported formats:
+ *                   - **Images**: jpg, jpeg, png, gif, webp, svg, bmp, tiff (max 5MB)
+ *                   - **Documents**: pdf, doc, docx, xls, xlsx, ppt, pptx, txt, csv, rtf (max 10MB)
+ *                   - **Archives**: zip, rar, 7z, tar, gz (max 50MB)
+ *                   - **Media**: mp3, mp4, avi, mov, wmv, flv, mkv (max 100MB)
  *     responses:
- *       200: { description: Attachment uploaded }
+ *       200:
+ *         description: Attachment uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Attachment uploaded successfully"
+ *                 attachment:
+ *                   type: object
+ *                   properties:
+ *                     filename:
+ *                       type: string
+ *                       example: "document.pdf"
+ *                     url:
+ *                       type: string
+ *                       example: "/uploads/tasks/1234567890_abc123.pdf"
+ *                     storageType:
+ *                       type: string
+ *                       enum: [cloudinary, local]
+ *                       example: "local"
+ *                     size:
+ *                       type: number
+ *                       example: 2048576
+ *                     category:
+ *                       type: string
+ *                       enum: [IMAGES, DOCUMENTS, ARCHIVES, MEDIA, UNKNOWN]
+ *                       example: "DOCUMENTS"
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Bad request - File missing or upload failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "File is required"
+ *                 error:
+ *                   type: string
+ *                   example: "File size exceeds maximum allowed size of 10MB for documents"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Task not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to upload attachment"
+ *                 error:
+ *                   type: string
+ *                   example: "Database connection failed"
  */
 exports.uploadAttachment = async (req, res) => {
   const { taskId } = req.params;
+  
   try {
+    // Validate task exists
     const task = await Task.findById(taskId);
-    if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
-    if (!req.files || !req.files.file) return res.status(400).json({ success: false, message: 'File is required' });
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    
+    // Validate file exists
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ success: false, message: 'File is required' });
+    }
+    
     const file = req.files.file;
-    const cloudinary = require('cloudinary').v2;
-    const result = await cloudinary.uploader.upload(file.tempFilePath, { folder: 'task_attachments' });
-    task.attachments.push({ filename: file.name, url: result.secure_url, uploadedBy: req.user._id });
+    
+    // Handle file upload using hybrid system
+    const uploadResult = await handleFileUpload(file, 'task_attachments');
+    
+    if (!uploadResult.success) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'File upload failed', 
+        error: uploadResult.error 
+      });
+    }
+    
+    // Get file info for database
+    const fileInfo = getFileInfo(uploadResult);
+    
+    // Add attachment to task
+    task.attachments.push({
+      filename: fileInfo.filename,
+      url: fileInfo.url,
+      storageType: fileInfo.storageType,
+      publicId: fileInfo.publicId,
+      path: fileInfo.path,
+      format: fileInfo.format,
+      size: fileInfo.size,
+      category: fileInfo.category,
+      uploadedBy: req.user._id
+    });
+    
     const updatedTask = await task.save();
-    res.status(200).json({ success: true, task: updatedTask });
+    
+    // Log the attachment upload
+    await createAuditLog({
+      action: 'upload_attachment',
+      user: req.user._id,
+      resource: 'Task',
+      resourceId: task._id,
+      details: {
+        filename: fileInfo.filename,
+        storageType: fileInfo.storageType,
+        size: fileInfo.size,
+        category: fileInfo.category
+      },
+      organization: req.user.organization
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Attachment uploaded successfully',
+      attachment: {
+        filename: fileInfo.filename,
+        url: fileInfo.url,
+        storageType: fileInfo.storageType,
+        size: fileInfo.size,
+        category: fileInfo.category
+      },
+      task: updatedTask 
+    });
+    
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to upload attachment' });
+    console.error('Attachment upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to upload attachment',
+      error: error.message 
+    });
   }
 };
 
@@ -1141,7 +1346,7 @@ exports.updateTaskStatus = async (req, res) => {
     const updatedTask = await task.save();
     
     // Log the status change
-    await logEvent({
+    await createAuditLog({
       action: 'update_task_status',
       user: req.user._id,
       resource: 'Task',
@@ -1235,7 +1440,7 @@ exports.deleteTask = async (req, res) => {
     await Task.findByIdAndDelete(taskId);
     
     // Log the task deletion
-    await logEvent({
+    await createAuditLog({
       action: 'delete_task',
       user: req.user._id,
       resource: 'Task',
@@ -1392,7 +1597,7 @@ exports.addComment = async (req, res) => {
     const updatedTask = await task.save();
 
     // Log the comment addition
-    await logEvent({
+    await createAuditLog({
       action: 'add_task_comment',
       user: userId,
       resource: 'Task',
@@ -1554,7 +1759,7 @@ exports.updateComment = async (req, res) => {
     const updatedTask = await task.save();
 
     // Log the comment update
-    await logEvent({
+    await createAuditLog({
       action: 'update_task_comment',
       user: userId,
       resource: 'Task',
@@ -1678,7 +1883,7 @@ exports.deleteComment = async (req, res) => {
     const updatedTask = await task.save();
 
     // Log the comment deletion
-    await logEvent({
+    await createAuditLog({
       action: 'delete_task_comment',
       user: userId,
       resource: 'Task',
@@ -1930,7 +2135,7 @@ exports.updateTaskAssignments = async (req, res) => {
 
     const updatedTask = await task.save();
     
-    await logEvent({
+    await createAuditLog({
       action: 'update_task_assignments',
       user: req.user._id,
       resource: 'Task',

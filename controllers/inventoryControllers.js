@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 const { Worker } = require('worker_threads');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
-const logEvent = require('../helper/logEvent');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
 const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
@@ -739,6 +738,29 @@ exports.createProduct = async (req, res) => {
     console.log('🚀 CREATE PRODUCT - Starting product creation process');
     console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
     
+    // ✅ VALIDATION 1: Check user authentication
+    if (!req.user || !req.user._id) {
+      console.log('❌ User not authenticated');
+      return res.status(401).json({ 
+        success: false, 
+        message: "User not authenticated" 
+      });
+    }
+    
+    // ✅ VALIDATION 2: Check required fields
+    const requiredFields = ['sku', 'name', 'status', 'slug', 'type', 'storeId', 'userId', 'organizationId'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      console.log('❌ Missing required fields:', missingFields);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields 
+      });
+    }
+    console.log('✅ All required fields present');
+
     const {
       product_Id,  // Optional - will be set after WooCommerce sync
       sku,         // Required
@@ -805,22 +827,8 @@ exports.createProduct = async (req, res) => {
 
     console.log('images received from front',req.files);
 
-    console.log('🔍 Validating required fields...');
-    // Validate required fields (removed product_Id and permalink from required fields)
-    const requiredFields = ['sku', 'name', 'status', 'slug', 'type', 'storeId', 'userId', 'organizationId'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    
-    if (missingFields.length > 0) {
-      console.log('❌ Missing required fields:', missingFields);
-      return res.status(400).json({ 
-        success: false, 
-        message: `Missing required fields: ${missingFields.join(', ')}` 
-      });
-    }
-    console.log('✅ All required fields present');
-
+    // ✅ VALIDATION 3: Validate store exists
     console.log('🏪 Fetching store information...');
-    // Fetch store to get URL for permalink generation
     const store = await Store.findById(storeId);
     if (!store) {
       console.log('❌ Store not found for ID:', storeId);
@@ -830,6 +838,47 @@ exports.createProduct = async (req, res) => {
       });
     }
     console.log('✅ Store found:', store.name, 'URL:', store.url);
+
+    // ✅ VALIDATION 4: Check for duplicate SKU
+    const existingProduct = await Inventory.findOne({ 
+      sku: sku, 
+      storeId: storeId,
+      organizationId: organizationId 
+    });
+    
+    if (existingProduct) {
+      console.log('❌ Product with SKU already exists:', sku);
+      return res.status(400).json({
+        success: false,
+        message: `Product with SKU '${sku}' already exists in this store`
+      });
+    }
+
+    console.log('🔍 Validating required fields...');
+    // Validate required fields (removed product_Id and permalink from required fields)
+    // const requiredFields = ['sku', 'name', 'status', 'slug', 'type', 'storeId', 'userId', 'organizationId'];
+    // const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    // if (missingFields.length > 0) {
+    //   console.log('❌ Missing required fields:', missingFields);
+    //   return res.status(400).json({ 
+    //     success: false, 
+    //     message: `Missing required fields: ${missingFields.join(', ')}` 
+    //   });
+    // }
+    // console.log('✅ All required fields present');
+
+    // Store information already fetched above, no need to fetch again
+    console.log('🏪 Using store information for permalink generation...');
+    // const store = await Store.findById(storeId); // Remove duplicate - store already fetched above
+    // if (!store) {
+    //   console.log('❌ Store not found for ID:', storeId);
+    //   return res.status(404).json({ 
+    //     success: false, 
+    //     message: 'Store not found' 
+    //   });
+    // }
+    // console.log('✅ Store found:', store.name, 'URL:', store.url);
 
     // Auto-generate permalink using store URL and product slug
     const generatedPermalink = `${store.url}/product/${slug}/`;
@@ -1035,18 +1084,19 @@ exports.createProduct = async (req, res) => {
     console.log('💾 PHASE 1: Creating product in local database...');
     
     // Check for existing product with same SKU in the same store
-    const existingProduct = await Inventory.findOne({ 
-      sku: sku, 
-      storeId: storeId,
-      organizationId: organizationId 
-    });
+    // This check is already done above in VALIDATION 4, no need to repeat
+    // const existingProduct = await Inventory.findOne({ 
+    //   sku: sku, 
+    //   storeId: storeId,
+    //   organizationId: organizationId 
+    // });
     
-    if (existingProduct) {
-      return res.status(400).json({
-        success: false,
-        message: `Product with SKU '${sku}' already exists in this store`
-      });
-    }
+    // if (existingProduct) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: `Product with SKU '${sku}' already exists in this store`
+    //   });
+    // }
     
     const newProduct = new Inventory({
       product_Id: product_Id ? Number(product_Id) : null, // Optional now
@@ -1241,7 +1291,7 @@ exports.createProduct = async (req, res) => {
 
     // Log the event
     console.log('📝 Logging event...');
-    await logEvent({
+    await createAuditLog({
       action: 'create_inventory_product',
       user: userId,
       resource: 'Inventory',
@@ -1288,10 +1338,40 @@ exports.createProduct = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error creating product:', error);
+    
+    // ✅ BETTER ERROR HANDLING
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(e => e.message);
+      console.log('❌ Validation errors:', validationErrors);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation error", 
+        details: validationErrors 
+      });
+    }
+    
+    if (error.code === 11000) {
+      console.log('❌ Duplicate key error:', error.message);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Product with this SKU already exists" 
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      console.log('❌ Cast error:', error.message);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid data format provided" 
+      });
+    }
+    
+    // For other errors, provide the actual error message
     res.status(500).json({ 
       success: false, 
       message: "Failed to create product",
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -2172,7 +2252,7 @@ exports.updateProduct = async (req, res) => {
     });
 
     // Log the event
-    await logEvent({
+    await createAuditLog({
       action: 'update_inventory_product',
       user: req.user?._id || existingProduct.userId,
       resource: 'Inventory',
@@ -2426,7 +2506,7 @@ exports.deleteProduct = async (req, res) => {
     }
 
     // Log the product deletion
-    await logEvent({
+    await createAuditLog({
       action: 'delete_product',
       user: userId,
       resource: 'Product',
@@ -3350,7 +3430,7 @@ exports.syncProductToWooCommerce = async (req, res) => {
       );
 
       // Log the event
-      await logEvent({
+      await createAuditLog({
         action: 'sync_product_to_woocommerce',
         user: req.user?._id || product.userId,
         resource: 'Inventory',

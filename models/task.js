@@ -14,7 +14,7 @@ const subtaskSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false  // Make it optional since it will be defaulted
   }
 }, { timestamps: true });
 
@@ -74,6 +74,12 @@ const taskSchema = new mongoose.Schema(
       {
         filename: { type: String, required: true },
         url: { type: String, required: true },
+        storageType: { type: String, enum: ['cloudinary', 'local'], required: true },
+        publicId: { type: String }, // For Cloudinary files
+        path: { type: String }, // For local files
+        format: { type: String }, // File format/extension
+        size: { type: Number }, // File size in bytes
+        category: { type: String, enum: ['IMAGES', 'DOCUMENTS', 'ARCHIVES', 'MEDIA', 'UNKNOWN'] },
         uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         uploadedAt: { type: Date, default: Date.now }
       }
@@ -98,10 +104,15 @@ taskSchema.pre('save', function(next) {
   if (this.subtasks && this.subtasks.length > 0) {
     const completedSubtasks = this.subtasks.filter(
       subtask => subtask.status === 'completed'
-    ).length;
-    this.progress = Math.round((completedSubtasks / this.subtasks.length) * 100);
-  } else {
-    this.progress = 0;
+    );
+    this.progress = Math.round((completedSubtasks.length / this.subtasks.length) * 100);
+    
+    // Ensure all subtasks have a createdBy field
+    this.subtasks.forEach(subtask => {
+      if (!subtask.createdBy) {
+        subtask.createdBy = this.createdBy;
+      }
+    });
   }
   next();
 });

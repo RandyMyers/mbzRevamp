@@ -1,9 +1,10 @@
+const User = require("../models/users");
+const Role = require("../models/role");
+const Organization = require("../models/organization");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
-const User = require("../models/users");
-const Organization = require("../models/organization");
-const Role = require("../models/role");
+const nodemailer = require("nodemailer"); // Add missing nodemailer import
+// Use the correct auditLogHelper import
 const { createAuditLog, logSecurityEvent } = require("../helpers/auditLogHelper");
 
 // SMTP Configuration for system emails
@@ -401,89 +402,7 @@ exports.registerOrganizationUser = async (req, res) => {
   }
 };
 
-/**
- * @swagger
- * /api/auth/login/organization:
- *   post:
- *     summary: Login as Organization User
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: User's email address
- *                 example: "user@example.com"
- *               password:
- *                 type: string
- *                 description: User's password
- *                 example: "password123"
- *     responses:
- *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Login successful"
- *                 token:
- *                   type: string
- *                   description: JWT token for authentication
- *                 userId:
- *                   type: string
- *                   format: ObjectId
- *                 username:
- *                   type: string
- *                 email:
- *                   type: string
- *                 role:
- *                   type: string
- *                   example: "admin"
- *                 organizationId:
- *                   type: string
- *                   format: ObjectId
- *                 organization:
- *                   type: string
- *                   example: "My Business"
- *                 organizationCode:
- *                   type: string
- *                   example: "MBZ001"
- *                 profilePicture:
- *                   type: string
- *                 status:
- *                   type: string
- *                   example: "active"
- *       400:
- *         description: Invalid credentials or user not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "User not found"
- *       500:
- *         description: Server error
- */
-// Login Organization User
+// Login Organization User function (used internally by loginUser)
 exports.loginOrganizationUser = async (req, res) => {
   const { email, password } = req.body;
   console.log('Organization User Login:', req.body);
@@ -548,10 +467,12 @@ exports.loginOrganizationUser = async (req, res) => {
     );
 
     // ✅ AUDIT LOG: Successful Login
-    await logSecurityEvent(
-      'User Login',
-      user._id,
-      {
+    await createAuditLog({
+      action: 'User Login',
+      user: user._id,
+      resource: 'user',
+      resourceId: user._id,
+      details: {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
@@ -560,9 +481,9 @@ exports.loginOrganizationUser = async (req, res) => {
         userAgent: req.headers['user-agent'],
         loginMethod: 'email'
       },
-      organization._id,
-      'info'
-    );
+      organization: organization._id,
+      severity: 'info'
+    });
 
     res.status(200).json({
       success: true,
@@ -840,8 +761,432 @@ exports.changePasswordSuperAdmin = async (req, res) => {
 };
 
 // ========================================
-// LEGACY SUPPORT (for backward compatibility)
+// GENERAL USER AUTHENTICATION (for storehubomale)
 // ========================================
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user and create organization
+ *     tags: [Authentication]
+ *     description: Creates a new user account along with their organization. This is the main endpoint for storehubomale users.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *               - companyName
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 description: User's first name
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 description: User's last name
+ *                 example: "Doe"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email address
+ *                 example: "john.doe@example.com"
+ *               password:
+ *                 type: string
+ *                 description: User's password (min 8 characters)
+ *                 example: "TestPassword123!"
+ *               companyName:
+ *                 type: string
+ *                 description: Name of the organization/company
+ *                 example: "Test Company"
+ *               referralCode:
+ *                 type: string
+ *                 description: Optional referral code
+ *                 example: "REF123"
+ *     responses:
+ *       201:
+ *         description: User and organization created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique user ID
+ *                 username:
+ *                   type: string
+ *                   description: User's full name
+ *                   example: "John Doe"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: "john.doe@example.com"
+ *                 role:
+ *                   type: string
+ *                   description: User's role in the organization
+ *                   example: "admin"
+ *                 organization:
+ *                   type: string
+ *                   description: Organization name
+ *                   example: "Test Company"
+ *                 organizationId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique organization ID
+ *                 organizationCode:
+ *                   type: string
+ *                   description: Unique organization code for login
+ *                   example: "testcompany1234567"
+ *       400:
+ *         description: Validation error or user/organization already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User with this email already exists"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error: Database connection failed"
+ */
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login as an organization user
+ *     tags: [Authentication]
+ *     description: Authenticates a user and returns a JWT token. This is the main login endpoint for storehubomale users.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email address
+ *                 example: "john.doe@example.com"
+ *               password:
+ *                 type: string
+ *                 description: User's password
+ *                 example: "TestPassword123!"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique user ID
+ *                 username:
+ *                   type: string
+ *                   description: User's full name
+ *                   example: "John Doe"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: "john.doe@example.com"
+ *                 role:
+ *                   type: string
+ *                   description: User's role in the organization
+ *                   example: "admin"
+ *                 organizationId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique organization ID
+ *                 organization:
+ *                   type: string
+ *                   description: Organization name
+ *                   example: "Test Company"
+ *                 organizationCode:
+ *                   type: string
+ *                   description: Organization code
+ *                   example: "testcompany1234567"
+ *                 profilePicture:
+ *                   type: string
+ *                   description: URL to user's profile picture
+ *                   nullable: true
+ *                 status:
+ *                   type: string
+ *                   description: User account status
+ *                   example: "active"
+ *       400:
+ *         description: Invalid credentials or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
+
+/**
+ * @swagger
+ * /api/auth/change/password:
+ *   post:
+ *     summary: Change password for organization user
+ *     tags: [Authentication]
+ *     description: Allows an organization user to change their password. Requires authentication and organization membership.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - organizationId
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID of the user changing password
+ *                 example: "64f1a2b3c4d5e6f7g8h9i0j3"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID of the user's organization
+ *                 example: "64f1a2b3c4d5e6f7g8h9i0j2"
+ *               currentPassword:
+ *                 type: string
+ *                 description: User's current password
+ *                 example: "OldPassword123!"
+ *               newPassword:
+ *                 type: string
+ *                 description: New password (min 8 characters)
+ *                 example: "NewPassword123!"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password updated successfully"
+ *       400:
+ *         description: Incorrect current password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Incorrect current password"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: User or organization not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found in this organization"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
+
+/**
+ * @swagger
+ * /api/auth/super-admin/change/password:
+ *   post:
+ *     summary: Change password for super admin
+ *     tags: [Authentication]
+ *     description: Allows a super admin to change their own password or another super admin's password. Requires super admin authentication.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: ID of the super admin user changing password
+ *                 example: "64f1a2b3c4d5e6f7g8h9i0j3"
+ *               currentPassword:
+ *                 type: string
+ *                 description: User's current password (required if changing own password)
+ *                 example: "OldPassword123!"
+ *               newPassword:
+ *                 type: string
+ *                 description: New password (min 8 characters)
+ *                 example: "NewPassword123!"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Super Admin password updated successfully"
+ *       400:
+ *         description: Incorrect current password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Incorrect current password"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a super admin
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
 
 // Simple register user function for testing
 exports.registerUser = async (req, res) => {

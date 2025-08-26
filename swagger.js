@@ -106,6 +106,103 @@ const options = {
               default: 0,
               description: 'Task progress percentage'
             },
+            attachments: {
+              type: 'array',
+              description: 'Array of task attachments',
+              items: {
+                type: 'object',
+                properties: {
+                  _id: {
+                    type: 'string',
+                    format: 'ObjectId',
+                    description: 'Attachment ID'
+                  },
+                  filename: {
+                    type: 'string',
+                    description: 'Original filename',
+                    example: 'document.pdf'
+                  },
+                  url: {
+                    type: 'string',
+                    description: 'File URL or path',
+                    example: '/uploads/tasks/1234567890_abc123.pdf'
+                  },
+                  storageType: {
+                    type: 'string',
+                    enum: ['cloudinary', 'local'],
+                    description: 'Storage location type'
+                  },
+                  publicId: {
+                    type: 'string',
+                    description: 'Cloudinary public ID (for cloudinary storage)'
+                  },
+                  path: {
+                    type: 'string',
+                    description: 'Local file path (for local storage)'
+                  },
+                  format: {
+                    type: 'string',
+                    description: 'File format/extension',
+                    example: 'pdf'
+                  },
+                  size: {
+                    type: 'number',
+                    description: 'File size in bytes',
+                    example: 2048576
+                  },
+                  category: {
+                    type: 'string',
+                    enum: ['IMAGES', 'DOCUMENTS', 'ARCHIVES', 'MEDIA', 'UNKNOWN'],
+                    description: 'File category'
+                  },
+                  uploadedBy: {
+                    type: 'string',
+                    format: 'ObjectId',
+                    description: 'User ID who uploaded the file'
+                  },
+                  uploadedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    description: 'Upload timestamp'
+                  }
+                }
+              }
+            },
+            subtasks: {
+              type: 'array',
+              description: 'Array of subtasks',
+              items: {
+                type: 'object',
+                properties: {
+                  _id: {
+                    type: 'string',
+                    format: 'ObjectId'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Subtask title'
+                  },
+                  status: {
+                    type: 'string',
+                    enum: ['pending', 'completed'],
+                    default: 'pending'
+                  },
+                  createdBy: {
+                    type: 'string',
+                    format: 'ObjectId',
+                    description: 'User ID who created the subtask'
+                  },
+                  createdAt: {
+                    type: 'string',
+                    format: 'date-time'
+                  },
+                  updatedAt: {
+                    type: 'string',
+                    format: 'date-time'
+                  }
+                }
+              }
+            },
             createdAt: {
               type: 'string',
               format: 'date-time'

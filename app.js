@@ -100,7 +100,6 @@ const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
 
 // New Shipping Label routes
 const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
-const { errorHandler } = require('./utils/errors');
 
 dotenv.config();
 
@@ -142,6 +141,9 @@ app.use(
     limits: { fileSize: 10 * 1024 * 1024 }
   })
 );
+
+// Serve local uploads for hybrid attachment system
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
@@ -267,5 +269,5 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// Global error handler (must be after routes)
-app.use(errorHandler);
+// Remove the global error handler - let each controller handle its own errors
+// app.use(errorHandler);
