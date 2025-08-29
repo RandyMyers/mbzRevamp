@@ -23,9 +23,13 @@ const UserSchema = new Schema({
       required: true,
     },
     role: {
+      type: String
+    },
+    roleId: {
       type: Schema.Types.ObjectId,
       ref: 'Role',
       required: false,
+      description: 'Role ID for the new role system (maintains backward compatibility with string role field)'
     },
     groups: [{
       type: Schema.Types.ObjectId,

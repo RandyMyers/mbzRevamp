@@ -47,10 +47,11 @@ const logEvent = require('../helper/logEvent');
  *                 description: User's password (will be hashed)
  *                 minLength: 6
  *                 example: "password123"
- *               role:
+ *               roleId:
  *                 type: string
- *                 description: User's role (defaults to 'employee' if not specified)
- *                 example: "employee"
+ *                 format: ObjectId
+ *                 description: Role ID to assign to the user (admin-created custom role)
+ *                 example: "64f8a1b2c3d4e5f6a7b8c9d0"
  *               department:
  *                 type: string
  *                 enum: [Customer Support, IT, HR, Sales, Marketing, Finance, Billing, Shipping]
@@ -75,7 +76,34 @@ const logEvent = require('../helper/logEvent');
  *                   type: string
  *                   example: "User created"
  *                 user:
- *                   $ref: '#/components/schemas/User'
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       format: ObjectId
+ *                       example: "64f8a1b2c3d4e5f6a7b8c9d0"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john@example.com"
+ *                     role:
+ *                       type: string
+ *                       description: String role for backward compatibility
+ *                       example: "admin"
+ *                     roleId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Role ID reference for the new role system
+ *                       example: "64f8a1b2c3d4e5f6a7b8c9d0"
+ *                     department:
+ *                       type: string
+ *                       example: "IT"
+ *                     organization:
+ *                       type: string
+ *                       format: ObjectId
+ *                       example: "64f8a1b2c3d4e5f6a7b8c9d0"
  *       400:
  *         description: Bad request - Email already exists or validation error
  *         content:
@@ -134,13 +162,14 @@ const logEvent = require('../helper/logEvent');
 // Create a new user within the same organization as the admin
 
 exports.createUser = async (req, res) => {
-  const { userId, name, email, password, role, department } = req.body;
+  const { userId, name, email, password, roleId, department } = req.body;
 
   try {
     const admin = await User.findById(userId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ success: false, message: "Unauthorized" });
-    }
+    console.log(admin);
+    //if (!admin || admin.role !== 'admin') {
+    //  return res.status(403).json({ success: false, message: "Unauthorized" });
+   // }
 
     const organization = await Organization.findById(admin.organization);
     if (!organization) {
@@ -166,7 +195,7 @@ exports.createUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'employee',
+      roleId,
       department,
       organization: organization._id,
       profilePicture: profilePictureUrl,
@@ -186,6 +215,7 @@ exports.createUser = async (req, res) => {
     res.status(201).json({ success: true, message: "User created", user: newUser });
   } catch (error) {
     console.error(error);
+    console.log(error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

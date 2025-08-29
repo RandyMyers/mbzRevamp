@@ -4,7 +4,7 @@ const userController = require('../controllers/userControllers');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 // Protect all routes with authentication
-//router.use(authMiddleware.authenticateUser);
+//router.use(authMiddleware.protect);
 
 // Admin and super-admin routes
 router.post('/create', userController.createUser);
@@ -39,5 +39,8 @@ router.delete('/:userId/avatar', userController.removeProfilePicture);
 // Session management routes
 router.get('/:userId/sessions', userController.getUserSessions);
 router.delete('/:userId/sessions/:sessionId', userController.terminateSession);
+
+// Update user role route (no protect middleware as requested)
+//router.patch('/:userId/role', userController.updateUserRole);
 
 module.exports = router;

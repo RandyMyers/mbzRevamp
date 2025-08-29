@@ -319,6 +319,24 @@ exports.registerOrganizationUser = async (req, res) => {
     // Save the organization
     await newOrganization.save();
 
+    // ✅ PHASE 1: Create default admin role for the organization
+    const Role = require('../models/role');
+    const defaultAdminRole = new Role({
+      name: 'admin',
+      description: 'Organization Administrator with full privileges',
+      permissions: {
+        user_management: true,
+        organization_settings: true,
+        data_access: true,
+        system_configuration: true
+      },
+      organization: newOrganization._id,
+      userId: null // Will be set after user creation
+    });
+
+    await defaultAdminRole.save();
+    console.log('✅ Default admin role created for organization:', defaultAdminRole._id);
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -327,7 +345,8 @@ exports.registerOrganizationUser = async (req, res) => {
       fullName,
       email,
       password: hashedPassword,
-      role: 'admin', // Organization admin role
+      role: 'admin', // Keep string role for backward compatibility
+      roleId: defaultAdminRole._id, // Add new role ID field
       organization: newOrganization._id,
       organizationCode: newOrganization.organizationCode,
       status: 'active'
@@ -335,6 +354,10 @@ exports.registerOrganizationUser = async (req, res) => {
 
     // Save the user
     await newUser.save();
+
+    // ✅ Update the role with the user ID
+    defaultAdminRole.userId = newUser._id;
+    await defaultAdminRole.save();
 
     // ✅ AUDIT LOG: Organization User Created
     await createAuditLog({
@@ -346,6 +369,7 @@ exports.registerOrganizationUser = async (req, res) => {
         fullName: newUser.fullName,
         email: newUser.email,
         role: newUser.role,
+        roleId: newUser.roleId,
         organizationName: newOrganization.name,
         organizationCode: newOrganization.organizationCode,
         ip: req.ip,
@@ -391,6 +415,7 @@ exports.registerOrganizationUser = async (req, res) => {
       username: newUser.fullName,
       email: newUser.email,
       role: newUser.role,
+      roleId: newUser.roleId,
       token,
       organizationCode: newUser.organizationCode,
       organizationId: newOrganization._id,
