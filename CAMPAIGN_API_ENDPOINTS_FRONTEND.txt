@@ -1,0 +1,493 @@
+# CAMPAIGN API ENDPOINTS FOR FRONTEND DEVELOPMENT TEAM
+# ======================================================
+# Base URL: http://localhost:8800/api/campaigns
+# Authentication: Bearer JWT Token required for all endpoints
+# ======================================================
+
+## AUTHENTICATION HEADER
+All requests must include:
+```
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+## 1. CREATE CAMPAIGN
+**POST** `/api/campaigns`
+
+**Description**: Creates a new campaign with basic information
+
+**Request Body**:
+```json
+{
+  "name": "Summer Sale Campaign",
+  "description": "Promoting summer collection with 20% discount",
+  "organization": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "createdBy": "64f8a1b2c3d4e5f6a7b8c9d1"
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "campaignId": "64f8a1b2c3d4e5f6a7b8c9d2"
+}
+```
+
+**Frontend Usage**:
+```javascript
+const createCampaign = async (campaignData, token) => {
+  const response = await fetch('/api/campaigns', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(campaignData)
+  });
+  return response.json();
+};
+```
+
+## 2. UPDATE CAMPAIGN TEMPLATE
+**PATCH** `/api/campaigns/updateTemplate/{campaignId}`
+
+**Description**: Updates campaign with selected email template
+
+**Request Body**:
+```json
+{
+  "emailTemplate": "64f8a1b2c3d4e5f6a7b8c9d3",
+  "subject": "Summer Sale - 20% Off Everything!",
+  "body": "<html><body>...</body></html>"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "name": "Summer Sale Campaign",
+    "emailTemplate": "64f8a1b2c3d4e5f6a7b8c9d3",
+    "subject": "Summer Sale - 20% Off Everything!",
+    "body": "<html><body>...</body></html>"
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const updateTemplate = async (campaignId, templateData, token) => {
+  const response = await fetch(`/api/campaigns/updateTemplate/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(templateData)
+  });
+  return response.json();
+};
+```
+
+## 3. UPDATE CAMPAIGN CONTACTS
+**PATCH** `/api/campaigns/updateContacts/{campaignId}`
+
+**Description**: Updates campaign with selected target contacts
+
+**Request Body**:
+```json
+{
+  "targetContacts": [
+    "64f8a1b2c3d4e5f6a7b8c9d4",
+    "64f8a1b2c3d4e5f6a7b8c9d5",
+    "64f8a1b2c3d4e5f6a7b8c9d6"
+  ]
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "targetContacts": [
+      "64f8a1b2c3d4e5f6a7b8c9d4",
+      "64f8a1b2c3d4e5f6a7b8c9d5",
+      "64f8a1b2c3d4e5f6a7b8c9d6"
+    ]
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const updateContacts = async (campaignId, contactsData, token) => {
+  const response = await fetch(`/api/campaigns/updateContacts/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(contactsData)
+  });
+  return response.json();
+};
+```
+
+## 4. UPDATE CAMPAIGN SENDERS
+**PATCH** `/api/campaigns/updateSenderEmails/{campaignId}`
+
+**Description**: Updates campaign with selected sender emails
+
+**Request Body**:
+```json
+{
+  "senderEmails": [
+    "64f8a1b2c3d4e5f6a7b8c9d7",
+    "64f8a1b2c3d4e5f6a7b8c9d8"
+  ]
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "senderEmails": [
+      "64f8a1b2c3d4e5f6a7b8c9d7",
+      "64f8a1b2c3d4e5f6a7b8c9d8"
+    ]
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const updateSenderEmails = async (campaignId, senderData, token) => {
+  const response = await fetch(`/api/campaigns/updateSenderEmails/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(senderData)
+  });
+  return response.json();
+};
+```
+
+## 5. UPDATE CAMPAIGN TARGET CATEGORIES
+**PATCH** `/api/campaigns/updateTargetCategories/{campaignId}`
+
+**Description**: Updates campaign with target categories
+
+**Request Body**:
+```json
+{
+  "targetCategories": [
+    "VIP Customers",
+    "New Subscribers",
+    "Returning Buyers"
+  ]
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "targetCategories": [
+      "VIP Customers",
+      "New Subscribers",
+      "Returning Buyers"
+    ]
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const updateTargetCategories = async (campaignId, categoriesData, token) => {
+  const response = await fetch(`/api/campaigns/updateTargetCategories/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(categoriesData)
+  });
+  return response.json();
+};
+```
+
+## 6. START CAMPAIGN
+**PATCH** `/api/campaigns/start/{campaignId}`
+
+**Description**: Starts the campaign and begins sending emails
+
+**Request Body**: (Empty or optional status update)
+```json
+{
+  "status": "active"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "status": "active",
+    "startDate": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const startCampaign = async (campaignId, token) => {
+  const response = await fetch(`/api/campaigns/start/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status: 'active' })
+  });
+  return response.json();
+};
+```
+
+## 7. GET CAMPAIGNS BY ORGANIZATION
+**GET** `/api/campaigns/organization/{organizationId}`
+
+**Description**: Retrieves all campaigns for an organization
+
+**Response** (200 OK):
+```json
+[
+  {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "name": "Summer Sale Campaign",
+    "description": "Promoting summer collection with 20% discount",
+    "status": "active",
+    "createdAt": "2024-01-15T09:00:00.000Z",
+    "startDate": "2024-01-15T10:00:00.000Z"
+  }
+]
+```
+
+**Frontend Usage**:
+```javascript
+const getCampaigns = async (organizationId, token) => {
+  const response = await fetch(`/api/campaigns/organization/${organizationId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  return response.json();
+};
+```
+
+## 8. GET CAMPAIGN BY ID
+**GET** `/api/campaigns/{campaignId}`
+
+**Description**: Retrieves a specific campaign by ID
+
+**Response** (200 OK):
+```json
+{
+  "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+  "name": "Summer Sale Campaign",
+  "description": "Promoting summer collection with 20% discount",
+  "organization": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "createdBy": "64f8a1b2c3d4e5f6a7b8c9d1",
+  "status": "active",
+  "emailTemplate": "64f8a1b2c3d4e5f6a7b8c9d3",
+  "targetContacts": ["64f8a1b2c3d4e5f6a7b8c9d4"],
+  "senderEmails": ["64f8a1b2c3d4e5f6a7b8c9d7"],
+  "targetCategories": ["VIP Customers"],
+  "createdAt": "2024-01-15T09:00:00.000Z",
+  "startDate": "2024-01-15T10:00:00.000Z"
+}
+```
+
+**Frontend Usage**:
+```javascript
+const getCampaignById = async (campaignId, token) => {
+  const response = await fetch(`/api/campaigns/${campaignId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  return response.json();
+};
+```
+
+## 9. DELETE CAMPAIGN
+**DELETE** `/api/campaigns/{campaignId}`
+
+**Description**: Deletes a campaign
+
+**Response** (200 OK):
+```json
+{
+  "message": "Campaign deleted successfully"
+}
+```
+
+**Frontend Usage**:
+```javascript
+const deleteCampaign = async (campaignId, token) => {
+  const response = await fetch(`/api/campaigns/${campaignId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  return response.json();
+};
+```
+
+## 10. UPDATE CAMPAIGN STATUS
+**PATCH** `/api/campaigns/status/{campaignId}`
+
+**Description**: Updates campaign status
+
+**Request Body**:
+```json
+{
+  "status": "paused"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "campaign": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d2",
+    "status": "paused"
+  }
+}
+```
+
+**Frontend Usage**:
+```javascript
+const updateStatus = async (campaignId, statusData, token) => {
+  const response = await fetch(`/api/campaigns/status/${campaignId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(statusData)
+  });
+  return response.json();
+};
+```
+
+## COMPLETE CAMPAIGN CREATION FLOW
+====================================
+
+**Step 1**: Create Campaign
+```javascript
+const campaign = await createCampaign({
+  name: "Summer Sale",
+  description: "Summer collection promotion",
+  organization: organizationId,
+  createdBy: userId
+}, token);
+```
+
+**Step 2**: Update Template
+```javascript
+await updateTemplate(campaign.campaignId, {
+  emailTemplate: selectedTemplate._id,
+  subject: selectedTemplate.subject,
+  body: selectedTemplate.body
+}, token);
+```
+
+**Step 3**: Update Contacts
+```javascript
+await updateContacts(campaign.campaignId, {
+  targetContacts: selectedContacts
+}, token);
+```
+
+**Step 4**: Update Senders
+```javascript
+await updateSenderEmails(campaign.campaignId, {
+  senderEmails: selectedSenders
+}, token);
+```
+
+**Step 5**: Update Categories
+```javascript
+await updateTargetCategories(campaign.campaignId, {
+  targetCategories: selectedCategories
+}, token);
+```
+
+**Step 6**: Start Campaign
+```javascript
+await startCampaign(campaign.campaignId, token);
+```
+
+## ERROR HANDLING
+=================
+
+**Common HTTP Status Codes**:
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (validation errors)
+- `401` - Unauthorized (invalid/missing token)
+- `404` - Not Found
+- `500` - Server Error
+
+**Error Response Format**:
+```json
+{
+  "error": "Error message description"
+}
+```
+
+**Frontend Error Handling Example**:
+```javascript
+try {
+  const result = await createCampaign(campaignData, token);
+  // Handle success
+} catch (error) {
+  if (error.response?.status === 401) {
+    // Handle unauthorized - redirect to login
+    redirectToLogin();
+  } else if (error.response?.status === 400) {
+    // Handle validation errors
+    setErrors(error.response.data.error);
+  } else {
+    // Handle other errors
+    showErrorMessage(error.message);
+  }
+}
+```
+
+## NOTES FOR FRONTEND DEVELOPERS
+================================
+
+1. **Always include JWT token** in Authorization header
+2. **Handle errors gracefully** with proper user feedback
+3. **Validate data** before sending to API
+4. **Use proper HTTP methods** (POST for create, PATCH for updates, GET for retrieval)
+5. **Follow the step-by-step flow** for campaign creation
+6. **Store campaign ID** after creation for subsequent steps
+7. **Check response status codes** for proper error handling
+8. **Use loading states** during API calls for better UX
+
+## UPDATED: January 15, 2024
+## VERSION: 1.0
+## TEAM: Frontend Development Team
