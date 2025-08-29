@@ -116,6 +116,7 @@
 const Sender = require("../models/sender"); // Import the Sender model
 const Organization = require("../models/organization"); // If needed to check organization
 const User = require("../models/users"); // If needed to check user
+const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
 
 // CREATE a new sender
 exports.createSender = async (req, res) => {
@@ -148,7 +149,8 @@ exports.getSendersByUser = async (req, res) => {
   const { userId } = req.params;
   try {
     const senders = await Sender.find({ userId })
-      .populate('organization userId')
+      .populate('organization', 'name domain')
+      .populate('userId', 'fullName email')
       .exec();
     res.status(200).json({ success: true, senders });
   } catch (error) {
@@ -162,7 +164,8 @@ exports.getSenderById = async (req, res) => {
   const { senderId } = req.params;
   try {
     const sender = await Sender.findById(senderId)
-      .populate('organization user')
+      .populate('organization', 'name domain')
+      .populate('userId', 'fullName email')
       .exec();
     if (!sender) {
       return res.status(404).json({ success: false, message: "Sender not found" });
@@ -177,14 +180,61 @@ exports.getSenderById = async (req, res) => {
 // GET all senders for a specific organization
 exports.getSendersByOrganization = async (req, res) => {
     const { organizationId } = req.params;
+    
+    // Validate organizationId
+    if (!organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Organization ID is required" 
+      });
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid Organization ID format" 
+      });
+    }
+
     try {
+      console.log(`Fetching senders for organization: ${organizationId}`);
+      console.log('User from request:', req.user);
+      
+      // First, let's check if we can connect to the database
+      const dbState = mongoose.connection.readyState;
+      console.log('Database connection state:', dbState);
+      
+      if (dbState !== 1) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Database not connected",
+          dbState: dbState 
+        });
+      }
+      
       const senders = await Sender.find({ organization: organizationId })
-        .populate('organization user')
+        .populate('organization', 'name domain')
+        .populate('userId', 'fullName email')
         .exec();
-      res.status(200).json({ success: true, senders });
+      
+      console.log(`Found ${senders.length} senders for organization ${organizationId}`);
+      
+      res.status(200).json({ 
+        success: true, 
+        senders,
+        count: senders.length 
+      });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Failed to retrieve senders" });
+      console.error('Error in getSendersByOrganization:', error);
+      console.error('Organization ID:', organizationId);
+      console.error('Error stack:', error.stack);
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to retrieve senders",
+        error: error.message 
+      });
     }
   };
 

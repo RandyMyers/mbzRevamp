@@ -164,7 +164,7 @@ const getArchivedEmailsByOrganization = async (req, res) => {
 
     res.json({
       success: true,
-      data: archivedEmails
+      archivedEmails: archivedEmails
     });
   } catch (error) {
     console.error('Get Archived Emails By Organization Error:', error);

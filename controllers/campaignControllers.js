@@ -153,6 +153,57 @@ dotenv.config();
  *       500:
  *         description: Server error
  */
+
+/**
+ * @swagger
+ * /api/campaigns/organization/{organizationId}:
+ *   get:
+ *     summary: Get campaigns by organization
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Campaigns retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Campaign'
+ *       400:
+ *         description: Bad request - Missing organization ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
 // Create a new campaign
 exports.createCampaign = async (req, res) => {
   try {
@@ -369,20 +420,22 @@ exports.updateTemplate = async (req, res) => {
 exports.updateContacts = async (req, res) => {
   try {
     const { campaignId } = req.params;
-    const { contactIds } = req.body;
+    const { targetContacts } = req.body;
 
     console.log(req.body);
+
+    // Get the campaign before updating to log the change
+    const oldCampaign = await Campaign.findById(campaignId);
+    if (!oldCampaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
 
     // Update the campaign with new contact IDs
     const campaign = await Campaign.findByIdAndUpdate(
       campaignId,
-      { targetContacts: contactIds },  // Update contacts in the targetContacts array
+      { targetContacts },  // Update contacts in the targetContacts array
       { new: true } // Return the updated document
     );
-
-    if (!campaign) {
-      return res.status(404).json({ error: "Campaign not found" });
-    }
 
     await logEvent({
       action: 'update_campaign',
@@ -464,20 +517,22 @@ exports.updateContacts = async (req, res) => {
 exports.updateSenderEmails = async (req, res) => {
   try {
     const { campaignId } = req.params;
-    const { senderEmailIds } = req.body;
+    const { senderEmails } = req.body;
 
     console.log(req.body, req.params);
+
+    // Get the campaign before updating to log the change
+    const oldCampaign = await Campaign.findById(campaignId);
+    if (!oldCampaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
 
     // Update the campaign with the new sender emails
     const campaign = await Campaign.findByIdAndUpdate(
       campaignId,
-      { senderEmails: senderEmailIds },  // Set the sender emails field
+      { senderEmails },  // Set the sender emails field
       { new: true } // Return the updated document
     );
-
-    if (!campaign) {
-      return res.status(404).json({ error: "Campaign not found" });
-    }
 
     await logEvent({
       action: 'update_campaign',
@@ -1498,6 +1553,82 @@ exports.getCampaigns = async (req, res) => {
     res.status(200).json(campaigns);
   } catch (error) {
     res.status(400).json({ error: 'Error fetching campaigns: ' + error.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/campaigns/organization/{organizationId}:
+ *   get:
+ *     summary: Get campaigns by organization ID
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID to filter campaigns
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Campaigns retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Campaign'
+ *       400:
+ *         description: Bad request - Missing organization ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Organization ID is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+exports.getCampaignsByOrganization = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    
+    if (!organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Organization ID is required" 
+      });
+    }
+
+    const campaigns = await Campaign.find({ 
+      organization: new mongoose.Types.ObjectId(organizationId) 
+    })
+      .populate('emailTemplate')
+      .populate('senderEmails')
+      .populate('targetContacts')
+      .sort({ createdAt: -1 }); // Most recent first
+
+    res.status(200).json({
+      success: true,
+      data: campaigns
+    });
+  } catch (error) {
+    console.error('Error fetching campaigns by organization:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error fetching campaigns: ' + error.message 
+    });
   }
 };
 

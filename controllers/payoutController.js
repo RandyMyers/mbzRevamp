@@ -256,7 +256,7 @@ exports.createPayout = async (req, res, next) => {
     );
 
     // Update affiliate earnings
-    await affiliate.processPayout(amount);
+    await affiliate.processPayout(amount); 
 
     res.status(201).json({
       status: 'success',

@@ -213,3 +213,42 @@ exports.getInboxEmailsByOrganization = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to retrieve inbox emails by organization" });
   }
 };
+
+// DELETE all emails in the inbox for a specific organization
+exports.deleteAllInboxEmailsByOrganization = async (req, res) => {
+  const organizationId = req.query.organizationId || req.params.organizationId;
+  
+  if (!organizationId) {
+    return res.status(400).json({ success: false, message: "organizationId is required" });
+  }
+
+  try {
+    // First, get the count of emails to be deleted for confirmation
+    const emailCount = await Inbox.countDocuments({ organization: organizationId });
+    
+    if (emailCount === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "No inbox emails found for this organization" 
+      });
+    }
+
+    // Delete all emails for the organization
+    const deleteResult = await Inbox.deleteMany({ organization: organizationId });
+    
+    console.log(`Deleted ${deleteResult.deletedCount} inbox emails for organization: ${organizationId}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully deleted ${deleteResult.deletedCount} inbox emails`,
+      deletedCount: deleteResult.deletedCount,
+      organizationId: organizationId
+    });
+  } catch (error) {
+    console.error('Error deleting all inbox emails by organization:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to delete inbox emails by organization" 
+    });
+  }
+};
