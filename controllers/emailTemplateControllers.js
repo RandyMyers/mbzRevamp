@@ -1,5 +1,12 @@
 const EmailTemplate = require("../models/emailTemplate"); // Import the EmailTemplate model
 const logEvent = require('../helper/logEvent');
+const { 
+  getAllVariables, 
+  getVariablesByCategory, 
+  getVariableDefinition, 
+  getNestedValue,
+  extractVariablesFromContent 
+} = require('../config/emailTemplateVariables');
 
 /**
  * @swagger
@@ -54,7 +61,7 @@ const logEvent = require('../helper/logEvent');
 
 /**
  * @swagger
- * /api/email-templates/create:
+ * /api/email/templates/create:
  *   post:
  *     summary: Create a new email template
  *     tags: [Email Templates]
@@ -296,7 +303,7 @@ exports.createEmailTemplate = async (req, res) => {
 
 /**
  * @swagger
- * /api/email-templates/all:
+ * /api/email/templates/all:
  *   get:
  *     summary: Get all email templates
  *     tags: [Email Templates]
@@ -363,7 +370,7 @@ exports.getAllEmailTemplates = async (req, res) => {
 
 /**
  * @swagger
- * /api/email-templates/organization/{organizationId}:
+ * /api/email/templates/organization/{organizationId}:
  *   get:
  *     summary: Get email templates by organization
  *     tags: [Email Templates]
@@ -457,7 +464,7 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
 
 /**
  * @swagger
- * /api/email-templates/get/{emailTemplateId}:
+ * /api/email/templates/get/{emailTemplateId}:
  *   get:
  *     summary: Get a specific email template by ID
  *     tags: [Email Templates]
@@ -546,7 +553,7 @@ exports.getEmailTemplateById = async (req, res) => {
 
 /**
  * @swagger
- * /api/email-templates/update/{emailTemplateId}:
+ * /api/email/templates/update/{emailTemplateId}:
  *   patch:
  *     summary: Update an existing email template
  *     tags: [Email Templates]
@@ -690,7 +697,7 @@ exports.updateEmailTemplate = async (req, res) => {
 
 /**
  * @swagger
- * /api/email-templates/delete/{emailTemplateId}:
+ * /api/email/templates/delete/{emailTemplateId}:
  *   delete:
  *     summary: Delete an email template
  *     tags: [Email Templates]
@@ -792,5 +799,161 @@ exports.deleteEmailTemplate = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to delete email template" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/email/templates/variables:
+ *   get:
+ *     summary: Get all available variables for email templates
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Available variables retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     variables:
+ *                       type: object
+ *                       description: All available variables
+ *                     categories:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       description: Available variable categories
+ *                     totalVariables:
+ *                       type: integer
+ *                       description: Total number of available variables
+ *       500:
+ *         description: Server error
+ */
+// Get all available variables for email templates
+exports.getAvailableVariables = async (req, res) => {
+  try {
+    const variables = getAllVariables();
+    const categories = Object.keys(require('../config/emailTemplateVariables').CUSTOMER_FIELD_VARIABLES);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        variables,
+        categories,
+        totalVariables: Object.keys(variables).length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting available variables:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get available variables'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/email/templates/validate-variables:
+ *   post:
+ *     summary: Validate template variables against available variables
+ *     tags: [Email Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               templateContent:
+ *                 type: string
+ *                 description: Template content to validate
+ *                 example: "Hello {{first_name}}, welcome to {{billing_company}}!"
+ *               variables:
+ *                 type: object
+ *                 description: Variables defined in template
+ *                 example: {"first_name": {...}, "billing_company": {...}}
+ *     responses:
+ *       200:
+ *         description: Variables validated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     valid:
+ *                       type: array
+ *                       description: Valid variables
+ *                     invalid:
+ *                       type: array
+ *                       description: Invalid variable names
+ *                     missing:
+ *                       type: array
+ *                       description: Variables used in content but not defined
+ *       500:
+ *         description: Server error
+ */
+// Validate template variables against available variables
+exports.validateTemplateVariables = async (req, res) => {
+  try {
+    const { templateContent, variables } = req.body;
+    
+    const validationResults = {
+      valid: [],
+      invalid: [],
+      missing: []
+    };
+    
+    // Check each variable in the template
+    for (const [varName, varDef] of Object.entries(variables || {})) {
+      const definition = getVariableDefinition(varName);
+      if (definition) {
+        validationResults.valid.push({
+          name: varName,
+          definition
+        });
+      } else {
+        validationResults.invalid.push(varName);
+      }
+    }
+    
+    // Extract variables from template content
+    const contentVariables = extractVariablesFromContent(templateContent);
+    const definedVariables = Object.keys(variables || {});
+    
+    // Find variables used in content but not defined
+    contentVariables.forEach(varName => {
+      if (!definedVariables.includes(varName)) {
+        validationResults.missing.push(varName);
+      }
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: validationResults
+    });
+  } catch (error) {
+    console.error('Error validating template variables:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to validate template variables'
+    });
   }
 };

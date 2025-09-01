@@ -29,7 +29,7 @@ const campaignSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sender', // Reference to the SenderEmail model
       },
-    ],
+    ], 
     contactsClicked: [
       {
         type: mongoose.Schema.Types.ObjectId,

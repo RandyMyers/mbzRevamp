@@ -4,12 +4,17 @@ const Organization = require('../models/organization');
 const EmailTemplate = require('../models/emailTemplate');  // Fixed typo
 const Sender = require('../models/sender');
 const CampaignLog = require('../models/campaignLogs');
+const Order = require('../models/order');  // Add Order model
 const sendEmail = require('../helper/senderEmail');
 const mongoose = require("mongoose");
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
 const EmailLogs = require('../models/emailLogs');
 const logEvent = require('../helper/logEvent');
+const { 
+  getVariableDefinition, 
+  getNestedValue 
+} = require('../config/emailTemplateVariables');
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -69,6 +74,51 @@ dotenv.config();
  *           type: string
  *           format: date-time
  *           description: Campaign last update timestamp
+ *     
+ *     EmailTemplate:
+ *       type: object
+ *       required:
+ *         - name
+ *         - subject
+ *         - body
+ *         - createdBy
+ *       properties:
+ *         _id:
+ *           type: string
+ *           format: ObjectId
+ *           description: Unique email template ID
+ *         name:
+ *           type: string
+ *           description: Template name
+ *         subject:
+ *           type: string
+ *           description: Email subject line
+ *         body:
+ *           type: string
+ *           description: Email body content (HTML)
+ *         variables:
+ *           type: object
+ *           description: Template variables for personalization
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *           description: Whether template is active
+ *         createdBy:
+ *           type: string
+ *           format: ObjectId
+ *           description: User ID who created the template
+ *         organization:
+ *           type: string
+ *           format: ObjectId
+ *           description: Organization ID
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Template last update timestamp
  */
 
 /**
@@ -227,7 +277,7 @@ exports.createCampaign = async (req, res) => {
  * @swagger
  * /api/campaigns/updateTemplate/{campaignId}:
  *   patch:
- *     summary: Update campaign with selected template
+ *     summary: Update campaign with selected email template
  *     tags: [Campaigns]
  *     security:
  *       - bearerAuth: []
@@ -246,52 +296,33 @@ exports.createCampaign = async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - templateId
- *               - subject
- *               - body
+ *               - emailTemplate
  *             properties:
- *               templateId:
+ *               emailTemplate:
  *                 type: string
- *                 description: Template ID
- *                 example: "template123"
- *               subject:
- *                 type: string
- *                 description: Email subject line
- *                 example: "Updated Subject"
- *               body:
- *                 type: string
- *                 description: Email body content
- *                 example: "Updated email body content"
- *               trackingEnabled:
- *                 type: boolean
- *                 description: Whether email tracking is enabled
- *                 example: true
+ *                 format: ObjectId
+ *                 description: Email template ID to link to campaign
+ *                 example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
- *         description: Campaign and template updated successfully
+ *         description: Campaign template updated successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Campaign template updated successfully"
  *                 campaign:
  *                   $ref: '#/components/schemas/Campaign'
  *                 template:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       format: ObjectId
- *                     template:
- *                       type: string
- *                     subject:
- *                       type: string
- *                     body:
- *                       type: string
- *                     trackingEnabled:
- *                       type: boolean
+ *                   $ref: '#/components/schemas/EmailTemplate'
  *       404:
- *         description: Campaign not found
+ *         description: Campaign or template not found
  *         content:
  *           application/json:
  *             schema:
@@ -309,31 +340,27 @@ exports.createCampaign = async (req, res) => {
  *               properties:
  *                 error:
  *                   type: string
- *                   example: "Error creating template or updating campaign"
+ *                   example: "Error updating campaign template"
  */
 // Update campaign with selected template
 exports.updateTemplate = async (req, res) => {
   try {
     const { campaignId } = req.params;
-    const { templateId, subject, body, trackingEnabled } = req.body;
+    const { emailTemplate } = req.body; // Use correct field name
 
-    console.log(req.body);
+    console.log('Updating campaign template:', { campaignId, emailTemplate });
 
-    // Step 1: Create a new template
-    const newTemplate = new EmailTemplate({  // Fixed typo
-      template: templateId,
-      subject,
-      body,
-      trackingEnabled: trackingEnabled || false,
-    });
+    // Verify template exists
+    const existingTemplate = await EmailTemplate.findById(emailTemplate);
+    if (!existingTemplate) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
 
-    const savedTemplate = await newTemplate.save();
-
-    // Step 2: Update the campaign with the newly created template
+    // Update campaign with existing template
     const campaign = await Campaign.findByIdAndUpdate(
       campaignId,
-      { emailTemplate: savedTemplate._id }, // Link the new template to the campaign
-      { new: true } // Return the updated document
+      { emailTemplate: emailTemplate }, // Link existing template to campaign
+      { new: true }
     );
 
     if (!campaign) {
@@ -341,18 +368,27 @@ exports.updateTemplate = async (req, res) => {
     }
 
     await logEvent({
-      action: 'update_campaign',
+      action: 'update_campaign_template',
       user: req.user._id,
       resource: 'Campaign',
       resourceId: campaign._id,
-      details: { before: oldCampaign, after: campaign },
+      details: {
+        templateId: emailTemplate,
+        templateName: existingTemplate.name,
+        campaignName: campaign.name
+      },
       organization: req.user.organization
     });
 
-    res.status(200).json({ campaign, template: savedTemplate });
+    res.status(200).json({
+      success: true,
+      message: 'Campaign template updated successfully',
+      campaign,
+      template: existingTemplate
+    });
   } catch (error) {
-    console.error('Error creating template or updating campaign:', error);
-    res.status(500).json({ error: 'Error creating template or updating campaign' });
+    console.error('Error updating campaign template:', error);
+    res.status(500).json({ error: 'Error updating campaign template' });
   }
 };
 
@@ -737,8 +773,47 @@ exports.startCampaign = async (req, res) => {
           });
         }
 
-        const personalizedSubject = replacePlaceholders(campaign.emailTemplate.subject, contact);
-        let personalizedBody = replacePlaceholders(campaign.emailTemplate.body, contact);
+        // Fetch the latest order for this contact to include order data in variables
+        let latestOrder = null;
+        try {
+          latestOrder = await Order.findOne({ 
+            customerId: contact._id,
+            organizationId: campaign.organization 
+          })
+          .sort({ date_created: -1 }) // Get the most recent order
+          .limit(1);
+          
+          console.log('Latest order for contact:', contact.email, latestOrder ? latestOrder._id : 'No order found');
+        } catch (orderError) {
+          console.warn('Error fetching order for contact:', contact.email, orderError.message);
+        }
+
+        // Prepare contact data with order information
+        const contactData = {
+          ...contact.toObject(), // Convert mongoose document to plain object
+          order: latestOrder ? latestOrder.toObject() : null
+        };
+
+        // Use new dynamic variable replacement if template has variables defined
+        let personalizedSubject, personalizedBody;
+        
+        if (campaign.emailTemplate.variables && Object.keys(campaign.emailTemplate.variables).length > 0) {
+          console.log('Using new dynamic variable system with order data');
+          personalizedSubject = replaceTemplateVariables(
+            campaign.emailTemplate.subject, 
+            contactData, 
+            campaign.emailTemplate.variables
+          );
+          personalizedBody = replaceTemplateVariables(
+            campaign.emailTemplate.body, 
+            contactData, 
+            campaign.emailTemplate.variables
+          );
+        } else {
+          console.log('Using legacy placeholder system');
+          personalizedSubject = replacePlaceholders(campaign.emailTemplate.subject, contact);
+          personalizedBody = replacePlaceholders(campaign.emailTemplate.body, contact);
+        }
 
         if (campaign.emailTemplate.trackingEnabled) {
           personalizedBody = injectTrackingIntoLinks(personalizedBody, campaign._id, contact._id);
@@ -1486,15 +1561,60 @@ exports.getClickRate = async (req, res) => {
   }
 };
 
-// Helper function to replace placeholders in the template with actual data
+// New dynamic variable replacement system
+const replaceTemplateVariables = (template, contact, templateVariables) => {
+  console.log('Template:', template);
+  console.log('Contact data:', contact);
+  console.log('Template variables:', templateVariables);
+  
+  let processedTemplate = template;
+  
+  // Process each variable defined in the template
+  for (const [varName, varDef] of Object.entries(templateVariables || {})) {
+    const definition = getVariableDefinition(varName);
+    if (!definition) {
+      console.warn(`Variable ${varName} not found in variable definitions`);
+      continue;
+    }
+    
+    // Get value from contact using field path
+    const value = getNestedValue(contact, definition.fieldPath);
+    
+    // Use fallback if value is missing and fallback is defined
+    const finalValue = value !== undefined && value !== null && value !== '' 
+      ? value 
+      : (definition.fallback || '');
+    
+    console.log(`Processing variable ${varName}: ${value} -> ${finalValue}`);
+    
+    // Replace all occurrences of the variable in the template
+    const placeholder = `{{${varName}}}`;
+    processedTemplate = processedTemplate.replace(new RegExp(placeholder, 'g'), finalValue);
+  }
+  
+  console.log('Final processed template:', processedTemplate);
+  return processedTemplate;
+};
+
+// Legacy function for backward compatibility (will be removed in future)
 const replacePlaceholders = (template, contact) => {
-  console.log(template, contact);
+  console.log('Using legacy placeholder replacement');
+  
+  // Use correct field names from customer model (snake_case)
+  const firstName = contact.first_name || contact.billing?.first_name || 'Valued Customer';
+  const lastName = contact.last_name || contact.billing?.last_name || '';
+  const email = contact.email || '';
+  const country = contact.billing?.country || contact.shipping?.country || '';
+  const language = contact.language || 'en';
+  
+  console.log('Processed values:', { firstName, lastName, email, country, language });
+  
   return template
-    .replace('{{firstName}}', contact.firstName)
-    .replace('{{lastName}}', contact.lastName)
-    .replace('{{email}}', contact.email)
-    .replace('{{country}}', contact.country || '') // Optional fallback for undefined values
-    .replace('{{language}}', contact.language || 'en'); // Fallback to 'en' if no language is provided
+    .replace(/\{\{firstName\}\}/g, firstName)
+    .replace(/\{\{lastName\}\}/g, lastName)
+    .replace(/\{\{email\}\}/g, email)
+    .replace(/\{\{country\}\}/g, country)
+    .replace(/\{\{language\}\}/g, language);
 };
 
 const BASE_URL = process.env.BASE_URL;

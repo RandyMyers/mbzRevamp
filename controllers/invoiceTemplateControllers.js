@@ -200,7 +200,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates/create:
+ * /api/invoice/templates/invoice/create:
  *   post:
  *     summary: Create a new invoice template
  *     tags: [Invoice Templates]
@@ -310,7 +310,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates:
+ * /api/invoice/templates/invoice/list:
  *   get:
  *     summary: Get all invoice templates with filters and pagination
  *     tags: [Invoice Templates]
@@ -400,7 +400,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates/{id}:
+ * /api/invoice/templates/invoice/{id}:
  *   get:
  *     summary: Get a single invoice template by ID
  *     tags: [Invoice Templates]
@@ -444,7 +444,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates/{id}:
+ * /api/invoice/templates/invoice/{id}:
  *   put:
  *     summary: Update an invoice template
  *     tags: [Invoice Templates]
@@ -523,7 +523,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates/{id}:
+ * /api/invoice/templates/invoice/{id}:
  *   delete:
  *     summary: Delete an invoice template
  *     tags: [Invoice Templates]
@@ -579,7 +579,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
- * /api/invoice-templates/{id}/set-default:
+ * /api/invoice/templates/invoice/{id}/set-default:
  *   post:
  *     summary: Set an invoice template as default
  *     tags: [Invoice Templates]
@@ -939,7 +939,7 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
 
 /**
  * @swagger
- * /api/receipt-templates/create:
+ * /api/invoice/templates/receipt/create:
  *   post:
  *     summary: Create a new receipt template
  *     tags: [Receipt Templates]
@@ -1049,7 +1049,7 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
 
 /**
  * @swagger
- * /api/receipt-templates:
+ * /api/invoice/templates/receipt/list:
  *   get:
  *     summary: Get all receipt templates with filters and pagination
  *     tags: [Receipt Templates]
@@ -1267,7 +1267,7 @@ exports.getReceiptTemplates = async (req, res) => {
 
 /**
  * @swagger
- * /api/receipt-templates/{id}:
+ * /api/invoice/templates/receipt/{id}:
  *   get:
  *     summary: Get a single receipt template by ID
  *     tags: [Receipt Templates]
@@ -1343,7 +1343,7 @@ exports.getReceiptTemplateById = async (req, res) => {
 
 /**
  * @swagger
- * /api/receipt-templates/{id}:
+ * /api/invoice/templates/receipt/{id}:
  *   put:
  *     summary: Update a receipt template
  *     tags: [Receipt Templates]
@@ -1473,7 +1473,7 @@ exports.updateReceiptTemplate = async (req, res) => {
 
 /**
  * @swagger
- * /api/receipt-templates/{id}:
+ * /api/invoice/templates/receipt/{id}:
  *   delete:
  *     summary: Delete a receipt template
  *     tags: [Receipt Templates]

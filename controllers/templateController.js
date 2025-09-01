@@ -4,7 +4,7 @@
  *   - name: Templates
  *     description: Email/website template management
  *
- * /api/template/create:
+ * /api/website/templates/create:
  *   post:
  *     tags: [Templates]
  *     summary: Create a template
@@ -18,7 +18,7 @@
  *       201: { description: Created }
  *       400: { description: Validation error }
  *
- * /api/template/all:
+ * /api/website/templates/all:
  *   get:
  *     tags: [Templates]
  *     summary: Get all templates (filterable)
@@ -33,7 +33,7 @@
  *       200: { description: Templates list }
  *       500: { description: Server error }
  *
- * /api/template/get/{id}:
+ * /api/website/templates/get/{id}:
  *   get:
  *     tags: [Templates]
  *     summary: Get template by ID
@@ -47,7 +47,7 @@
  *       404: { description: Not found }
  *       500: { description: Server error }
  *
- * /api/template/update/{id}:
+ * /api/website/templates/update/{id}:
  *   patch:
  *     tags: [Templates]
  *     summary: Update a template
@@ -67,7 +67,7 @@
  *       404: { description: Not found }
  *       500: { description: Server error }
  *
- * /api/template/delete/{id}:
+ * /api/website/templates/delete/{id}:
  *   delete:
  *     tags: [Templates]
  *     summary: Delete a template
@@ -81,7 +81,7 @@
  *       404: { description: Not found }
  *       500: { description: Server error }
  *
- * /api/template/user/{userId}:
+ * /api/website/templates/user/{userId}:
  *   get:
  *     tags: [Templates]
  *     summary: Get templates by user
@@ -94,7 +94,7 @@
  *       200: { description: Templates list }
  *       500: { description: Server error }
  *
- * /api/template/analytics/all:
+ * /api/website/templates/analytics/all:
  *   get:
  *     tags: [Templates]
  *     summary: Get templates analytics (admin only)

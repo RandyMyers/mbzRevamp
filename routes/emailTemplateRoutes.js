@@ -10,5 +10,9 @@ router.patch("/update/:emailTemplateId", protect, emailTemplateController.update
 router.delete("/delete/:emailTemplateId", protect, emailTemplateController.deleteEmailTemplate);
 router.get("/organization/:organizationId", protect, emailTemplateController.getEmailTemplatesByOrganization);
 
+// New variable management routes
+router.get("/variables", protect, emailTemplateController.getAvailableVariables);
+router.post("/validate-variables", protect, emailTemplateController.validateTemplateVariables);
+
 
 module.exports = router;
