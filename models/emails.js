@@ -47,6 +47,10 @@ const EmailSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization", // Reference to the Organization associated with the email
     },
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Receiver", // Reference to the Receiver email account this email came from
+    },
     status: {
       type: String,
       enum: ["trash", "drafts", "scheduled", "sent", "failed", "pending"], // Added missing statuses

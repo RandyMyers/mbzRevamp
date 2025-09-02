@@ -18,45 +18,20 @@ const FOLDER_MAPPING = {
   'Trash': { model: Trash, status: 'unread' },
   'Deleted Items': { model: Trash, status: 'unread' },
   'Archive': { model: Archived, status: 'archived' },
-  'Spam': { model: Inbox, status: 'spam' },
+  'Spam': { model: Inbox, status: 'spam' }, // Spam emails go to Inbox with spam status
   'All Mail': { model: Inbox, status: 'unread' } // Gmail specific
 };
 
-// Common email providers folder names
+// Common email providers folder names (realistic expectations)
 const PROVIDER_FOLDERS = {
   'gmail.com': ['INBOX', 'Sent', 'Drafts', 'Trash', 'Archive', 'All Mail', 'Spam'],
   'outlook.com': ['INBOX', 'Sent Items', 'Drafts', 'Deleted Items', 'Archive', 'Spam'],
   'hotmail.com': ['INBOX', 'Sent Items', 'Drafts', 'Deleted Items', 'Archive', 'Spam'],
   'yahoo.com': ['INBOX', 'Sent', 'Drafts', 'Trash', 'Archive', 'Spam'],
-  'default': ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam']
+  'default': ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam'] // Removed Archive as it's not universal
 };
 
-// NEW: Get the last sync timestamp for a receiver
-const getLastSyncTimestamp = async (receiverId) => {
-  try {
-    const receiver = await Receiver.findById(receiverId);
-    if (!receiver) return null;
-    
-    // Return the lastFetchedAt timestamp, or 24 hours ago if never synced
-    return receiver.lastFetchedAt || moment().subtract(24, 'hours').toDate();
-  } catch (error) {
-    console.error('Error getting last sync timestamp:', error);
-    return moment().subtract(24, 'hours').toDate(); // Default to 24 hours ago
-  }
-};
-
-// NEW: Update the last sync timestamp for a receiver
-const updateLastSyncTimestamp = async (receiverId) => {
-  try {
-    await Receiver.findByIdAndUpdate(receiverId, {
-      lastFetchedAt: new Date()
-    });
-  } catch (error) {
-    console.error('Error updating last sync timestamp:', error);
-  }
-};
-
-// NEW: Optimized incoming email listener - only checks for NEW emails since last sync
+// Tier 1: Incoming email listener (frequent, efficient)
 const incomingEmailListener = async (receiverId) => {
   try {
     const receiver = await Receiver.findById(receiverId);
@@ -65,11 +40,7 @@ const incomingEmailListener = async (receiverId) => {
       return;
     }
 
-    console.log(`📧 Checking for NEW incoming emails for ${receiver.email}`);
-
-    // Get the last sync timestamp
-    const lastSyncTime = await getLastSyncTimestamp(receiverId);
-    console.log(`🕐 Last sync: ${moment(lastSyncTime).format('YYYY-MM-DD HH:mm:ss')}`);
+    console.log(`📧 Checking for new incoming emails for ${receiver.email}`);
 
     // IMAP configuration
     const config = {
@@ -97,11 +68,11 @@ const incomingEmailListener = async (receiverId) => {
     }
 
     try {
-      // Only check INBOX for NEW emails since last sync
+      // Only check INBOX for NEW emails
       await connection.openBox('INBOX');
       
-      // NEW: Search for emails since last sync time
-      const searchCriteria = ['SINCE', lastSyncTime];
+      // Only fetch UNSEEN emails (new incoming emails)
+      const searchCriteria = ['UNSEEN'];
       const fetchOptions = {
         bodies: ['HEADER', 'TEXT', ''],
         markSeen: false, // Don't mark as seen when fetching
@@ -110,20 +81,15 @@ const incomingEmailListener = async (receiverId) => {
       const results = await connection.search(searchCriteria, fetchOptions);
       
       if (results.length > 0) {
-        console.log(`📬 Found ${results.length} NEW emails since last sync`);
+        console.log(`📬 Found ${results.length} new incoming emails`);
         
         // Process only new emails
         for (const email of results) {
           await processEmailFromFolder(email, 'INBOX', receiver, connection);
         }
       } else {
-        console.log('📭 No new emails since last sync');
+        console.log('📭 No new incoming emails');
       }
-
-      // Update the last sync timestamp
-      await updateLastSyncTimestamp(receiverId);
-      console.log(`✅ Updated last sync timestamp for ${receiver.email}`);
-
     } catch (error) {
       console.error('Error processing incoming emails:', error.message);
     } finally {
@@ -139,7 +105,7 @@ const incomingEmailListener = async (receiverId) => {
   }
 };
 
-// NEW: Optimized full email sync - only syncs NEW emails from all folders
+// Tier 2: Full email sync (infrequent, comprehensive)
 const fullEmailSync = async (receiverId) => {
   try {
     const receiver = await Receiver.findById(receiverId);
@@ -148,11 +114,7 @@ const fullEmailSync = async (receiverId) => {
       return;
     }
 
-    console.log(`🔄 Starting optimized full email sync for ${receiver.email}`);
-
-    // Get the last sync timestamp
-    const lastSyncTime = await getLastSyncTimestamp(receiverId);
-    console.log(`🕐 Last sync: ${moment(lastSyncTime).format('YYYY-MM-DD HH:mm:ss')}`);
+    console.log(`🔄 Starting full email sync for ${receiver.email}`);
 
     // IMAP configuration
     const config = {
@@ -198,8 +160,6 @@ const fullEmailSync = async (receiverId) => {
 
     console.log(`📂 Processing folders: ${expectedFolders.join(', ')}`);
 
-    let totalNewEmails = 0;
-
     // Process each folder
     for (const folderName of expectedFolders) {
       try {
@@ -227,22 +187,20 @@ const fullEmailSync = async (receiverId) => {
         // Open the folder
         await connection.openBox(actualFolderName);
 
-        // NEW: Only fetch emails since last sync time
-        const searchCriteria = ['SINCE', lastSyncTime];
+        // Fetch ALL emails from this folder
+        const searchCriteria = ['ALL'];
         const fetchOptions = {
           bodies: ['HEADER', 'TEXT', ''],
           markSeen: false,
         };
 
         const results = await connection.search(searchCriteria, fetchOptions);
-        console.log(`📧 Found ${results.length} NEW emails in ${actualFolderName} since last sync`);
+        console.log(`📧 Found ${results.length} emails in ${actualFolderName}`);
 
         // Process emails from this folder
         for (const email of results) {
           await processEmailFromFolder(email, actualFolderName, receiver, connection);
         }
-
-        totalNewEmails += results.length;
 
       } catch (folderError) {
         console.error(`❌ Error processing folder ${folderName}:`, folderError.message);
@@ -250,19 +208,15 @@ const fullEmailSync = async (receiverId) => {
       }
     }
 
-    // Update the last sync timestamp
-    await updateLastSyncTimestamp(receiverId);
-    console.log(`✅ Updated last sync timestamp for ${receiver.email}`);
-
     // Close the IMAP connection
     if (connection) {
       connection.end();
       console.log('🔌 IMAP connection closed successfully.');
     }
 
-    console.log(`✅ Optimized full email sync completed for ${receiver.email} - ${totalNewEmails} new emails processed`);
+    console.log(`✅ Full email sync completed for ${receiver.email}`);
   } catch (error) {
-    console.error('Error in optimized full email sync:', error.message);
+    console.error('Error in full email sync:', error.message);
   }
 };
 
@@ -281,7 +235,6 @@ const receiverEmails = async (receiverId) => {
   return await fullEmailSync(receiverId);
 };
 
-// Enhanced email processing with better duplicate prevention
 const processEmailFromFolder = async (email, folderPath, receiver, connection) => {
   try {
     const header = email.parts.find((part) => part.which === 'HEADER');
@@ -294,19 +247,17 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
     const folderConfig = FOLDER_MAPPING[folderPath] || FOLDER_MAPPING['INBOX'];
     const EmailModel = folderConfig.model;
 
-    // ENHANCED: Better duplicate prevention
+    // Enhanced duplicate prevention - check multiple fields
     let existingEmail = null;
     
-    // Method 1: Check by messageId (most reliable)
     if (parsedEmail.messageId) {
       existingEmail = await EmailModel.findOne({ 
         messageId: parsedEmail.messageId,
-        organization: receiver.organization,
-        receiver: receiver._id // Also check by receiver to prevent cross-receiver duplicates
+        organization: receiver.organization 
       });
     }
     
-    // Method 2: Check by subject, sender, and receivedAt (fallback)
+    // If no messageId or not found, check by subject, sender, and receivedAt
     if (!existingEmail && parsedEmail.subject && parsedEmail.from) {
       const receivedDate = moment(header.date).toDate();
       const startOfDay = moment(receivedDate).startOf('day').toDate();
@@ -316,29 +267,16 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
         subject: parsedEmail.subject,
         sender: parsedEmail.from.text,
         organization: receiver.organization,
-        receiver: receiver._id, // Also check by receiver
         receivedAt: {
           $gte: startOfDay,
           $lte: endOfDay
         }
       });
     }
-
-    // Method 3: Check by unique combination of fields
-    if (!existingEmail && parsedEmail.from && header.date) {
-      const receivedDate = moment(header.date).toDate();
-      existingEmail = await EmailModel.findOne({
-        sender: parsedEmail.from.text,
-        organization: receiver.organization,
-        receiver: receiver._id, // Also check by receiver
-        receivedAt: receivedDate,
-        subject: parsedEmail.subject || 'No Subject'
-      });
-    }
       
-    if (existingEmail) {
+      if (existingEmail) {
       console.log(`⏭️ Email already exists (${parsedEmail.subject}), skipping...`);
-      return;
+        return;
     }
 
     // Prepare email data
@@ -350,9 +288,8 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       receivedAt: moment(header.date).toDate(),
       organization: receiver.organization,
       user: receiver.userId,
-      receiver: receiver._id, // CRITICAL: Track which receiver this email came from
       messageId: parsedEmail.messageId,
-      folder: folderPath.toLowerCase(),
+      folder: folderPath.toLowerCase(), // Store original folder for reference
     };
 
     // Add model-specific fields
@@ -362,10 +299,10 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       emailData.bcc = parsedEmail.bcc ? parsedEmail.bcc.map(addr => addr.text) : [];
       emailData.lastSavedAt = moment(header.date).toDate();
     } else if (EmailModel === Trash) {
-      emailData.originalFolder = 'inbox';
+      emailData.originalFolder = 'inbox'; // Default, could be enhanced to track original folder
       emailData.deletedAt = moment(header.date).toDate();
     } else if (EmailModel === Archived) {
-      emailData.originalFolder = 'inbox';
+      emailData.originalFolder = 'inbox'; // Default, could be enhanced to track original folder
       emailData.archivedAt = moment(header.date).toDate();
     } else if (EmailModel === Email) {
       emailData.recipient = parsedEmail.to ? parsedEmail.to.map(addr => addr.text).join(', ') : '';
@@ -383,11 +320,10 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       }));
     }
 
-    console.log(`💾 Saving NEW email to ${EmailModel.modelName}:`, {
+    console.log(`💾 Saving email to ${EmailModel.modelName}:`, {
       subject: emailData.subject,
       sender: emailData.sender,
-      folder: folderPath,
-      receivedAt: emailData.receivedAt
+      folder: folderPath
     });
 
     // Save the email to the appropriate model
@@ -440,25 +376,10 @@ const getFolderStats = async (receiverId) => {
   }
 };
 
-// NEW: Function to reset sync timestamp (useful for testing)
-const resetSyncTimestamp = async (receiverId) => {
-  try {
-    await Receiver.findByIdAndUpdate(receiverId, {
-      $unset: { lastFetchedAt: 1 }
-    });
-    console.log(`✅ Reset sync timestamp for receiver ${receiverId}`);
-  } catch (error) {
-    console.error('Error resetting sync timestamp:', error);
-  }
-};
-
 module.exports = { 
   incomingEmailListener, 
   fullEmailSync, 
   manualSync, 
   receiverEmails, 
-  getFolderStats,
-  getLastSyncTimestamp,
-  updateLastSyncTimestamp,
-  resetSyncTimestamp
+  getFolderStats 
 };

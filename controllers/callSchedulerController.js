@@ -21,7 +21,11 @@
  *               startTime: { type: string, format: date-time }
  *               endTime: { type: string, format: date-time }
  *               title: { type: string }
- *               notes: { type: string }
+ *               participants: 
+ *                 type: array
+ *                 items: { type: string }
+ *                 description: Array of user IDs from the same organization
+ *               meetingLink: { type: string }
  *     responses:
  *       201: { description: Created }
  *       400: { description: Missing required fields }
@@ -80,7 +84,11 @@
  *               startTime: { type: string, format: date-time }
  *               endTime: { type: string, format: date-time }
  *               title: { type: string }
- *               notes: { type: string }
+ *               participants: 
+ *                 type: array
+ *                 items: { type: string }
+ *                 description: Array of user IDs from the same organization
+ *               meetingLink: { type: string }
  *     responses:
  *       200: { description: Updated }
  *       400: { description: Missing organizationId }
@@ -130,19 +138,79 @@
  *       400: { description: Missing organizationId }
  *       404: { description: Not found or unauthorized }
  *       500: { description: Server error }
+ *
+ * /api/calls/available-participants/{organizationId}:
+ *   get:
+ *     tags: [Call Scheduler]
+ *     summary: Get available participants for an organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Organization ID to get participants from
+ *     responses:
+ *       200: 
+ *         description: Available participants list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id: { type: string }
+ *                       name: { type: string }
+ *                       email: { type: string }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
  */
 const CallScheduler = require('../models/callScheduler');
+const User = require('../models/users');
+
+// Validate that participants belong to the organization
+const validateParticipants = async (participants, organizationId) => {
+  if (!participants || participants.length === 0) return true;
+  
+  const participantUserIds = participants.filter(id => id); // Remove any null/undefined
+  if (participantUserIds.length === 0) return true;
+  
+  const validUsers = await User.find({
+    _id: { $in: participantUserIds },
+    organization: organizationId
+  });
+  
+  if (validUsers.length !== participantUserIds.length) {
+    throw new Error('Some participants do not belong to this organization');
+  }
+  
+  return true;
+};
 
 // Create a new call
 exports.createCall = async (req, res) => {
   try {
-    const { organizationId, userId, ...callData } = req.body;
+    const { organizationId, userId, participants, ...callData } = req.body;
     console.log(req.body);
     if (!organizationId || !userId) {
       return res.status(400).json({ success: false, error: 'organizationId and userId are required' });
     }
-    const call = new CallScheduler({ ...callData, organizationId, userId });
+    
+    // Validate participants belong to organization
+    if (participants && participants.length > 0) {
+      await validateParticipants(participants, organizationId);
+    }
+    
+    const call = new CallScheduler({ ...callData, organizationId, userId, participants });
     await call.save();
+    
+    // Populate participants with user details
+    await call.populate('participants', 'name email');
+    
     res.status(201).json({ success: true, data: call });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -158,7 +226,10 @@ exports.getCalls = async (req, res) => {
     }
     const filter = { organizationId };
     if (userId) filter.userId = userId;
-    const calls = await CallScheduler.find(filter).sort({ startTime: 1 });
+    const calls = await CallScheduler.find(filter)
+      .populate('participants', 'name email')
+      .populate('userId', 'name email')
+      .sort({ startTime: 1 });
     res.json({ success: true, data: calls });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -172,7 +243,9 @@ exports.getCallById = async (req, res) => {
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
-    const call = await CallScheduler.findOne({ _id: req.params.id, organizationId });
+    const call = await CallScheduler.findOne({ _id: req.params.id, organizationId })
+      .populate('participants', 'name email')
+      .populate('userId', 'name email');
     if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
     res.json({ success: true, data: call });
   } catch (err) {
@@ -183,15 +256,22 @@ exports.getCallById = async (req, res) => {
 // Update a call (must belong to org)
 exports.updateCall = async (req, res) => {
   try {
-    const { organizationId } = req.body;
+    const { organizationId, participants, ...updateData } = req.body;
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
+    
+    // Validate participants belong to organization if provided
+    if (participants && participants.length > 0) {
+      await validateParticipants(participants, organizationId);
+    }
+    
     const call = await CallScheduler.findOneAndUpdate(
       { _id: req.params.id, organizationId },
-      req.body,
+      { ...updateData, participants },
       { new: true }
-    );
+    ).populate('participants', 'name email').populate('userId', 'name email');
+    
     if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
     res.json({ success: true, data: call });
   } catch (err) {
@@ -228,6 +308,24 @@ exports.deleteCall = async (req, res) => {
     const call = await CallScheduler.findOneAndDelete({ _id: req.params.id, organizationId });
     if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
     res.json({ success: true, message: 'Call deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Get available participants for an organization
+exports.getAvailableParticipants = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'organizationId is required' });
+    }
+    
+    const users = await User.find({ organization: organizationId })
+      .select('name email _id')
+      .sort({ name: 1 });
+    
+    res.json({ success: true, data: users });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

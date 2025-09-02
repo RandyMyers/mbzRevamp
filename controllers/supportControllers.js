@@ -116,11 +116,11 @@ exports.createTicket = async (req, res) => {
     await ticket.save();
     await logEvent({
       action: 'create_support_ticket',
-      user: req.user._id,
+      user: req.user?._id || null,
       resource: 'SupportTicket',
       resourceId: ticket._id,
       details: { subject: ticket.subject, status: ticket.status },
-      organization: req.user.organization
+      organization: organizationId
     });
     res.status(201).json({ success: true, data: ticket });
   } catch (err) {
@@ -401,19 +401,24 @@ exports.updateTicket = async (req, res) => {
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
+    
+    // Get the old ticket before updating
+    const oldTicket = await SupportTicket.findOne({ _id: req.params.id, organizationId });
+    if (!oldTicket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    
     const ticket = await SupportTicket.findOneAndUpdate(
       { _id: req.params.id, organizationId },
       req.body,
       { new: true }
     );
-    if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    
     await logEvent({
       action: 'update_support_ticket',
-      user: req.user._id,
+      user: req.user?._id || null,
       resource: 'SupportTicket',
       resourceId: ticket._id,
       details: { before: oldTicket, after: ticket },
-      organization: req.user.organization
+      organization: organizationId
     });
     res.json({ success: true, data: ticket });
   } catch (err) {
@@ -706,11 +711,11 @@ exports.changeTicketStatus = async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
     await logEvent({
       action: 'close_support_ticket',
-      user: req.user._id,
+      user: req.user?._id || null,
       resource: 'SupportTicket',
       resourceId: ticket._id,
       details: { subject: ticket.subject, closeDate: new Date() },
-      organization: req.user.organization
+      organization: organizationId
     });
     res.json({ success: true, data: ticket });
   } catch (err) {

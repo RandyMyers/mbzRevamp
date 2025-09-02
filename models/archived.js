@@ -40,6 +40,10 @@ const ArchivedSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Receiver", // Reference to the Receiver email account this email came from
+    },
     originalFolder: {
       type: String,
       enum: ["inbox", "sent", "drafts", "outbox"],

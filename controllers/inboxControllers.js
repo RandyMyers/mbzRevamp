@@ -19,9 +19,11 @@
  *               subject: { type: string }
  *               body: { type: string }
  *               replyTo: { type: string }
- *               status: { type: string, enum: [unread, read, archived] }
+ *               status: { type: string, enum: [unread, read, archived, spam] }
  *               organization: { type: string }
  *               user: { type: string }
+ *               receiver: { type: string, description: 'Receiver email account ID this email came from' }
+ *               recipient: { type: string, description: 'Email address that received this email' }
  *     responses:
  *       201: { description: Created }
  *       500: { description: Server error }
@@ -93,9 +95,29 @@
  *         name: organizationId
  *         required: true
  *         schema: { type: string }
+ *       - in: query
+ *         name: receiver
+ *         required: false
+ *         schema: { type: string }
+ *         description: Filter by receiver email account ID
  *     responses:
  *       200: { description: Inbox emails list }
  *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
+ *
+ * /api/inbox/receiver/{receiverId}:
+ *   get:
+ *     tags: [Inbox]
+ *     summary: Get inbox emails by specific receiver
+ *     parameters:
+ *       - in: path
+ *         name: receiverId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Receiver email account ID
+ *     responses:
+ *       200: { description: Inbox emails for specific receiver }
+ *       404: { description: Receiver not found }
  *       500: { description: Server error }
  */
 const Inbox = require("../models/inbox"); // Import the Inbox model

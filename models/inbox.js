@@ -40,6 +40,15 @@ const InboxSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User", // Reference to the User associated with the inbox
     },
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Receiver", // Reference to the Receiver email account this email came from
+    },
+    recipient: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt fields
 );

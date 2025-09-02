@@ -301,8 +301,7 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
     if (parsedEmail.messageId) {
       existingEmail = await EmailModel.findOne({ 
         messageId: parsedEmail.messageId,
-        organization: receiver.organization,
-        receiver: receiver._id // Also check by receiver to prevent cross-receiver duplicates
+        organization: receiver.organization 
       });
     }
     
@@ -316,7 +315,6 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
         subject: parsedEmail.subject,
         sender: parsedEmail.from.text,
         organization: receiver.organization,
-        receiver: receiver._id, // Also check by receiver
         receivedAt: {
           $gte: startOfDay,
           $lte: endOfDay
@@ -330,7 +328,6 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       existingEmail = await EmailModel.findOne({
         sender: parsedEmail.from.text,
         organization: receiver.organization,
-        receiver: receiver._id, // Also check by receiver
         receivedAt: receivedDate,
         subject: parsedEmail.subject || 'No Subject'
       });
@@ -350,7 +347,6 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       receivedAt: moment(header.date).toDate(),
       organization: receiver.organization,
       user: receiver.userId,
-      receiver: receiver._id, // CRITICAL: Track which receiver this email came from
       messageId: parsedEmail.messageId,
       folder: folderPath.toLowerCase(),
     };

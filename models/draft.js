@@ -40,6 +40,10 @@ const DraftSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Receiver", // Reference to the Receiver email account this email came from
+    },
     attachments: [{
       filename: String,
       path: String,

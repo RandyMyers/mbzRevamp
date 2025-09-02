@@ -1,10 +1,5 @@
 const mongoose = require('mongoose');
 
-const participantSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true }
-}, { _id: false });
-
 const callSchedulerSchema = new mongoose.Schema({
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -24,7 +19,10 @@ const callSchedulerSchema = new mongoose.Schema({
     enum: ['scheduled', 'cancelled', 'completed'],
     default: 'scheduled'
   },
-  participants: [participantSchema],
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   meetingLink: { type: String }
 }, { timestamps: true });
 

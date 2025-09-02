@@ -1102,6 +1102,11 @@ const options = {
                format: 'ObjectId',
                description: 'User ID who owns the email'
              },
+             receiver: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Receiver email account this email came from'
+             },
              originalFolder: {
                type: 'string',
                enum: ['inbox', 'sent', 'drafts', 'outbox', 'archived'],
@@ -1116,6 +1121,183 @@ const options = {
                type: 'string',
                format: 'date-time',
                description: 'Trash entry last update timestamp'
+             }
+           }
+         },
+         // Inbox Schema
+         Inbox: {
+           type: 'object',
+           required: ['sender', 'subject', 'body', 'recipient'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Inbox email ID'
+             },
+             sender: {
+               type: 'string',
+               description: 'Email sender address',
+               example: 'sender@example.com'
+             },
+             subject: {
+               type: 'string',
+               description: 'Email subject line',
+               example: 'Important meeting reminder'
+             },
+             body: {
+               type: 'string',
+               description: 'Email body content'
+             },
+             replyTo: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the original email this is a reply to'
+             },
+             status: {
+               type: 'string',
+               enum: ['unread', 'read', 'archived', 'spam'],
+               default: 'unread',
+               description: 'Email read status'
+             },
+             receivedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'When the email was received'
+             },
+             emailLogs: {
+               type: 'array',
+               items: {
+                 type: 'string',
+                 format: 'ObjectId'
+               },
+               description: 'Array of email log IDs'
+             },
+             organization: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Organization receiving the email'
+             },
+             user: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the User associated with the inbox'
+             },
+             receiver: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Receiver email account this email came from'
+             },
+             recipient: {
+               type: 'string',
+               description: 'Email address that received this email',
+               example: 'info@mycompany.com'
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Inbox entry creation timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Inbox entry last update timestamp'
+             }
+           }
+         },
+         // Email Schema
+         Email: {
+           type: 'object',
+           required: ['recipient', 'subject', 'body', 'createdBy'],
+           properties: {
+             _id: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Email ID'
+             },
+             recipient: {
+               type: 'string',
+               description: 'Email recipient address',
+               example: 'recipient@example.com'
+             },
+             subject: {
+               type: 'string',
+               description: 'Email subject line'
+             },
+             body: {
+               type: 'string',
+               description: 'Email body content'
+             },
+             variables: {
+               type: 'object',
+               description: 'Key-value pairs for dynamic variables'
+             },
+             messageId: {
+               type: 'string',
+               description: 'Email message ID'
+             },
+             emailTemplate: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the EmailTemplate model'
+             },
+             campaign: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Campaign model'
+             },
+             workflow: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Workflow model'
+             },
+             emailLogs: {
+               type: 'array',
+               items: {
+                 type: 'string',
+                 format: 'ObjectId'
+               },
+               description: 'Array of email log IDs'
+             },
+             createdBy: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the User who initiated the email',
+               required: true
+             },
+             organization: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Organization associated with the email'
+             },
+             receiver: {
+               type: 'string',
+               format: 'ObjectId',
+               description: 'Reference to the Receiver email account this email came from'
+             },
+             status: {
+               type: 'string',
+               enum: ['trash', 'drafts', 'scheduled', 'sent', 'failed', 'pending'],
+               default: 'drafts',
+               description: 'Email status'
+             },
+             errorMessage: {
+               type: 'string',
+               description: 'Error message if email failed'
+             },
+             sentAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'When the email was sent'
+             },
+             createdAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Email creation timestamp'
+             },
+             updatedAt: {
+               type: 'string',
+               format: 'date-time',
+               description: 'Email last update timestamp'
              }
            }
          },
