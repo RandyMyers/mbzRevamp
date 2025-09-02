@@ -236,6 +236,25 @@ exports.getInboxEmailsByOrganization = async (req, res) => {
   }
 };
 
+// GET all emails in the inbox for a specific receiver
+exports.getInboxEmailsByReceiver = async (req, res) => {
+  try {
+    const { receiverId } = req.params;
+    if (!receiverId) {
+      return res.status(400).json({ success: false, error: 'Receiver ID is required' });
+    }
+    
+    const inboxEmails = await Inbox.find({ receiver: receiverId })
+      .populate('receiver', 'name email')
+      .sort({ receivedAt: -1 });
+    
+    res.json({ success: true, inboxEmails });
+  } catch (error) {
+    console.error('Error fetching inbox emails by receiver:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch inbox emails' });
+  }
+};
+
 // DELETE all emails in the inbox for a specific organization
 exports.deleteAllInboxEmailsByOrganization = async (req, res) => {
   const organizationId = req.query.organizationId || req.params.organizationId;
