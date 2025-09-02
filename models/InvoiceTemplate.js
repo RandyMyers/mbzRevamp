@@ -11,21 +11,29 @@ const InvoiceTemplateSchema = new Schema({
   organizationId: {
     type: Schema.Types.ObjectId,
     ref: 'Organization',
-    required: true
+    required: function() {
+      return !this.isSystemDefault;
+    }
   },
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: function() {
+      return !this.isSystemDefault;
+    }
   },
 
   // Template Design
   templateType: {
     type: String,
-    enum: ['professional', 'modern', 'minimal', 'classic', 'custom'],
+    enum: ['professional', 'modern', 'minimal', 'classic', 'creative', 'custom'],
     default: 'professional'
   },
   isDefault: {
+    type: Boolean,
+    default: false
+  },
+  isSystemDefault: {
     type: Boolean,
     default: false
   },
@@ -231,7 +239,9 @@ const InvoiceTemplateSchema = new Schema({
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: function() {
+      return !this.isSystemDefault;
+    }
   },
   updatedBy: {
     type: Schema.Types.ObjectId,
@@ -251,6 +261,8 @@ const InvoiceTemplateSchema = new Schema({
 InvoiceTemplateSchema.index({ organizationId: 1, isActive: 1 });
 InvoiceTemplateSchema.index({ organizationId: 1, isDefault: 1 });
 InvoiceTemplateSchema.index({ userId: 1, createdAt: -1 });
+InvoiceTemplateSchema.index({ isSystemDefault: 1, isActive: 1 });
+InvoiceTemplateSchema.index({ templateType: 1, isSystemDefault: 1 });
 
 // Pre-save middleware to update timestamps
 InvoiceTemplateSchema.pre('save', function(next) {

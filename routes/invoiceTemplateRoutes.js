@@ -46,4 +46,12 @@ router.delete('/receipt/:id', templateControllers.deleteReceiptTemplate);
 // SET default receipt template
 router.put('/receipt/:id/set-default', templateControllers.setDefaultReceiptTemplate);
 
+// ==================== SYSTEM DEFAULT TEMPLATE ROUTES ====================
+
+// GET system default invoice templates
+router.get('/system-defaults/invoice', templateControllers.getSystemDefaultInvoiceTemplates);
+
+// GET system default receipt templates
+router.get('/system-defaults/receipt', templateControllers.getSystemDefaultReceiptTemplates);
+
 module.exports = router;

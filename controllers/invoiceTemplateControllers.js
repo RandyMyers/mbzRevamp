@@ -31,13 +31,17 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           description: User ID who created the template
  *         templateType:
  *           type: string
- *           enum: [professional, casual, modern, classic]
+ *           enum: [professional, minimal, modern, classic, creative]
  *           default: professional
  *           description: Template style type
  *         isDefault:
  *           type: boolean
  *           default: false
  *           description: Whether this is the default template
+ *         isSystemDefault:
+ *           type: boolean
+ *           default: false
+ *           description: Whether this is a system-wide default template
  *         isActive:
  *           type: boolean
  *           default: true
@@ -152,13 +156,17 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           description: User ID who created the template
  *         templateType:
  *           type: string
- *           enum: [professional, casual, modern, classic]
+ *           enum: [professional, minimal, modern, classic, creative]
  *           default: professional
  *           description: Template style type
  *         isDefault:
  *           type: boolean
  *           default: false
  *           description: Whether this is the default template
+ *         isSystemDefault:
+ *           type: boolean
+ *           default: false
+ *           description: Whether this is a system-wide default template
  *         isActive:
  *           type: boolean
  *           default: true
@@ -1611,6 +1619,158 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error setting default receipt template',
+      error: error.message
+    });
+  }
+};
+
+// ==================== SYSTEM DEFAULT TEMPLATES ====================
+
+/**
+ * @swagger
+ * /api/invoice/templates/system-defaults/invoice:
+ *   get:
+ *     summary: Get all system default invoice templates
+ *     tags: [System Default Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, minimal, modern, classic, creative]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: System default invoice templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/InvoiceTemplate'
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/invoice/templates/system-defaults/receipt:
+ *   get:
+ *     summary: Get all system default receipt templates
+ *     tags: [System Default Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, minimal, modern, classic, creative]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: System default receipt templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ReceiptTemplate'
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+
+// GET system default invoice templates
+exports.getSystemDefaultInvoiceTemplates = async (req, res) => {
+  try {
+    const { templateType, isActive } = req.query;
+
+    // Build filter object for system defaults
+    const filter = { isSystemDefault: true };
+    
+    if (templateType) filter.templateType = templateType;
+    if (isActive !== undefined) filter.isActive = isActive === 'true';
+
+    // Execute query
+    const templates = await InvoiceTemplate.find(filter)
+      .sort({ templateType: 1, name: 1 });
+
+    res.status(200).json({
+      success: true,
+      templates,
+      count: templates.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching system default invoice templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching system default invoice templates',
+      error: error.message
+    });
+  }
+};
+
+// GET system default receipt templates
+exports.getSystemDefaultReceiptTemplates = async (req, res) => {
+  try {
+    const { templateType, isActive } = req.query;
+
+    // Build filter object for system defaults
+    const filter = { isSystemDefault: true };
+    
+    if (templateType) filter.templateType = templateType;
+    if (isActive !== undefined) filter.isActive = isActive === 'true';
+
+    // Execute query
+    const templates = await ReceiptTemplate.find(filter)
+      .sort({ templateType: 1, name: 1 });
+
+    res.status(200).json({
+      success: true,
+      templates,
+      count: templates.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching system default receipt templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching system default receipt templates',
       error: error.message
     });
   }
