@@ -64,7 +64,7 @@ const incomingEmailListener = async (receiverId) => {
       console.log(`Receiver ${receiverId} is not active or not found.`);
       return;
     }
-    
+
     // Validate IMAP configuration
     if (!receiver.imapHost || receiver.imapHost === 'string' || receiver.imapHost.trim() === '') {
       console.error(`❌ Invalid IMAP host for receiver ${receiver.email}: "${receiver.imapHost}"`);
@@ -153,7 +153,7 @@ const fullEmailSync = async (receiverId) => {
       console.log(`Receiver ${receiverId} is not active or not found.`);
       return;
     }
-    
+
     // Validate IMAP configuration
     if (!receiver.imapHost || receiver.imapHost === 'string' || receiver.imapHost.trim() === '') {
       console.error(`❌ Invalid IMAP host for receiver ${receiver.email}: "${receiver.imapHost}"`);
@@ -348,9 +348,9 @@ const processEmailFromFolder = async (email, folderPath, receiver, connection) =
       });
     }
       
-    if (existingEmail) {
+      if (existingEmail) {
       console.log(`⏭️ Email already exists (${parsedEmail.subject}), skipping...`);
-      return;
+        return;
     }
 
     // Prepare email data

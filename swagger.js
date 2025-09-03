@@ -1682,6 +1682,155 @@ const options = {
               }
             }
           }
+      },
+      // Exchange Rate Schema
+      ExchangeRate: {
+        type: 'object',
+        required: ['baseCurrency', 'targetCurrency', 'rate'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Exchange rate ID' },
+          organizationId: { type: 'string', format: 'ObjectId', description: 'Organization ID (optional for global rates)' },
+          baseCurrency: { type: 'string', enum: ['USD', 'EUR', 'GBP', 'NGN', 'BTC', 'USDT'], description: 'Base currency code' },
+          targetCurrency: { type: 'string', enum: ['USD', 'EUR', 'GBP', 'NGN', 'BTC', 'USDT'], description: 'Target currency code' },
+          rate: { type: 'number', description: 'Exchange rate value' },
+          isCustom: { type: 'boolean', default: false, description: 'Whether this is a custom rate' },
+          isGlobal: { type: 'boolean', default: false, description: 'Whether this is a global rate' },
+          source: { type: 'string', enum: ['system', 'user', 'api', 'api_cached', 'fallback'], default: 'system', description: 'Rate source' },
+          isActive: { type: 'boolean', default: true, description: 'Whether the rate is active' },
+          lastApiUpdate: { type: 'string', format: 'date-time', description: 'Last API update timestamp' },
+          cacheExpiry: { type: 'string', format: 'date-time', description: 'Cache expiry timestamp' },
+          isExpired: { type: 'boolean', default: false, description: 'Whether the rate is expired' },
+          apiResponse: {
+            type: 'object',
+            properties: {
+              timeLastUpdate: { type: 'string', format: 'date-time' },
+              timeNextUpdate: { type: 'string', format: 'date-time' },
+              baseCode: { type: 'string' },
+              targetCode: { type: 'string' }
+            }
+          },
+          apiVersion: { type: 'string', default: 'v6', description: 'API version' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Subscription Plan Schema
+      SubscriptionPlan: {
+        type: 'object',
+        required: ['name', 'billingInterval'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Plan ID' },
+          name: { type: 'string', description: 'Plan name', example: 'Standard' },
+          features: { type: 'array', items: { type: 'string' }, description: 'Plan features' },
+          price: { type: 'number', description: 'Plan price', example: 10 },
+          currency: { type: 'string', enum: ['USD', 'NGN', 'EUR', 'GBP'], default: 'USD', description: 'Plan currency' },
+          billingInterval: { type: 'string', enum: ['monthly', 'Quarterly', 'yearly'], default: 'monthly', description: 'Billing interval' },
+          isActive: { type: 'boolean', default: true, description: 'Whether the plan is active' },
+          isCustom: { type: 'boolean', default: false, description: 'Whether this is a custom plan' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Subscription Schema
+      Subscription: {
+        type: 'object',
+        required: ['user', 'plan', 'billingInterval', 'currency'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Subscription ID' },
+          user: { type: 'string', format: 'ObjectId', description: 'User ID' },
+          plan: { type: 'string', format: 'ObjectId', description: 'Subscription plan ID' },
+          isTrial: { type: 'boolean', default: false, description: 'Whether this is a trial subscription' },
+          trialStart: { type: 'string', format: 'date-time', description: 'Trial start date' },
+          trialEnd: { type: 'string', format: 'date-time', description: 'Trial end date' },
+          trialConverted: { type: 'boolean', default: false, description: 'Whether trial was converted to paid' },
+          billingInterval: { type: 'string', enum: ['monthly', 'yearly'], default: 'monthly', description: 'Billing interval' },
+          currency: { type: 'string', enum: ['USD', 'NGN', 'EUR', 'GBP'], default: 'USD', description: 'Subscription currency' },
+          startDate: { type: 'string', format: 'date-time', default: 'Date.now', description: 'Subscription start date' },
+          endDate: { type: 'string', format: 'date-time', description: 'Subscription end date' },
+          renewalDate: { type: 'string', format: 'date-time', description: 'Next renewal date' },
+          isActive: { type: 'boolean', default: true, description: 'Whether subscription is active' },
+          paymentStatus: { type: 'string', enum: ['Paid', 'Pending', 'Failed'], default: 'Pending', description: 'Payment status' },
+          status: { type: 'string', enum: ['active', 'pending', 'canceled', 'expired'], default: 'active', description: 'Subscription status' },
+          payment: { type: 'string', format: 'ObjectId', description: 'Payment ID' },
+          canceledAt: { type: 'string', format: 'date-time', description: 'Cancellation date' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Payment Schema
+      Payment: {
+        type: 'object',
+        required: ['user', 'gateway', 'amount', 'currency', 'reference'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Payment ID' },
+          user: { type: 'string', format: 'ObjectId', description: 'User ID' },
+          subscription: { type: 'string', format: 'ObjectId', description: 'Subscription ID' },
+          plan: { type: 'string', format: 'ObjectId', description: 'Plan ID' },
+          gateway: { type: 'string', enum: ['flutterwave', 'paystack', 'squad', 'bank', 'crypto'], description: 'Payment gateway' },
+          amount: { type: 'number', description: 'Payment amount' },
+          currency: { type: 'string', enum: ['USD', 'EUR', 'GBP', 'NGN', 'BTC', 'USDT'], description: 'Payment currency' },
+          status: { type: 'string', enum: ['pending', 'success', 'failed', 'manual_review'], default: 'pending', description: 'Payment status' },
+          reference: { type: 'string', description: 'Payment reference (unique)' },
+          paymentData: { type: 'object', description: 'Gateway response data' },
+          screenshotUrl: { type: 'string', description: 'Bank transfer proof URL' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Payment Gateway Key Schema
+      PaymentGatewayKey: {
+        type: 'object',
+        required: ['type', 'publicKey', 'secretKey'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Gateway key ID' },
+          name: { type: 'string', description: 'Gateway name' },
+          description: { type: 'string', description: 'Gateway description' },
+          logoUrl: { type: 'string', description: 'Gateway logo URL' },
+          type: { type: 'string', enum: ['flutterwave', 'paystack', 'crypto', 'squad'], description: 'Gateway type (unique)' },
+          publicKey: { type: 'string', description: 'Public key' },
+          secretKey: { type: 'string', description: 'Secret key' },
+          isActive: { type: 'boolean', default: true, description: 'Whether gateway is active' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Currency Conversion Response Schema
+      CurrencyConversion: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', description: 'Conversion success status' },
+          data: {
+            type: 'object',
+            properties: {
+              originalAmount: { type: 'number', description: 'Original amount' },
+              fromCurrency: { type: 'string', description: 'Source currency' },
+              toCurrency: { type: 'string', description: 'Target currency' },
+              convertedAmount: { type: 'number', description: 'Converted amount' },
+              exchangeRate: { type: 'number', description: 'Exchange rate used' },
+              timestamp: { type: 'string', format: 'date-time', description: 'Conversion timestamp' }
+            }
+          }
+        }
+      },
+      // Plan Pricing Response Schema
+      PlanPricing: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', description: 'Request success status' },
+          data: {
+            type: 'object',
+            properties: {
+              planId: { type: 'string', format: 'ObjectId', description: 'Plan ID' },
+              planName: { type: 'string', description: 'Plan name' },
+              originalPrice: { type: 'number', description: 'Original plan price' },
+              originalCurrency: { type: 'string', description: 'Original currency' },
+              convertedPrice: { type: 'number', description: 'Converted price' },
+              targetCurrency: { type: 'string', description: 'Target currency' },
+              exchangeRate: { type: 'number', description: 'Exchange rate used' },
+              timestamp: { type: 'string', format: 'date-time', description: 'Conversion timestamp' }
+            }
+          }
+        }
       }
     },
     security: [
@@ -1777,6 +1926,26 @@ const options = {
        {
          name: 'Marketing Materials',
          description: 'Marketing material management operations'
+       },
+       {
+         name: 'Exchange Rates',
+         description: 'Exchange rate and currency conversion operations'
+       },
+       {
+         name: 'Subscriptions',
+         description: 'Subscription management operations'
+       },
+       {
+         name: 'Subscription Plans',
+         description: 'Subscription plan management operations'
+       },
+       {
+         name: 'Payments',
+         description: 'Payment processing operations'
+       },
+       {
+         name: 'Payment Gateways',
+         description: 'Payment gateway management operations'
        }
     ]
   },
