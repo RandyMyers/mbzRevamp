@@ -1831,6 +1831,22 @@ const options = {
             }
           }
         }
+      },
+      // Email Signature Schema
+      EmailSignature: {
+        type: 'object',
+        required: ['name', 'content', 'user', 'organization'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Unique signature ID' },
+          name: { type: 'string', description: 'Signature name', example: 'Professional' },
+          content: { type: 'string', description: 'HTML content of the signature', example: '<p><strong>John Doe</strong><br>Marketing Director</p>' },
+          isDefault: { type: 'boolean', description: 'Whether this is the default signature', default: false },
+          user: { type: 'string', format: 'ObjectId', description: 'User ID who owns this signature' },
+          organization: { type: 'string', format: 'ObjectId', description: 'Organization ID' },
+          isActive: { type: 'boolean', description: 'Whether the signature is active', default: true },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
       }
     },
     security: [

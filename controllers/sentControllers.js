@@ -81,15 +81,27 @@ const logEvent = require('../helper/logEvent');
 // GET all sent emails
 exports.getSentEmails = async (req, res) => {
   try {
-    const sentEmails = await Email.find({ status: 'sent' })
-      .populate("user organization emailTemplate", "name emailTemplateName")
+    // Filter by organization and user for security
+    const filter = { 
+      status: 'sent',
+      organization: req.user.organization 
+    };
+
+    const sentEmails = await Email.find(filter)
+      .populate("createdBy", "name email")
+      .populate("organization", "name")
+      .populate("emailTemplate", "name subject")
       .sort({ sentAt: -1 })
       .exec();
     
     res.status(200).json({ success: true, sentEmails });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to retrieve sent emails" });
+    console.error('Error fetching sent emails:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to retrieve sent emails",
+      error: error.message 
+    });
   }
 };
 
@@ -102,14 +114,20 @@ exports.getSentEmailsByOrganization = async (req, res) => {
       status: 'sent',
       organization: organizationId 
     })
-      .populate("user organization emailTemplate", "name emailTemplateName")
+      .populate("createdBy", "name email")
+      .populate("organization", "name")
+      .populate("emailTemplate", "name subject")
       .sort({ sentAt: -1 })
       .exec();
     
     res.status(200).json({ success: true, sentEmails });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to retrieve sent emails by organization" });
+    console.error('Error fetching sent emails by organization:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to retrieve sent emails by organization",
+      error: error.message 
+    });
   }
 };
 
@@ -118,22 +136,28 @@ exports.getSentEmailById = async (req, res) => {
   const { sentEmailId } = req.params;
   
   try {
-    const sentEmail = await Email.findById(sentEmailId)
-      .populate("user organization emailTemplate", "name emailTemplateName")
+    const sentEmail = await Email.findOne({
+      _id: sentEmailId,
+      organization: req.user.organization,
+      status: 'sent'
+    })
+      .populate("createdBy", "name email")
+      .populate("organization", "name")
+      .populate("emailTemplate", "name subject")
       .exec();
     
     if (!sentEmail) {
       return res.status(404).json({ success: false, message: "Sent email not found" });
     }
     
-    if (sentEmail.status !== 'sent') {
-      return res.status(400).json({ success: false, message: "Email is not a sent email" });
-    }
-    
     res.status(200).json({ success: true, sentEmail });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to retrieve sent email" });
+    console.error('Error fetching sent email by ID:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to retrieve sent email",
+      error: error.message 
+    });
   }
 };
 
@@ -142,14 +166,14 @@ exports.deleteSentEmail = async (req, res) => {
   const { sentEmailId } = req.params;
   
   try {
-    const sentEmail = await Email.findById(sentEmailId);
+    const sentEmail = await Email.findOne({
+      _id: sentEmailId,
+      organization: req.user.organization,
+      status: 'sent'
+    });
     
     if (!sentEmail) {
       return res.status(404).json({ success: false, message: "Sent email not found" });
-    }
-    
-    if (sentEmail.status !== 'sent') {
-      return res.status(400).json({ success: false, message: "Email is not a sent email" });
     }
     
     await Email.findByIdAndDelete(sentEmailId);
@@ -165,8 +189,12 @@ exports.deleteSentEmail = async (req, res) => {
     
     res.status(200).json({ success: true, message: "Sent email deleted successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to delete sent email" });
+    console.error('Error deleting sent email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to delete sent email",
+      error: error.message 
+    });
   }
 };
 
@@ -175,14 +203,14 @@ exports.resendEmail = async (req, res) => {
   const { sentEmailId } = req.params;
   
   try {
-    const originalEmail = await Email.findById(sentEmailId);
+    const originalEmail = await Email.findOne({
+      _id: sentEmailId,
+      organization: req.user.organization,
+      status: 'sent'
+    });
     
     if (!originalEmail) {
       return res.status(404).json({ success: false, message: "Sent email not found" });
-    }
-    
-    if (originalEmail.status !== 'sent') {
-      return res.status(400).json({ success: false, message: "Email is not a sent email" });
     }
     
     // Create a new email based on the original
@@ -193,7 +221,7 @@ exports.resendEmail = async (req, res) => {
       variables: originalEmail.variables,
       emailTemplate: originalEmail.emailTemplate,
       organization: originalEmail.organization,
-      user: originalEmail.user,
+      createdBy: originalEmail.createdBy,
       status: 'sent',
       sentAt: new Date()
     });
@@ -219,7 +247,11 @@ exports.resendEmail = async (req, res) => {
       message: "Email resent successfully" 
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to resend email" });
+    console.error('Error resending email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to resend email",
+      error: error.message 
+    });
   }
 }; 

@@ -39,6 +39,7 @@ const categoryRoutes = require('./routes/categoryRoutes');  // New Category Rout
 const customerRoutes = require('./routes/customerRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
+const emailSignatureRoutes = require('./routes/emailSignatureRoutes');
 const inboxRoutes = require('./routes/inboxRoutes');
 const archivedRoutes = require('./routes/archivedRoutes');
 const draftRoutes = require('./routes/draftRoutes');
@@ -198,6 +199,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/email/templates', emailTemplateRoutes);
+app.use('/api/email-signatures', emailSignatureRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/archived', archivedRoutes);
 app.use('/api/drafts', draftRoutes);
