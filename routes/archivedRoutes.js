@@ -7,7 +7,10 @@ const {
   getArchivedEmailById,
   updateArchivedEmail,
   deleteArchivedEmail,
-  getArchivedEmailsByOrganization
+  getArchivedEmailsByOrganization,
+  moveToArchive,
+  restoreFromArchive,
+  bulkMoveToArchive
 } = require("../controllers/archivedControllers");
 
 // Create a new archived email
@@ -27,6 +30,15 @@ router.patch("/:archivedEmailId", protect, updateArchivedEmail);
 
 // Delete an archived email
 router.delete("/:archivedEmailId", protect, deleteArchivedEmail);
+
+// Move email to archive
+router.post("/move-to-archive", protect, moveToArchive);
+
+// Restore email from archive
+router.post("/restore/:archivedEmailId", protect, restoreFromArchive);
+
+// Bulk move emails to archive
+router.post("/bulk-archive", protect, bulkMoveToArchive);
 
 module.exports = router; 
  
