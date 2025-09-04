@@ -3,8 +3,23 @@ const router = express.Router();
 const templateControllers = require('../controllers/invoiceTemplateControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
+// Apply authentication middleware only for create operations
+router.use((req, res, next) => {
+  console.log('🔍 Route path:', req.path);
+  console.log('🔍 Route method:', req.method);
+  
+  // Skip authentication for GET operations and system defaults
+  if (req.method === 'GET' || 
+      req.path.includes('/system-defaults/') || 
+      req.path.includes('/defaults/')) {
+    console.log('✅ Skipping authentication for GET or system default route');
+    return next();
+  }
+  
+  console.log('🔒 Applying authentication for protected route');
+  // Apply authentication for create, update, delete operations
+  return authenticateToken(req, res, next);
+});
 
 // ==================== INVOICE TEMPLATE ROUTES ====================
 
@@ -53,5 +68,13 @@ router.get('/system-defaults/invoice', templateControllers.getSystemDefaultInvoi
 
 // GET system default receipt templates
 router.get('/system-defaults/receipt', templateControllers.getSystemDefaultReceiptTemplates);
+
+// ==================== DEFAULT TEMPLATE ROUTES ====================
+
+// GET all default invoice templates (organization + system defaults)
+router.get('/defaults/invoice', templateControllers.getAllDefaultInvoiceTemplates);
+
+// GET all default receipt templates (organization + system defaults)
+router.get('/defaults/receipt', templateControllers.getAllDefaultReceiptTemplates);
 
 module.exports = router;

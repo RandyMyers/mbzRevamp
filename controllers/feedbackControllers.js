@@ -698,10 +698,17 @@ exports.getFeedbackById = async (req, res) => {
 exports.updateFeedback = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const updateData = { ...req.body, updatedBy: userId };
-    delete updateData.userId; // Remove from update data
 
     const feedback = await Feedback.findOneAndUpdate(
       { _id: id, organizationId },
@@ -822,7 +829,15 @@ exports.updateFeedback = async (req, res) => {
 exports.deleteFeedback = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const feedback = await Feedback.findOneAndDelete({ _id: id, organizationId });
 
@@ -988,7 +1003,16 @@ exports.deleteFeedback = async (req, res) => {
 exports.respondToFeedback = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId, response, responseType, isInternal } = req.body;
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+    const { response, responseType, isInternal } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const feedback = await Feedback.findOne({ _id: id, organizationId });
 
@@ -1353,7 +1377,16 @@ exports.getFeedbackAnalytics = async (req, res) => {
 // BULK update feedback status
 exports.bulkUpdateFeedbackStatus = async (req, res) => {
   try {
-    const { organizationId, userId, feedbackIds, status } = req.body;
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+    const { feedbackIds, status } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     if (!feedbackIds || !Array.isArray(feedbackIds) || feedbackIds.length === 0) {
       return res.status(400).json({

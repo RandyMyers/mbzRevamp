@@ -65,3 +65,4 @@ emailSignatureSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
 });
 
 module.exports = mongoose.model('EmailSignature', emailSignatureSchema);
+

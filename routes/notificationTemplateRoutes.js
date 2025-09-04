@@ -3,7 +3,10 @@ const router = express.Router();
 const notificationTemplateController = require('../controllers/notificationTemplateControllers');
 const { protect } = require('../middleware/authMiddleware');
 
-// Apply authentication middleware to all routes
+// GET system default templates (no auth required)
+router.get('/system/defaults', notificationTemplateController.getSystemDefaultTemplates);
+
+// Apply authentication middleware to all other routes
 router.use(protect);
 
 // CREATE notification template
@@ -14,6 +17,18 @@ router.get('/', notificationTemplateController.getAllNotificationTemplates);
 
 // GET active notification templates
 router.get('/active', notificationTemplateController.getActiveNotificationTemplates);
+
+// GET templates by category
+router.get('/category/:category', notificationTemplateController.getTemplatesByCategory);
+
+// GET templates by trigger event
+router.get('/event/:event', notificationTemplateController.getTemplatesByTriggerEvent);
+
+// GET template usage statistics
+router.get('/stats/usage', notificationTemplateController.getTemplateUsageStats);
+
+// BULK CREATE templates
+router.post('/bulk', notificationTemplateController.bulkCreateTemplates);
 
 // GET notification template by ID
 router.get('/:templateId', notificationTemplateController.getNotificationTemplateById);
@@ -26,6 +41,9 @@ router.delete('/:templateId', notificationTemplateController.deleteNotificationT
 
 // DUPLICATE notification template
 router.post('/:templateId/duplicate', notificationTemplateController.duplicateNotificationTemplate);
+
+// SET default template for trigger event
+router.patch('/:templateId/set-default', notificationTemplateController.setDefaultTemplate);
 
 // GET notification templates by organization
 router.get('/organization/:organizationId', notificationTemplateController.getNotificationTemplatesByOrganization);

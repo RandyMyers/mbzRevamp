@@ -167,6 +167,7 @@
  */
 const Receiver = require("../models/receiver"); // Adjust the path as necessary
 const { incomingEmailListener, fullEmailSync, manualSync } = require("../helper/receiverEmail"); // Import new email sync functions
+const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
 
 // CREATE a new Receiver
 exports.createReceiver = async (req, res) => {
@@ -211,7 +212,13 @@ exports.createReceiver = async (req, res) => {
 exports.getReceiversByUser = async (req, res) => {
   const { userId } = req.params;
   try {
-    const receivers = await Receiver.find({ userId })
+    // Add organization filtering for security
+    const filter = { userId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+    
+    const receivers = await Receiver.find(filter)
       .populate("organization", "name") // Populate organization details
       .exec();
     res.status(200).json({ success: true, receivers });
@@ -221,11 +228,65 @@ exports.getReceiversByUser = async (req, res) => {
   }
 };
 
+// GET all Receivers for a specific Organization
+exports.getReceiversByOrganization = async (req, res) => {
+  const { organizationId } = req.params;
+  
+  // Validate organizationId
+  if (!organizationId) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Organization ID is required" 
+    });
+  }
+
+  // Validate ObjectId format
+  if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Invalid Organization ID format" 
+    });
+  }
+
+  try {
+    console.log(`Fetching receivers for organization: ${organizationId}`);
+    
+    const receivers = await Receiver.find({ organization: organizationId })
+      .populate("organization", "name domain")
+      .populate("userId", "fullName email")
+      .exec();
+    
+    console.log(`Found ${receivers.length} receivers for organization ${organizationId}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      receivers,
+      count: receivers.length 
+    });
+  } catch (error) {
+    console.error('Error in getReceiversByOrganization:', error);
+    console.error('Organization ID:', organizationId);
+    console.error('Error stack:', error.stack);
+    
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to retrieve receivers",
+      error: error.message 
+    });
+  }
+};
+
 // GET a specific Receiver by ID
 exports.getReceiverById = async (req, res) => {
   const { receiverId } = req.params;
   try {
-    const receiver = await Receiver.findById(receiverId).populate("organization", "name").exec();
+    // Add organization filtering for security
+    const filter = { _id: receiverId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+    
+    const receiver = await Receiver.findOne(filter).populate("organization", "name").exec();
     if (!receiver) {
       return res.status(404).json({ success: false, message: "Receiver not found" });
     }
@@ -244,7 +305,13 @@ exports.updateReceiver = async (req, res) => {
   if (req.body.userId) updates.userId = req.body.userId;
 
   try {
-    const updatedReceiver = await Receiver.findByIdAndUpdate(receiverId, updates, {
+    // Add organization filtering for security
+    const filter = { _id: receiverId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
+    const updatedReceiver = await Receiver.findOneAndUpdate(filter, updates, {
       new: true, // Return the updated document
       runValidators: true, // Ensure the updates conform to the schema
     });
@@ -265,7 +332,13 @@ exports.deleteReceiver = async (req, res) => {
   const { receiverId } = req.params;
 
   try {
-    const deletedReceiver = await Receiver.findByIdAndDelete(receiverId);
+    // Add organization filtering for security
+    const filter = { _id: receiverId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
+    const deletedReceiver = await Receiver.findOneAndDelete(filter);
     if (!deletedReceiver) {
       return res.status(404).json({ success: false, message: "Receiver not found" });
     }
@@ -281,7 +354,13 @@ exports.deactivateReceiver = async (req, res) => {
   const { receiverId } = req.params;
 
   try {
-    const receiver = await Receiver.findById(receiverId);
+    // Add organization filtering for security
+    const filter = { _id: receiverId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
+    const receiver = await Receiver.findOne(filter);
     if (!receiver) {
       return res.status(404).json({ success: false, message: "Receiver not found" });
     }

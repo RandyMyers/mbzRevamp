@@ -8,13 +8,7 @@ const InvoiceTemplateSchema = new Schema({
     required: true,
     trim: true
   },
-  organizationId: {
-    type: Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: function() {
-      return !this.isSystemDefault;
-    }
-  },
+  // Removed organizationId - templates are now global and accessible by all users
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -258,8 +252,8 @@ const InvoiceTemplateSchema = new Schema({
 });
 
 // Indexes for performance
-InvoiceTemplateSchema.index({ organizationId: 1, isActive: 1 });
-InvoiceTemplateSchema.index({ organizationId: 1, isDefault: 1 });
+InvoiceTemplateSchema.index({ isActive: 1 });
+InvoiceTemplateSchema.index({ isDefault: 1 });
 InvoiceTemplateSchema.index({ userId: 1, createdAt: -1 });
 InvoiceTemplateSchema.index({ isSystemDefault: 1, isActive: 1 });
 InvoiceTemplateSchema.index({ templateType: 1, isSystemDefault: 1 });
@@ -270,11 +264,11 @@ InvoiceTemplateSchema.pre('save', function(next) {
   next();
 });
 
-// Ensure only one default template per organization
+// Ensure only one default template globally
 InvoiceTemplateSchema.pre('save', async function(next) {
   if (this.isDefault) {
     await this.constructor.updateMany(
-      { organizationId: this.organizationId, _id: { $ne: this._id } },
+      { _id: { $ne: this._id } },
       { isDefault: false }
     );
   }

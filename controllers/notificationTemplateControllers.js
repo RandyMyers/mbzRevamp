@@ -856,3 +856,302 @@ exports.duplicateNotificationTemplate = async (req, res) => {
     });
   }
 };
+
+// GET system default templates (no authentication required)
+exports.getSystemDefaultTemplates = async (req, res) => {
+  try {
+    const templates = await NotificationTemplate.getSystemDefaults();
+    
+    res.status(200).json({
+      success: true,
+      templates,
+      count: templates.length
+    });
+  } catch (error) {
+    console.error('Get System Default Templates Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get system default templates",
+      error: error.message 
+    });
+  }
+};
+
+// GET templates by category
+exports.getTemplatesByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const skip = (page - 1) * limit;
+    
+    const templates = await NotificationTemplate.getByCategory(category)
+      .populate('createdBy', 'fullName email username')
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await NotificationTemplate.countDocuments({ 
+      templateCategory: category, 
+      isActive: true 
+    });
+    
+    res.status(200).json({
+      success: true,
+      templates,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get Templates By Category Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get templates by category",
+      error: error.message 
+    });
+  }
+};
+
+// GET templates by trigger event
+exports.getTemplatesByTriggerEvent = async (req, res) => {
+  try {
+    const { event } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const skip = (page - 1) * limit;
+    
+    const templates = await NotificationTemplate.getByTriggerEvent(event)
+      .populate('createdBy', 'fullName email username')
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await NotificationTemplate.countDocuments({ 
+      triggerEvent: event, 
+      isActive: true 
+    });
+    
+    res.status(200).json({
+      success: true,
+      templates,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get Templates By Trigger Event Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get templates by trigger event",
+      error: error.message 
+    });
+  }
+};
+
+// SET default template for trigger event
+exports.setDefaultTemplate = async (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const { triggerEvent } = req.body;
+    
+    if (!triggerEvent) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Trigger event is required" 
+      });
+    }
+    
+    // Find the template
+    const template = await NotificationTemplate.findById(templateId);
+    if (!template) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Template not found" 
+      });
+    }
+    
+    // Remove default status from other templates with same trigger event
+    await NotificationTemplate.updateMany(
+      { triggerEvent, isDefault: true },
+      { isDefault: false }
+    );
+    
+    // Set this template as default
+    template.isDefault = true;
+    template.triggerEvent = triggerEvent;
+    await template.save();
+    
+    // ✅ AUDIT LOG: Default Template Set
+    await createAuditLog({
+      action: 'Default Template Set',
+      user: req.user?._id,
+      resource: 'notificationTemplate',
+      resourceId: template._id,
+      details: {
+        templateName: template.templateName,
+        triggerEvent,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: "Default template set successfully",
+      template
+    });
+  } catch (error) {
+    console.error('Set Default Template Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to set default template",
+      error: error.message 
+    });
+  }
+};
+
+// GET template usage statistics
+exports.getTemplateUsageStats = async (req, res) => {
+  try {
+    const stats = await NotificationTemplate.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          systemDefaults: { $sum: { $cond: [{ $eq: ['$isSystemDefault', true] }, 1, 0] } },
+          active: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
+          byCategory: {
+            $push: {
+              category: '$templateCategory',
+              name: '$templateName',
+              lastUsed: '$lastUsedAt'
+            }
+          },
+          byPriority: {
+            $push: {
+              priority: '$priority',
+              name: '$templateName'
+            }
+          }
+        }
+      }
+    ]);
+    
+    const result = stats[0] || { 
+      total: 0, 
+      systemDefaults: 0, 
+      active: 0, 
+      byCategory: [], 
+      byPriority: [] 
+    };
+    
+    // Get most used templates
+    const mostUsed = await NotificationTemplate.find({ lastUsedAt: { $exists: true } })
+      .sort({ lastUsedAt: -1 })
+      .limit(5)
+      .select('templateName lastUsedAt version');
+    
+    res.status(200).json({
+      success: true,
+      stats: result,
+      mostUsed
+    });
+  } catch (error) {
+    console.error('Get Template Usage Stats Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get template usage statistics",
+      error: error.message 
+    });
+  }
+};
+
+// BULK CREATE templates
+exports.bulkCreateTemplates = async (req, res) => {
+  try {
+    const { templates } = req.body;
+    
+    if (!templates || !Array.isArray(templates)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Templates array is required" 
+      });
+    }
+    
+    const results = [];
+    let createdCount = 0;
+    let skippedCount = 0;
+    
+    for (const templateData of templates) {
+      try {
+        const existingTemplate = await NotificationTemplate.findOne({ 
+          templateName: templateData.templateName 
+        });
+        
+        if (!existingTemplate) {
+          const template = await NotificationTemplate.create({
+            ...templateData,
+            createdBy: req.user?._id
+          });
+          results.push({ templateName: template.templateName, status: 'created' });
+          createdCount++;
+        } else {
+          results.push({ templateName: templateData.templateName, status: 'skipped' });
+          skippedCount++;
+        }
+      } catch (error) {
+        results.push({ 
+          templateName: templateData.templateName, 
+          status: 'error', 
+          error: error.message 
+        });
+      }
+    }
+    
+    // ✅ AUDIT LOG: Bulk Template Creation
+    await createAuditLog({
+      action: 'Bulk Template Creation',
+      user: req.user?._id,
+      resource: 'notificationTemplate',
+      resourceId: null,
+      details: {
+        totalTemplates: templates.length,
+        created: createdCount,
+        skipped: skippedCount,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      },
+      organization: req.user?.organization,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: "Bulk template creation completed",
+      results,
+      summary: {
+        total: templates.length,
+        created: createdCount,
+        skipped: skippedCount
+      }
+    });
+  } catch (error) {
+    console.error('Bulk Create Templates Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to bulk create templates",
+      error: error.message 
+    });
+  }
+};

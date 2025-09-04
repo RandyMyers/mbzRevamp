@@ -22,3 +22,4 @@ router.delete('/:signatureId', protect, emailSignatureController.deleteSignature
 router.patch('/:signatureId/default', protect, emailSignatureController.setDefaultSignature);
 
 module.exports = router;
+

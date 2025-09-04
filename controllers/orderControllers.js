@@ -9,6 +9,7 @@ const WooCommerceService = require('../services/wooCommerceService.js');
 const currencyUtils = require('../utils/currencyUtils');
 const { createAuditLog, logCRUDOperation, logStatusChange } = require('../helpers/auditLogHelper');
 const { notifyOrderCreated, notifyOrderStatusUpdated, notifyOrderCancelled } = require('../helpers/notificationHelper');
+const { orderNotificationHelper } = require('../helpers/orderNotificationHelper');
 
 // Utility function to find order by WooCommerce ID (checks both wooCommerceId and number fields)
 const findOrderByWooCommerceId = async (wooCommerceId, storeId = null) => {
@@ -660,6 +661,17 @@ exports.createOrder = async (req, res) => {
       await notifyOrderCreated(savedOrder, customer, organizationId);
     } catch (notificationError) {
       console.error('Error sending order creation notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
+    // Send new notification using our template system
+    try {
+      await orderNotificationHelper.notifyOrderCreated(savedOrder, {
+        recipientEmail: savedOrder.billing?.email,
+        recipientName: `${savedOrder.billing?.first_name || ''} ${savedOrder.billing?.last_name || ''}`.trim()
+      });
+    } catch (templateNotificationError) {
+      console.error('Error sending template-based order creation notification:', templateNotificationError);
       // Don't fail the request if notification fails
     }
 

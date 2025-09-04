@@ -11,8 +11,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *       type: object
  *       required:
  *         - name
- *         - organizationId
- *         - userId
  *       properties:
  *         _id:
  *           type: string
@@ -21,14 +19,10 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *         name:
  *           type: string
  *           description: Template name
- *         organizationId:
- *           type: string
- *           format: ObjectId
- *           description: Organization ID
  *         userId:
  *           type: string
  *           format: ObjectId
- *           description: User ID who created the template
+ *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         templateType:
  *           type: string
  *           enum: [professional, minimal, modern, classic, creative]
@@ -118,7 +112,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *         createdBy:
  *           type: string
  *           format: ObjectId
- *           description: User ID who created the template
+ *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         updatedBy:
  *           type: string
  *           format: ObjectId
@@ -136,8 +130,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *       type: object
  *       required:
  *         - name
- *         - organizationId
- *         - userId
  *       properties:
  *         _id:
  *           type: string
@@ -146,14 +138,10 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *         name:
  *           type: string
  *           description: Template name
- *         organizationId:
- *           type: string
- *           format: ObjectId
- *           description: Organization ID
  *         userId:
  *           type: string
  *           format: ObjectId
- *           description: User ID who created the template
+ *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         templateType:
  *           type: string
  *           enum: [professional, minimal, modern, classic, creative]
@@ -189,7 +177,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *         createdBy:
  *           type: string
  *           format: ObjectId
- *           description: User ID who created the template
+ *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         updatedBy:
  *           type: string
  *           format: ObjectId
@@ -212,8 +200,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *   post:
  *     summary: Create a new invoice template
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -222,18 +208,12 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *             type: object
  *             required:
  *               - name
- *               - organizationId
  *               - userId
  *             properties:
  *               name:
  *                 type: string
  *                 description: Template name
  *                 example: "Professional Invoice Template"
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
- *                 example: "507f1f77bcf86cd799439011"
  *               userId:
  *                 type: string
  *                 format: ObjectId
@@ -298,7 +278,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Missing required fields: name, organizationId"
+ *                   example: "Missing required fields: name, userId"
  *       401:
  *         description: Unauthorized - Invalid or missing JWT token
  *       500:
@@ -320,54 +300,8 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  * @swagger
  * /api/invoice/templates/invoice/list:
  *   get:
- *     summary: Get all invoice templates with filters and pagination
+ *     summary: Get all active invoice templates
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *       - in: query
- *         name: templateType
- *         schema:
- *           type: string
- *           enum: [professional, casual, modern, classic]
- *         description: Filter by template type
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           default: createdAt
- *         description: Field to sort by
- *       - in: query
- *         name: sortOrder
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *           default: desc
- *         description: Sort order
  *     responses:
  *       200:
  *         description: Invoice templates retrieved successfully
@@ -383,25 +317,9 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/InvoiceTemplate'
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     page:
- *                       type: integer
- *                       example: 1
- *                     limit:
- *                       type: integer
- *                       example: 10
- *                     total:
- *                       type: integer
- *                       example: 25
- *                     pages:
- *                       type: integer
- *                       example: 3
- *       400:
- *         description: Bad request - Invalid parameters
- *       401:
- *         description: Unauthorized - Invalid or missing JWT token
+ *                 count:
+ *                   type: integer
+ *                   example: 5
  *       500:
  *         description: Server error
  */
@@ -412,8 +330,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *   get:
  *     summary: Get a single invoice template by ID
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -423,12 +339,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           format: ObjectId
  *         description: Invoice template ID
  *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
  *     responses:
  *       200:
  *         description: Invoice template retrieved successfully
@@ -456,8 +366,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *   put:
  *     summary: Update an invoice template
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -478,11 +386,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *                 format: ObjectId
  *                 required: true
  *                 description: User ID making the update
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 required: true
- *                 description: Organization ID
  *               name:
  *                 type: string
  *                 description: Updated template name
@@ -535,8 +438,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *   delete:
  *     summary: Delete an invoice template
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -553,16 +454,11 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *             type: object
  *             required:
  *               - userId
- *               - organizationId
  *             properties:
  *               userId:
  *                 type: string
  *                 format: ObjectId
  *                 description: User ID deleting the template
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
  *     responses:
  *       200:
  *         description: Invoice template deleted successfully
@@ -591,8 +487,6 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *   post:
  *     summary: Set an invoice template as default
  *     tags: [Invoice Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -609,16 +503,11 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *             type: object
  *             required:
  *               - userId
- *               - organizationId
  *             properties:
  *               userId:
  *                 type: string
  *                 format: ObjectId
  *                 description: User ID setting the default
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
  *     responses:
  *       200:
  *         description: Default invoice template set successfully
@@ -648,7 +537,6 @@ exports.createInvoiceTemplate = async (req, res) => {
   try {
     const {
       name,
-      organizationId,
       userId,
       templateType,
       isDefault,
@@ -659,8 +547,8 @@ exports.createInvoiceTemplate = async (req, res) => {
       fields
     } = req.body;
 
-    // Validate required fields
-    const requiredFields = ['name', 'organizationId', 'userId'];
+    // Validate required fields - only name and userId needed now
+    const requiredFields = ['name', 'userId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -670,10 +558,9 @@ exports.createInvoiceTemplate = async (req, res) => {
       });
     }
 
-    // Create new invoice template
+    // Create new invoice template (global)
     const newTemplate = new InvoiceTemplate({
       name,
-      organizationId,
       userId,
       templateType: templateType || 'professional',
       isDefault: isDefault || false,
@@ -698,7 +585,6 @@ exports.createInvoiceTemplate = async (req, res) => {
         name: savedTemplate.name,
         templateType: savedTemplate.templateType
       },
-      organization: organizationId
     });
 
     res.status(201).json({
@@ -717,48 +603,19 @@ exports.createInvoiceTemplate = async (req, res) => {
   }
 };
 
-// GET all invoice templates
+// GET all invoice templates (global - accessible by all users)
 exports.getInvoiceTemplates = async (req, res) => {
   try {
-    const {
-      organizationId,
-      isActive,
-      templateType,
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-
-    // Build filter object
-    const filter = { organizationId };
-    
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
-    if (templateType) filter.templateType = templateType;
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    // Execute query
-    const templates = await InvoiceTemplate.find(filter)
-      .populate('createdBy', 'fullName email')
+    // Get all active templates - no queries needed
+    const templates = await InvoiceTemplate.find({ isActive: true })
+      .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await InvoiceTemplate.countDocuments(filter);
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       templates,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      count: templates.length
     });
 
   } catch (error) {
@@ -771,14 +628,14 @@ exports.getInvoiceTemplates = async (req, res) => {
   }
 };
 
-// GET single invoice template by ID
+// GET single invoice template by ID (global access)
 exports.getInvoiceTemplateById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId } = req.query;
 
-    const template = await InvoiceTemplate.findOne({ _id: id, organizationId })
-      .populate('createdBy', 'fullName email')
+    // All templates are now global - no organizationId needed
+    const template = await InvoiceTemplate.findById(id)
+      .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email');
 
     if (!template) {
@@ -807,13 +664,13 @@ exports.getInvoiceTemplateById = async (req, res) => {
 exports.updateInvoiceTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
     const updateData = { ...req.body, updatedBy: userId };
     delete updateData.userId; // Remove from update data
 
-    const template = await InvoiceTemplate.findOneAndUpdate(
-      { _id: id, organizationId },
+    const template = await InvoiceTemplate.findByIdAndUpdate(
+      id,
       updateData,
       { new: true, runValidators: true }
     );
@@ -835,7 +692,6 @@ exports.updateInvoiceTemplate = async (req, res) => {
         name: template.name,
         changes: req.body
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -858,9 +714,9 @@ exports.updateInvoiceTemplate = async (req, res) => {
 exports.deleteInvoiceTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
-    const template = await InvoiceTemplate.findOneAndDelete({ _id: id, organizationId });
+    const template = await InvoiceTemplate.findByIdAndDelete(id);
 
     if (!template) {
       return res.status(404).json({
@@ -878,7 +734,6 @@ exports.deleteInvoiceTemplate = async (req, res) => {
       details: {
         name: template.name
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -900,10 +755,10 @@ exports.deleteInvoiceTemplate = async (req, res) => {
 exports.setDefaultInvoiceTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
-    const template = await InvoiceTemplate.findOneAndUpdate(
-      { _id: id, organizationId },
+    const template = await InvoiceTemplate.findByIdAndUpdate(
+      id,
       { isDefault: true, updatedBy: userId },
       { new: true }
     );
@@ -924,7 +779,6 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
       details: {
         name: template.name
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -951,8 +805,6 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
  *   post:
  *     summary: Create a new receipt template
  *     tags: [Receipt Templates]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -961,18 +813,12 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
  *             type: object
  *             required:
  *               - name
- *               - organizationId
  *               - userId
  *             properties:
  *               name:
  *                 type: string
  *                 description: Template name
  *                 example: "Professional Receipt Template"
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
- *                 example: "507f1f77bcf86cd799439011"
  *               userId:
  *                 type: string
  *                 format: ObjectId
@@ -1037,7 +883,7 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Missing required fields: name, organizationId"
+ *                   example: "Missing required fields: name, userId"
  *       401:
  *         description: Unauthorized - Invalid or missing JWT token
  *       500:
@@ -1059,54 +905,8 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
  * @swagger
  * /api/invoice/templates/receipt/list:
  *   get:
- *     summary: Get all receipt templates with filters and pagination
+ *     summary: Get all active receipt templates
  *     tags: [Receipt Templates]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *       - in: query
- *         name: templateType
- *         schema:
- *           type: string
- *           enum: [professional, casual, modern, classic]
- *         description: Filter by template type
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           default: createdAt
- *         description: Field to sort by
- *       - in: query
- *         name: sortOrder
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *           default: desc
- *         description: Sort order
  *     responses:
  *       200:
  *         description: Receipt templates retrieved successfully
@@ -1122,25 +922,9 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/ReceiptTemplate'
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     page:
- *                       type: integer
- *                       example: 1
- *                     limit:
- *                       type: integer
- *                       example: 10
- *                     total:
- *                       type: integer
- *                       example: 25
- *                     pages:
- *                       type: integer
- *                       example: 3
- *       400:
- *         description: Bad request - Invalid parameters
- *       401:
- *         description: Unauthorized - Invalid or missing JWT token
+ *                 count:
+ *                   type: integer
+ *                   example: 5
  *       500:
  *         description: Server error
  */
@@ -1150,7 +934,6 @@ exports.createReceiptTemplate = async (req, res) => {
   try {
     const {
       name,
-      organizationId,
       userId,
       templateType,
       isDefault,
@@ -1161,8 +944,8 @@ exports.createReceiptTemplate = async (req, res) => {
       fields
     } = req.body;
 
-    // Validate required fields
-    const requiredFields = ['name', 'organizationId', 'userId'];
+    // Validate required fields - only name and userId needed now
+    const requiredFields = ['name', 'userId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -1172,10 +955,9 @@ exports.createReceiptTemplate = async (req, res) => {
       });
     }
 
-    // Create new receipt template
+    // Create new receipt template (global)
     const newTemplate = new ReceiptTemplate({
       name,
-      organizationId,
       userId,
       templateType: templateType || 'professional',
       isDefault: isDefault || false,
@@ -1200,7 +982,6 @@ exports.createReceiptTemplate = async (req, res) => {
         name: savedTemplate.name,
         templateType: savedTemplate.templateType
       },
-      organization: organizationId
     });
 
     res.status(201).json({
@@ -1222,45 +1003,16 @@ exports.createReceiptTemplate = async (req, res) => {
 // GET all receipt templates
 exports.getReceiptTemplates = async (req, res) => {
   try {
-    const {
-      organizationId,
-      isActive,
-      templateType,
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-
-    // Build filter object
-    const filter = { organizationId };
-    
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
-    if (templateType) filter.templateType = templateType;
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    // Execute query
-    const templates = await ReceiptTemplate.find(filter)
-      .populate('createdBy', 'fullName email')
+    // Get all active templates - no queries needed
+    const templates = await ReceiptTemplate.find({ isActive: true })
+      .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await ReceiptTemplate.countDocuments(filter);
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       templates,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      count: templates.length
     });
 
   } catch (error) {
@@ -1279,8 +1031,6 @@ exports.getReceiptTemplates = async (req, res) => {
  *   get:
  *     summary: Get a single receipt template by ID
  *     tags: [Receipt Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -1290,12 +1040,6 @@ exports.getReceiptTemplates = async (req, res) => {
  *           format: ObjectId
  *         description: Receipt template ID
  *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
  *     responses:
  *       200:
  *         description: Receipt template retrieved successfully
@@ -1317,14 +1061,14 @@ exports.getReceiptTemplates = async (req, res) => {
  *         description: Server error
  */
 
-// GET single receipt template by ID
+// GET single receipt template by ID (global access)
 exports.getReceiptTemplateById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId } = req.query;
 
-    const template = await ReceiptTemplate.findOne({ _id: id, organizationId })
-      .populate('createdBy', 'fullName email')
+    // All templates are now global - no organizationId needed
+    const template = await ReceiptTemplate.findById(id)
+      .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email');
 
     if (!template) {
@@ -1355,8 +1099,6 @@ exports.getReceiptTemplateById = async (req, res) => {
  *   put:
  *     summary: Update a receipt template
  *     tags: [Receipt Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -1377,11 +1119,6 @@ exports.getReceiptTemplateById = async (req, res) => {
  *                 format: ObjectId
  *                 required: true
  *                 description: User ID making the update
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 required: true
- *                 description: Organization ID
  *               name:
  *                 type: string
  *                 description: Updated template name
@@ -1432,13 +1169,13 @@ exports.getReceiptTemplateById = async (req, res) => {
 exports.updateReceiptTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
     const updateData = { ...req.body, updatedBy: userId };
     delete updateData.userId; // Remove from update data
 
-    const template = await ReceiptTemplate.findOneAndUpdate(
-      { _id: id, organizationId },
+    const template = await ReceiptTemplate.findByIdAndUpdate(
+      id,
       updateData,
       { new: true, runValidators: true }
     );
@@ -1460,7 +1197,6 @@ exports.updateReceiptTemplate = async (req, res) => {
         name: template.name,
         changes: req.body
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -1485,8 +1221,6 @@ exports.updateReceiptTemplate = async (req, res) => {
  *   delete:
  *     summary: Delete a receipt template
  *     tags: [Receipt Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -1503,16 +1237,11 @@ exports.updateReceiptTemplate = async (req, res) => {
  *             type: object
  *             required:
  *               - userId
- *               - organizationId
  *             properties:
  *               userId:
  *                 type: string
  *                 format: ObjectId
  *                 description: User ID deleting the template
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
  *     responses:
  *       200:
  *         description: Receipt template deleted successfully
@@ -1539,9 +1268,9 @@ exports.updateReceiptTemplate = async (req, res) => {
 exports.deleteReceiptTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
-    const template = await ReceiptTemplate.findOneAndDelete({ _id: id, organizationId });
+    const template = await ReceiptTemplate.findByIdAndDelete(id);
 
     if (!template) {
       return res.status(404).json({
@@ -1559,7 +1288,6 @@ exports.deleteReceiptTemplate = async (req, res) => {
       details: {
         name: template.name
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -1581,10 +1309,10 @@ exports.deleteReceiptTemplate = async (req, res) => {
 exports.setDefaultReceiptTemplate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const { userId } = req.body;
 
-    const template = await ReceiptTemplate.findOneAndUpdate(
-      { _id: id, organizationId },
+    const template = await ReceiptTemplate.findByIdAndUpdate(
+      id,
       { isDefault: true, updatedBy: userId },
       { new: true }
     );
@@ -1605,7 +1333,6 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
       details: {
         name: template.name
       },
-      organization: organizationId
     });
 
     res.status(200).json({
@@ -1632,8 +1359,6 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *   get:
  *     summary: Get all system default invoice templates
  *     tags: [System Default Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: templateType
@@ -1664,8 +1389,6 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *                 count:
  *                   type: integer
  *                   example: 5
- *       401:
- *         description: Unauthorized - Invalid or missing JWT token
  *       500:
  *         description: Server error
  */
@@ -1676,8 +1399,6 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *   get:
  *     summary: Get all system default receipt templates
  *     tags: [System Default Templates]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: templateType
@@ -1708,8 +1429,6 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *                 count:
  *                   type: integer
  *                   example: 5
- *       401:
- *         description: Unauthorized - Invalid or missing JWT token
  *       500:
  *         description: Server error
  */
@@ -1771,6 +1490,162 @@ exports.getSystemDefaultReceiptTemplates = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching system default receipt templates',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoice/templates/defaults/invoice:
+ *   get:
+ *     summary: Get all default invoice templates (organization + system defaults)
+ *     tags: [Invoice Templates]
+ *     parameters:
+ *       - in: query
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, modern, minimal, classic, creative, custom]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: Default invoice templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 organizationDefaults:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/InvoiceTemplate'
+ *                 systemDefaults:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/InvoiceTemplate'
+ *                 count:
+ *                   type: number
+ *       500:
+ *         description: Server error
+ */
+// GET all default invoice templates (global defaults)
+exports.getAllDefaultInvoiceTemplates = async (req, res) => {
+  try {
+    const { templateType, isActive } = req.query;
+
+    // Build filter object for all defaults (no organizationId needed)
+    const filter = { isDefault: true, isActive: true };
+    
+    if (templateType) {
+      filter.templateType = templateType;
+    }
+    if (isActive !== undefined) {
+      filter.isActive = isActive === 'true';
+    }
+
+    // Get all default templates (global)
+    const defaultTemplates = await InvoiceTemplate.find(filter)
+      .populate('userId', 'fullName email')
+      .sort({ templateType: 1, name: 1 });
+
+    res.status(200).json({
+      success: true,
+      templates: defaultTemplates,
+      count: defaultTemplates.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching all default invoice templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching all default invoice templates',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoice/templates/defaults/receipt:
+ *   get:
+ *     summary: Get all default receipt templates (organization + system defaults)
+ *     tags: [Receipt Templates]
+ *     parameters:
+ *       - in: query
+ *       - in: query
+ *         name: templateType
+ *         schema:
+ *           type: string
+ *           enum: [professional, modern, minimal, classic, creative, custom]
+ *         description: Filter by template type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: Default receipt templates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 organizationDefaults:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ReceiptTemplate'
+ *                 systemDefaults:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ReceiptTemplate'
+ *                 count:
+ *                   type: number
+ *       500:
+ *         description: Server error
+ */
+// GET all default receipt templates (global defaults)
+exports.getAllDefaultReceiptTemplates = async (req, res) => {
+  try {
+    const { templateType, isActive } = req.query;
+
+    // Build filter object for all defaults (no organizationId needed)
+    const filter = { isDefault: true, isActive: true };
+    
+    if (templateType) {
+      filter.templateType = templateType;
+    }
+    if (isActive !== undefined) {
+      filter.isActive = isActive === 'true';
+    }
+
+    // Get all default templates (global)
+    const defaultTemplates = await ReceiptTemplate.find(filter)
+      .populate('userId', 'fullName email')
+      .sort({ templateType: 1, name: 1 });
+
+    res.status(200).json({
+      success: true,
+      templates: defaultTemplates,
+      count: defaultTemplates.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching all default receipt templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching all default receipt templates',
       error: error.message
     });
   }

@@ -5,25 +5,37 @@ const notificationTemplateSchema = new mongoose.Schema(
     templateName: {
       type: String,
       required: true,
-      trim: true, // Ensure no extra spaces in the template name
+      unique: true, // Ensure template names are unique globally
+      trim: true,
     },
     subject: {
       type: String,
-      required: true, // Subject for the notification (can be used for email or other channels)
+      required: true, // Subject for the notification (simple text with variables)
     },
     body: {
       type: String,
-      required: true, // Body of the notification (could be email body or message content)
+      required: true, // Body of the notification (simple text with variables, NO HTML)
     },
     type: {
       type: String,
       enum: ['email', 'sms', 'push', 'system'], // Different notification types
-      required: true, // Notification type (e.g., email, SMS, system message)
+      required: true,
+      default: 'system'
     },
     triggerEvent: {
       type: String,
-      enum: ['subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', 'custom'], // Types of events that trigger the notification
+      enum: [
+        'user_registration', 'user_login', 'password_reset', 'account_suspended', 'invitation_sent', 'invitation_accepted',
+        'order_created', 'order_status_updated', 'order_cancelled', 'order_shipped', 'order_delivered', 'refund_processed',
+        'subscription_payment_success', 'subscription_payment_failed', 'subscription_expiring', 'subscription_expired', 'subscription_cancelled', 'subscription_renewed',
+        'email_campaign_sent', 'email_campaign_failed', 'newsletter_sent', 'promotional_offer_sent', 'abandoned_cart_reminder', 'campaign_analytics_ready',
+        'customer_registered', 'customer_updated', 'customer_sync_success', 'customer_sync_failed',
+        'product_created', 'low_stock_alert', 'out_of_stock', 'inventory_sync',
+        'system_maintenance', 'system_error', 'woocommerce_sync_success', 'woocommerce_sync_failed',
+        'subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', 'custom'
+      ],
       required: true,
+      default: 'custom'
     },
     variables: {
       type: Map,
@@ -34,6 +46,40 @@ const notificationTemplateSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // Whether the template is active and should be used
     },
+    isSystemDefault: {
+      type: Boolean,
+      default: false, // Whether this is a system-wide default template
+    },
+    isDefault: {
+      type: Boolean,
+      default: false, // Whether this is the default template for a specific trigger event
+    },
+    templateCategory: {
+      type: String,
+      enum: [
+        'authentication', 'user_management', 'order_management', 'subscription_billing', 
+        'marketing_campaigns', 'customer_management', 'inventory_management', 'system_maintenance'
+      ],
+      required: true,
+      default: 'system_maintenance'
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'critical'],
+      default: 'medium'
+    },
+    tags: [{
+      type: String,
+      trim: true
+    }],
+    version: {
+      type: Number,
+      default: 1
+    },
+    lastUsedAt: {
+      type: Date,
+      default: null
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User', // Reference to the User model who created the template
@@ -41,11 +87,11 @@ const notificationTemplateSchema = new mongoose.Schema(
     },
     createdAt: {
       type: Date,
-      default: Date.now, // Timestamp when the template was created
+      default: Date.now,
     },
     updatedAt: {
       type: Date,
-      default: Date.now, // Timestamp when the template was last updated
+      default: Date.now,
     },
   },
   {
@@ -58,6 +104,40 @@ notificationTemplateSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Indexes for performance
+notificationTemplateSchema.index({ templateName: 1 }, { unique: true });
+notificationTemplateSchema.index({ isActive: 1 });
+notificationTemplateSchema.index({ isSystemDefault: 1 });
+notificationTemplateSchema.index({ isDefault: 1 });
+notificationTemplateSchema.index({ templateCategory: 1 });
+notificationTemplateSchema.index({ triggerEvent: 1 });
+notificationTemplateSchema.index({ priority: 1 });
+notificationTemplateSchema.index({ createdBy: 1 });
+notificationTemplateSchema.index({ lastUsedAt: -1 });
+notificationTemplateSchema.index({ createdAt: -1 });
+
+// Method to mark template as used
+notificationTemplateSchema.methods.markAsUsed = function() {
+  this.lastUsedAt = new Date();
+  this.version += 1;
+  return this.save();
+};
+
+// Static method to get system default templates
+notificationTemplateSchema.statics.getSystemDefaults = function() {
+  return this.find({ isSystemDefault: true, isActive: true }).sort({ templateCategory: 1, templateName: 1 });
+};
+
+// Static method to get templates by category
+notificationTemplateSchema.statics.getByCategory = function(category) {
+  return this.find({ templateCategory: category, isActive: true }).sort({ priority: -1, templateName: 1 });
+};
+
+// Static method to get templates by trigger event
+notificationTemplateSchema.statics.getByTriggerEvent = function(triggerEvent) {
+  return this.find({ triggerEvent: triggerEvent, isActive: true }).sort({ isDefault: -1, priority: -1 });
+};
 
 const NotificationTemplate = mongoose.model('NotificationTemplate', notificationTemplateSchema);
 

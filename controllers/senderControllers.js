@@ -148,7 +148,13 @@ exports.createSender = async (req, res) => {
 exports.getSendersByUser = async (req, res) => {
   const { userId } = req.params;
   try {
-    const senders = await Sender.find({ userId })
+    // Add organization filtering for security
+    const filter = { userId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+    
+    const senders = await Sender.find(filter)
       .populate('organization', 'name domain')
       .populate('userId', 'fullName email')
       .exec();
@@ -163,7 +169,13 @@ exports.getSendersByUser = async (req, res) => {
 exports.getSenderById = async (req, res) => {
   const { senderId } = req.params;
   try {
-    const sender = await Sender.findById(senderId)
+    // Add organization filtering for security
+    const filter = { _id: senderId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+    
+    const sender = await Sender.findOne(filter)
       .populate('organization', 'name domain')
       .populate('userId', 'fullName email')
       .exec();
@@ -245,11 +257,17 @@ exports.updateSender = async (req, res) => {
   console.log(req.body);
 
   try {
+    // Add organization filtering for security
+    const filter = { _id: senderId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
     const updateFields = { name, email, smtpHost, smtpPort, username, password, maxDailyLimit, isActive, updatedAt: Date.now() };
     if (organizationId) updateFields.organization = organizationId;
     if (userId) updateFields.userId = userId;
-    const updatedSender = await Sender.findByIdAndUpdate(
-      senderId,
+    const updatedSender = await Sender.findOneAndUpdate(
+      filter,
       { $set: updateFields },
       { new: true }
     );
@@ -270,7 +288,13 @@ exports.deleteSender = async (req, res) => {
   const { senderId } = req.params;
 
   try {
-    const deletedSender = await Sender.findByIdAndDelete(senderId);
+    // Add organization filtering for security
+    const filter = { _id: senderId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
+    const deletedSender = await Sender.findOneAndDelete(filter);
 
     if (!deletedSender) {
       return res.status(404).json({ success: false, message: "Sender not found" });
@@ -288,7 +312,13 @@ exports.resetDailyLimit = async (req, res) => {
   const { senderId } = req.params;
 
   try {
-    const sender = await Sender.findById(senderId);
+    // Add organization filtering for security
+    const filter = { _id: senderId };
+    if (req.user && req.user.organization) {
+      filter.organization = req.user.organization;
+    }
+
+    const sender = await Sender.findOne(filter);
 
     if (!sender) {
       return res.status(404).json({ success: false, message: "Sender not found" });
