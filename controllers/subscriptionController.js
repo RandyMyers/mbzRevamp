@@ -125,19 +125,37 @@ const logEvent = require('../helper/logEvent');
 // Create a new subscription
 exports.createSubscription = async (req, res) => {
   try {
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
     const subscription = new Subscription(req.body);
     await subscription.save();
     await logEvent({
       action: 'start_subscription',
-      user: req.user._id,
+      user: userId,
       resource: 'Subscription',
       resourceId: subscription._id,
       details: { plan: subscription.plan, startDate: subscription.startDate },
-      organization: req.user.organization
+      organization: organizationId
     });
-    res.status(201).json(subscription);
+    res.status(201).json({
+      success: true,
+      message: 'Subscription created successfully',
+      subscription
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Error creating subscription:', err);
+    res.status(400).json({ 
+      success: false, 
+      error: err.message 
+    });
   }
 };
 
@@ -165,19 +183,42 @@ exports.getSubscriptionById = async (req, res) => {
 // Update a subscription
 exports.updateSubscription = async (req, res) => {
   try {
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
     const subscription = await Subscription.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
+    if (!subscription) return res.status(404).json({ 
+      success: false, 
+      error: 'Subscription not found' 
+    });
+    
     await logEvent({
       action: 'update_subscription',
-      user: req.user._id,
+      user: userId,
       resource: 'Subscription',
       resourceId: subscription._id,
-      details: { before: oldSubscription, after: subscription },
-      organization: req.user.organization
+      details: { changes: req.body },
+      organization: organizationId
     });
-    res.json(subscription);
+    
+    res.json({
+      success: true,
+      message: 'Subscription updated successfully',
+      subscription
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Error updating subscription:', err);
+    res.status(400).json({ 
+      success: false, 
+      error: err.message 
+    });
   }
 };
 
@@ -242,22 +283,46 @@ exports.renewSubscription = async (req, res) => {
 exports.cancelSubscription = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
     const subscription = await Subscription.findById(id);
-    if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
+    if (!subscription) return res.status(404).json({ 
+      success: false, 
+      error: 'Subscription not found' 
+    });
+    
     subscription.status = 'canceled';
     subscription.isActive = false;
     subscription.canceledAt = new Date();
     await subscription.save();
+    
     await logEvent({
       action: 'cancel_subscription',
-      user: req.user._id,
+      user: userId,
       resource: 'Subscription',
       resourceId: subscription._id,
       details: { plan: subscription.plan, cancelDate: new Date() },
-      organization: req.user.organization
+      organization: organizationId
     });
-    res.json(subscription);
+    
+    res.json({
+      success: true,
+      message: 'Subscription cancelled successfully',
+      subscription
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Error cancelling subscription:', err);
+    res.status(400).json({ 
+      success: false, 
+      error: err.message 
+    });
   }
 }; 
