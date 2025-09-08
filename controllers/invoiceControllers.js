@@ -975,10 +975,18 @@ exports.getInvoiceById = async (req, res) => {
 exports.updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    // Validate user is authenticated
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const updateData = { ...req.body, updatedBy: userId };
-    delete updateData.userId; // Remove from update data
 
     const invoice = await Invoice.findOneAndUpdate(
       { _id: id, organizationId },
@@ -1094,7 +1102,16 @@ exports.updateInvoice = async (req, res) => {
 exports.deleteInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    // Validate user is authenticated
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const invoice = await Invoice.findOneAndUpdate(
       { _id: id, organizationId },
@@ -1196,7 +1213,16 @@ exports.deleteInvoice = async (req, res) => {
 exports.downloadInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId } = req.query;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    // Validate user is authenticated
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
     const invoice = await Invoice.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')

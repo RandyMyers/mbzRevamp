@@ -26,7 +26,7 @@ exports.validateEmailConfig = () => {
 };
 
 // Send invitation email
-exports.sendInvitationEmail = async (invitation, baseUrl) => {
+exports.sendInvitationEmail = async (invitation) => {
   try {
     // ✅ VALIDATE EMAIL CONFIGURATION
     if (!this.validateEmailConfig()) {
@@ -44,7 +44,8 @@ exports.sendInvitationEmail = async (invitation, baseUrl) => {
       throw new Error('Inviter data is missing or invalid');
     }
 
-    // Generate invitation URL using provided baseUrl
+    // Generate invitation URL using hardcoded baseUrl
+    const baseUrl = 'https://crm.mbztechnology.com';
     const invitationUrl = `${baseUrl}/accept-invitation?token=${invitation.token}`;
 
     // Create email content

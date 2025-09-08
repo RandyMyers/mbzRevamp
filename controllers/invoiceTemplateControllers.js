@@ -25,7 +25,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         templateType:
  *           type: string
- *           enum: [professional, minimal, modern, classic, creative]
+ *           enum: [professional, modern, minimal, classic, creative, custom]
  *           default: professional
  *           description: Template style type
  *         isDefault:
@@ -47,16 +47,35 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *             name:
  *               type: string
  *               description: Company name
- *             address:
- *               type: string
- *               description: Company address
- *             phone:
- *               type: string
- *               description: Company phone
  *             email:
  *               type: string
  *               format: email
  *               description: Company email
+ *             phone:
+ *               type: string
+ *               description: Company phone
+ *             address:
+ *               type: object
+ *               description: Company address
+ *               properties:
+ *                 street:
+ *                   type: string
+ *                   description: Street address
+ *                 city:
+ *                   type: string
+ *                   description: City
+ *                 state:
+ *                   type: string
+ *                   description: State/Province
+ *                 zipCode:
+ *                   type: string
+ *                   description: ZIP/Postal code
+ *                 country:
+ *                   type: string
+ *                   description: Country
+ *             website:
+ *               type: string
+ *               description: Company website
  *             logo:
  *               type: string
  *               description: Company logo URL
@@ -64,51 +83,159 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           type: object
  *           description: Template design settings
  *           properties:
- *             colors:
- *               type: object
- *               description: Color scheme
- *             fonts:
- *               type: object
- *               description: Font settings
- *             spacing:
- *               type: object
- *               description: Spacing settings
+ *             primaryColor:
+ *               type: string
+ *               default: "#000000"
+ *               description: Primary brand color
+ *             secondaryColor:
+ *               type: string
+ *               default: "#666666"
+ *               description: Secondary color
+ *             backgroundColor:
+ *               type: string
+ *               default: "#ffffff"
+ *               description: Background color
+ *             fontFamily:
+ *               type: string
+ *               default: "Arial, sans-serif"
+ *               description: Font family
+ *             fontSize:
+ *               type: number
+ *               default: 12
+ *               description: Base font size
+ *             headerFontSize:
+ *               type: number
+ *               default: 18
+ *               description: Header font size
+ *             footerFontSize:
+ *               type: number
+ *               default: 10
+ *               description: Footer font size
  *         layout:
  *           type: object
  *           description: Template layout configuration
  *           properties:
- *             header:
- *               type: object
- *               description: Header layout
- *             body:
- *               type: object
- *               description: Body layout
- *             footer:
- *               type: object
- *               description: Footer layout
+ *             showLogo:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide company logo
+ *             logoPosition:
+ *               type: string
+ *               enum: [top-left, top-right, top-center]
+ *               default: top-left
+ *               description: Logo position
+ *             showCompanyInfo:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide company information
+ *             showCustomerInfo:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide customer information
+ *             showItemsTable:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide items table
+ *             showTotals:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide totals section
+ *             showTerms:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide terms and conditions
+ *             showNotes:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide notes section
+ *             showFooter:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide footer
  *         content:
  *           type: object
  *           description: Template content structure
  *           properties:
- *             sections:
- *               type: array
- *               description: Template sections
- *             placeholders:
- *               type: array
- *               description: Dynamic content placeholders
+ *             headerText:
+ *               type: string
+ *               description: Custom header text
+ *             footerText:
+ *               type: string
+ *               description: Custom footer text
+ *             defaultTerms:
+ *               type: string
+ *               description: Default terms and conditions
+ *             defaultNotes:
+ *               type: string
+ *               description: Default notes
+ *             currencySymbol:
+ *               type: string
+ *               default: "$"
+ *               description: Currency symbol
+ *             dateFormat:
+ *               type: string
+ *               default: "MM/DD/YYYY"
+ *               description: Date format
  *         fields:
  *           type: object
- *           description: Template field mappings
+ *           description: Template field display configuration
  *           properties:
- *             customer:
- *               type: object
- *               description: Customer field mappings
- *             items:
- *               type: object
- *               description: Items field mappings
- *             totals:
- *               type: object
- *               description: Totals field mappings
+ *             showInvoiceNumber:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide invoice number
+ *             showIssueDate:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide issue date
+ *             showDueDate:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide due date
+ *             showCustomerAddress:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide customer address
+ *             showCustomerEmail:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide customer email
+ *             showCustomerPhone:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide customer phone
+ *             showItemDescription:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide item descriptions
+ *             showItemQuantity:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide item quantities
+ *             showItemUnitPrice:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide unit prices
+ *             showItemTotal:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide item totals
+ *             showSubtotal:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide subtotal
+ *             showTax:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide tax amount
+ *             showDiscount:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide discount amount
+ *             showTotal:
+ *               type: boolean
+ *               default: true
+ *               description: Show/hide total amount
  *         createdBy:
  *           type: string
  *           format: ObjectId
@@ -144,7 +271,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
  *           description: User ID who created the template (required for user-created templates, optional for system defaults)
  *         templateType:
  *           type: string
- *           enum: [professional, minimal, modern, classic, creative]
+ *           enum: [professional, modern, minimal, classic, creative, custom]
  *           default: professional
  *           description: Template style type
  *         isDefault:
@@ -1364,7 +1491,7 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *         name: templateType
  *         schema:
  *           type: string
- *           enum: [professional, minimal, modern, classic, creative]
+ *           enum: [professional, modern, minimal, classic, creative, custom]
  *         description: Filter by template type
  *       - in: query
  *         name: isActive
@@ -1404,7 +1531,7 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
  *         name: templateType
  *         schema:
  *           type: string
- *           enum: [professional, minimal, modern, classic, creative]
+ *           enum: [professional, modern, minimal, classic, creative, custom]
  *         description: Filter by template type
  *       - in: query
  *         name: isActive

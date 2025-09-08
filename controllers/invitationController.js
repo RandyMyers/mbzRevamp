@@ -97,7 +97,6 @@ const { sendInvitationEmail } = require('../services/emailService');
  *             type: object
  *             required:
  *               - email
- *               - baseUrl
  *             properties:
  *               email:
  *                 type: string
@@ -128,11 +127,6 @@ const { sendInvitationEmail } = require('../services/emailService');
  *                 format: ObjectId
  *                 description: Organization ID (defaults to authenticated user's organization)
  *                 example: "507f1f77bcf86cd799439011"
- *               baseUrl:
- *                 type: string
- *                 format: uri
- *                 description: Base URL for invitation links
- *                 example: "https://app.example.com"
  *     responses:
  *       201:
  *         description: Invitation created successfully
@@ -161,7 +155,7 @@ const { sendInvitationEmail } = require('../services/emailService');
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Base URL is required for invitation links"
+ *                   example: "You are not authorized to resend invitations"
  *       401:
  *         description: Unauthorized - Invalid or missing JWT token
  *       403:
@@ -331,19 +325,12 @@ const { sendInvitationEmail } = require('../services/emailService');
  *         description: Invitation ID
  *         example: "507f1f77bcf86cd799439011"
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - baseUrl
- *             properties:
- *               baseUrl:
- *                 type: string
- *                 format: uri
- *                 description: Base URL for invitation links
- *                 example: "https://app.example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: Invitation resent successfully
@@ -386,7 +373,7 @@ const { sendInvitationEmail } = require('../services/emailService');
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Base URL is required for invitation links"
+ *                   example: "You are not authorized to resend invitations"
  *       401:
  *         description: Unauthorized - Invalid or missing JWT token
  *       403:
@@ -892,9 +879,11 @@ exports.createInvitation = async (req, res) => {
       department, 
       message, 
       expiresAt,
-      organization,
-      baseUrl // ✅ Get baseUrl from request body
+      organization
     } = req.body;
+    
+    // ✅ Hardcoded baseUrl for invitation links
+    const baseUrl = 'https://crm.mbztechnology.com';
     
     const invitedBy = req.user._id; // From authenticated user
 
@@ -959,13 +948,7 @@ exports.createInvitation = async (req, res) => {
       }
     }
 
-    // ✅ VALIDATION 7: Validate baseUrl
-    if (!baseUrl) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Base URL is required for invitation links' 
-      });
-    }
+    // ✅ baseUrl is now hardcoded, no validation needed
 
     // ✅ GENERATE SECURE TOKEN
     const token = crypto.randomBytes(32).toString('hex');
@@ -1007,7 +990,7 @@ exports.createInvitation = async (req, res) => {
         throw new Error('Missing required invitation data');
       }
 
-      const emailResult = await sendInvitationEmail(invitation, baseUrl);
+      const emailResult = await sendInvitationEmail(invitation);
       if (!emailResult.success) {
         console.error('❌ Email sending failed:', emailResult.error);
         throw new Error(`Failed to send invitation email: ${emailResult.error}`);
@@ -1133,7 +1116,8 @@ exports.getInvitationById = async (req, res) => {
 exports.resendInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
-    const { baseUrl } = req.body; // ✅ Get baseUrl from request body
+    // ✅ Hardcoded baseUrl for invitation links
+    const baseUrl = 'https://crm.mbztechnology.com';
     const invitedBy = req.user._id;
 
     // ✅ VALIDATION 1: Check if user is authorized
@@ -1144,13 +1128,7 @@ exports.resendInvitation = async (req, res) => {
       });
     }
 
-    // ✅ VALIDATION 2: Validate baseUrl
-    if (!baseUrl) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Base URL is required for invitation links' 
-      });
-    }
+    // ✅ baseUrl is now hardcoded, no validation needed
 
     // ✅ VALIDATION 3: Find invitation
     const invitation = await Invitation.findById(invitationId)
@@ -1193,7 +1171,7 @@ exports.resendInvitation = async (req, res) => {
         throw new Error('Missing required invitation data for resend');
       }
 
-      const emailResult = await sendInvitationEmail(invitation, baseUrl);
+      const emailResult = await sendInvitationEmail(invitation);
       if (!emailResult.success) {
         console.error('❌ Resend email failed:', emailResult.error);
         throw new Error(`Failed to resend invitation email: ${emailResult.error}`);
