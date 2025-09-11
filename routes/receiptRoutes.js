@@ -40,7 +40,6 @@ router.post('/bulk-generate', receiptControllers.bulkGenerateReceipts);
 
 // Order receipt generation
 router.post('/orders/generate', receiptControllers.generateOrderReceipt);
-router.post('/orders/bulk-generate', receiptControllers.bulkGenerateOrderReceipts);
 
 // Subscription receipt generation
 router.post('/subscriptions/generate', receiptControllers.generateSubscriptionReceipt);
