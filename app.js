@@ -96,6 +96,8 @@ const invitationRoutes = require('./routes/invitationRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 const receiptRoutes = require('./routes/receiptRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const surveyRoutes = require('./routes/surveyRoutes');
+const suggestionRoutes = require('./routes/suggestionRoutes');
 
 const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
 
@@ -247,6 +249,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/surveys', surveyRoutes);
+app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/invoice/templates', invoiceTemplateRoutes);
 
 // New Shipping Label routes

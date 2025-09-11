@@ -3,8 +3,11 @@ const ReceiptTemplate = require('../models/ReceiptTemplate');
 const Customer = require('../models/customers');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
+const Subscription = require('../models/subscriptions');
+const Payment = require('../models/payment');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { sendNotificationToAdmins } = require('../helpers/notificationHelper');
+const { getVariablesByScenario } = require('../config/receiptTemplateVariables');
 const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -367,13 +370,6 @@ const path = require('path');
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
- *       - in: query
  *         name: status
  *         schema:
  *           type: string
@@ -492,13 +488,6 @@ const path = require('path');
  *           type: string
  *           format: ObjectId
  *         description: Receipt ID
- *       - in: query
- *         name: organizationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Organization ID
  *     responses:
  *       200:
  *         description: Receipt retrieved successfully
@@ -915,6 +904,262 @@ const path = require('path');
  *         description: Server error
  */
 
+/**
+ * @swagger
+ * /api/receipts/orders/generate:
+ *   post:
+ *     summary: Generate receipt from WooCommerce order
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: WooCommerce order ID
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID generating the receipt
+ *     responses:
+ *       201:
+ *         description: Order receipt generated successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/subscriptions/generate:
+ *   post:
+ *     summary: Generate receipt from subscription payment
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subscriptionId
+ *               - paymentId
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               subscriptionId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Subscription ID
+ *               paymentId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Payment ID
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID generating the receipt
+ *     responses:
+ *       201:
+ *         description: Subscription receipt generated successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Subscription, payment, or organization not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/templates/preferences:
+ *   put:
+ *     summary: Set receipt template preferences for organization
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID updating preferences
+ *               defaultOrderTemplate:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Default template for WooCommerce orders
+ *               defaultSubscriptionTemplate:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Default template for subscription payments
+ *               autoGenerateOrderReceipts:
+ *                 type: boolean
+ *                 description: Auto-generate receipts for orders
+ *               autoGenerateSubscriptionReceipts:
+ *                 type: boolean
+ *                 description: Auto-generate receipts for subscriptions
+ *     responses:
+ *       200:
+ *         description: Template preferences updated successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/templates/preferences/{organizationId}:
+ *   get:
+ *     summary: Get receipt template preferences for organization
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Template preferences retrieved successfully
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/templates/available/{scenario}:
+ *   get:
+ *     summary: Get available templates for scenario
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: scenario
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [woocommerce_order, subscription_payment]
+ *         description: Receipt scenario
+ *     responses:
+ *       200:
+ *         description: Available templates retrieved successfully
+ *       400:
+ *         description: Invalid scenario
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/templates/random/{scenario}:
+ *   get:
+ *     summary: Get random template for scenario
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: scenario
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [woocommerce_order, subscription_payment]
+ *         description: Receipt scenario
+ *     responses:
+ *       200:
+ *         description: Random template retrieved successfully
+ *       400:
+ *         description: Invalid scenario
+ *       404:
+ *         description: No templates available
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/receipts/{id}/pdf/{scenario}:
+ *   get:
+ *     summary: Download receipt as PDF with scenario-specific formatting
+ *     tags: [Receipts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Receipt ID
+ *       - in: path
+ *         name: scenario
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [woocommerce_order, subscription_payment]
+ *         description: Receipt scenario
+ *     responses:
+ *       200:
+ *         description: PDF file download
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Receipt not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+
 // CREATE a new receipt
 exports.createReceipt = async (req, res) => {
   try {
@@ -1032,8 +1277,17 @@ exports.createReceipt = async (req, res) => {
 // GET all receipts with filters
 exports.getReceipts = async (req, res) => {
   try {
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
     const {
-      organizationId,
       status,
       customerId,
       storeId,
@@ -1110,7 +1364,15 @@ exports.getReceipts = async (req, res) => {
 exports.getReceiptById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId } = req.query;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const receipt = await Receipt.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')
@@ -1145,7 +1407,15 @@ exports.getReceiptById = async (req, res) => {
 exports.updateReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const updateData = { ...req.body, updatedBy: userId };
     delete updateData.userId; // Remove from update data
@@ -1202,7 +1472,15 @@ exports.updateReceipt = async (req, res) => {
 exports.deleteReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const receipt = await Receipt.findOneAndUpdate(
       { _id: id, organizationId },
@@ -1249,7 +1527,15 @@ exports.deleteReceipt = async (req, res) => {
 exports.downloadReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId } = req.query;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const receipt = await Receipt.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')
@@ -1315,7 +1601,16 @@ exports.downloadReceipt = async (req, res) => {
 exports.emailReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const { organizationId, userId, recipientEmail } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+    const { recipientEmail } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const receipt = await Receipt.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email')
@@ -1372,7 +1667,16 @@ exports.emailReceipt = async (req, res) => {
 exports.processRefund = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, organizationId, refundAmount, refundReason } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+    const { refundAmount, refundReason } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     const receipt = await Receipt.findOne({ _id: id, organizationId });
 
@@ -1431,7 +1735,16 @@ exports.processRefund = async (req, res) => {
 // BULK generate receipts from orders
 exports.bulkGenerateReceipts = async (req, res) => {
   try {
-    const { organizationId, userId, orders } = req.body;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+    const { orders } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
 
     if (!orders || !Array.isArray(orders) || orders.length === 0) {
       return res.status(400).json({
@@ -1494,3 +1807,615 @@ exports.bulkGenerateReceipts = async (req, res) => {
     });
   }
 }; 
+
+// ==================== NEW FUNCTIONS FOR TWO-SCENARIO SYSTEM ====================
+
+// Generate receipt from WooCommerce order
+exports.generateOrderReceipt = async (req, res) => {
+  try {
+    const { orderId, organizationId, userId } = req.body;
+
+    if (!orderId || !organizationId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: orderId, organizationId, userId'
+      });
+    }
+
+    // Get order details
+    const Order = require('../models/order');
+    const order = await Order.findOne({ _id: orderId, organizationId })
+      .populate('customerId', 'name email phone address')
+      .populate('storeId', 'name url');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Get template (default or random)
+    const template = await getTemplateForScenario('woocommerce_order', organizationId);
+
+    // Generate receipt number
+    const receiptNumber = await Receipt.generateReceiptNumber(organizationId);
+
+    // Create receipt from order
+    const newReceipt = new Receipt({
+      receiptNumber,
+      customerId: order.customerId,
+      storeId: order.storeId,
+      organizationId,
+      userId,
+      customerName: order.billing?.first_name || 'Customer',
+      customerEmail: order.billing?.email || 'customer@example.com',
+      customerAddress: {
+        street: order.billing?.address_1 || '',
+        city: order.billing?.city || '',
+        state: order.billing?.state || '',
+        zipCode: order.billing?.postcode || '',
+        country: order.billing?.country || ''
+      },
+      items: order.line_items?.map(item => ({
+        name: item.name,
+        description: item.meta_data?.find(m => m.key === 'description')?.value || '',
+        quantity: item.quantity,
+        unitPrice: parseFloat(item.price),
+        totalPrice: parseFloat(item.total),
+        taxRate: 0
+      })) || [],
+      subtotal: parseFloat(order.total) - parseFloat(order.total_tax || 0),
+      taxAmount: parseFloat(order.total_tax || 0),
+      discountAmount: parseFloat(order.discount_total || 0),
+      totalAmount: parseFloat(order.total),
+      currency: order.currency || 'USD',
+      paymentMethod: order.payment_method_title || 'Credit Card',
+      transactionId: order.transaction_id || '',
+      transactionDate: order.date_created || new Date(),
+      description: order.customer_note || '',
+      type: 'purchase',
+      scenario: 'woocommerce_order',
+      templateId: template._id,
+      createdBy: userId,
+      updatedBy: userId
+    });
+
+    newReceipt.calculateTotals();
+    const savedReceipt = await newReceipt.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'ORDER_RECEIPT_GENERATED',
+      user: userId,
+      resource: 'Receipt',
+      resourceId: savedReceipt._id,
+      details: {
+        receiptNumber: savedReceipt.receiptNumber,
+        orderId: order._id,
+        totalAmount: savedReceipt.totalAmount
+      },
+      organization: organizationId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Order receipt generated successfully',
+      receipt: savedReceipt
+    });
+
+  } catch (error) {
+    console.error('Error generating order receipt:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating order receipt',
+      error: error.message
+    });
+  }
+};
+
+// Generate receipt from subscription payment
+exports.generateSubscriptionReceipt = async (req, res) => {
+  try {
+    const { subscriptionId, paymentId, organizationId, userId } = req.body;
+
+    if (!subscriptionId || !paymentId || !organizationId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: subscriptionId, paymentId, organizationId, userId'
+      });
+    }
+
+    // Get subscription and payment details
+    const subscription = await Subscription.findById(subscriptionId)
+      .populate('plan', 'name description price')
+      .populate('user', 'fullName email');
+    
+    const payment = await Payment.findById(paymentId);
+    const organization = await Organization.findById(organizationId);
+
+    if (!subscription || !payment || !organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subscription, payment, or organization not found'
+      });
+    }
+
+    // Get template (default or random)
+    const template = await getTemplateForScenario('subscription_payment', organizationId);
+
+    // Generate receipt number
+    const receiptNumber = await Receipt.generateReceiptNumber(organizationId);
+
+    // Create receipt from subscription
+    const newReceipt = new Receipt({
+      receiptNumber,
+      organizationId,
+      userId,
+      subscriptionId,
+      paymentId,
+      items: [{
+        name: subscription.plan?.name || 'Subscription Plan',
+        description: subscription.plan?.description || '',
+        quantity: 1,
+        unitPrice: payment.amount,
+        totalPrice: payment.amount,
+        taxRate: 0
+      }],
+      subtotal: payment.amount,
+      taxAmount: 0,
+      discountAmount: 0,
+      totalAmount: payment.amount,
+      currency: payment.currency || 'USD',
+      paymentMethod: payment.gateway || 'Credit Card',
+      transactionId: payment.reference,
+      transactionDate: payment.createdAt || new Date(),
+      description: `Subscription payment for ${subscription.billingInterval} plan`,
+      type: 'subscription',
+      scenario: 'subscription_payment',
+      templateId: template._id,
+      createdBy: userId,
+      updatedBy: userId
+    });
+
+    newReceipt.calculateTotals();
+    const savedReceipt = await newReceipt.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'SUBSCRIPTION_RECEIPT_GENERATED',
+      user: userId,
+      resource: 'Receipt',
+      resourceId: savedReceipt._id,
+      details: {
+        receiptNumber: savedReceipt.receiptNumber,
+        subscriptionId: subscription._id,
+        paymentId: payment._id,
+        totalAmount: savedReceipt.totalAmount
+      },
+      organization: organizationId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Subscription receipt generated successfully',
+      receipt: savedReceipt
+    });
+
+  } catch (error) {
+    console.error('Error generating subscription receipt:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating subscription receipt',
+      error: error.message
+    });
+  }
+};
+
+// Set receipt template preferences
+exports.setReceiptTemplatePreferences = async (req, res) => {
+  try {
+    const { organizationId, userId, defaultOrderTemplate, defaultSubscriptionTemplate } = req.body;
+
+    if (!organizationId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: organizationId, userId'
+      });
+    }
+
+    // Update organization's receipt template preferences
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Update template preferences
+    organization.receiptSettings = {
+      defaultOrderTemplate,
+      defaultSubscriptionTemplate,
+      autoGenerateOrderReceipts: req.body.autoGenerateOrderReceipts !== undefined ? req.body.autoGenerateOrderReceipts : true,
+      autoGenerateSubscriptionReceipts: req.body.autoGenerateSubscriptionReceipts !== undefined ? req.body.autoGenerateSubscriptionReceipts : true
+    };
+
+    await organization.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'RECEIPT_TEMPLATE_PREFERENCES_UPDATED',
+      user: userId,
+      resource: 'Organization',
+      resourceId: organizationId,
+      details: {
+        defaultOrderTemplate,
+        defaultSubscriptionTemplate
+      },
+      organization: organizationId
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Receipt template preferences updated successfully',
+      preferences: organization.receiptSettings
+    });
+
+  } catch (error) {
+    console.error('Error setting receipt template preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error setting receipt template preferences',
+      error: error.message
+    });
+  }
+};
+
+// Get receipt template preferences
+exports.getReceiptTemplatePreferences = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Get available templates for each scenario
+    const orderTemplates = await ReceiptTemplate.find({
+      $or: [
+        { scenario: 'woocommerce_order' },
+        { scenario: 'universal' }
+      ],
+      isActive: true
+    }).select('name description templateType scenario');
+
+    const subscriptionTemplates = await ReceiptTemplate.find({
+      $or: [
+        { scenario: 'subscription_payment' },
+        { scenario: 'universal' }
+      ],
+      isActive: true
+    }).select('name description templateType scenario');
+
+    res.status(200).json({
+      success: true,
+      preferences: organization.receiptSettings || {},
+      availableTemplates: {
+        order: orderTemplates,
+        subscription: subscriptionTemplates
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting receipt template preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting receipt template preferences',
+      error: error.message
+    });
+  }
+};
+
+// Get available templates for scenario
+exports.getAvailableTemplates = async (req, res) => {
+  try {
+    const { scenario } = req.params;
+
+    if (!['woocommerce_order', 'subscription_payment'].includes(scenario)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid scenario. Must be woocommerce_order or subscription_payment'
+      });
+    }
+
+    const templates = await ReceiptTemplate.find({
+      $or: [
+        { scenario: scenario },
+        { scenario: 'universal' }
+      ],
+      isActive: true
+    }).select('name description templateType scenario isSystemDefault');
+
+    res.status(200).json({
+      success: true,
+      templates
+    });
+
+  } catch (error) {
+    console.error('Error getting available templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting available templates',
+      error: error.message
+    });
+  }
+};
+
+// Get random template for scenario
+exports.getRandomTemplate = async (req, res) => {
+  try {
+    const { scenario } = req.params;
+
+    if (!['woocommerce_order', 'subscription_payment'].includes(scenario)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid scenario. Must be woocommerce_order or subscription_payment'
+      });
+    }
+
+    const templates = await ReceiptTemplate.find({
+      $or: [
+        { scenario: scenario },
+        { scenario: 'universal' }
+      ],
+      isActive: true
+    });
+
+    if (templates.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No templates available for this scenario'
+      });
+    }
+
+    // Get random template
+    const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
+
+    res.status(200).json({
+      success: true,
+      template: randomTemplate
+    });
+
+  } catch (error) {
+    console.error('Error getting random template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting random template',
+      error: error.message
+    });
+  }
+};
+
+// Enhanced PDF generation with scenario support
+exports.generateReceiptPDF = async (req, res) => {
+  try {
+    const { id, scenario } = req.params;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const receipt = await Receipt.findOne({ _id: id, organizationId, scenario })
+      .populate('customerId', 'name email phone address')
+      .populate('storeId', 'name url')
+      .populate('subscriptionId', 'billingInterval startDate endDate')
+      .populate('paymentId', 'reference gateway amount currency')
+      .populate('templateId');
+
+    if (!receipt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Receipt not found'
+      });
+    }
+
+    // Generate PDF with scenario-specific template
+    const doc = new PDFDocument();
+    const filename = `receipt-${receipt.receiptNumber}-${scenario}.pdf`;
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    doc.pipe(res);
+    
+    // Add content to PDF based on scenario
+    if (scenario === 'woocommerce_order') {
+      await generateOrderReceiptPDF(doc, receipt);
+    } else if (scenario === 'subscription_payment') {
+      await generateSubscriptionReceiptPDF(doc, receipt);
+    } else {
+      // Fallback to generic receipt
+      await generateGenericReceiptPDF(doc, receipt);
+    }
+    
+    doc.end();
+
+  } catch (error) {
+    console.error('Error generating receipt PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating receipt PDF',
+      error: error.message
+    });
+  }
+};
+
+// Generate PDF for WooCommerce order receipt
+async function generateOrderReceiptPDF(doc, receipt) {
+  // Header
+  doc.fontSize(20).text('RECEIPT', { align: 'center' });
+  doc.moveDown();
+  
+  // Receipt details
+  doc.fontSize(12).text(`Receipt Number: ${receipt.receiptNumber}`);
+  doc.text(`Date: ${receipt.transactionDate.toLocaleDateString()}`);
+  doc.text(`Payment Method: ${receipt.paymentMethod}`);
+  if (receipt.transactionId) {
+    doc.text(`Transaction ID: ${receipt.transactionId}`);
+  }
+  doc.moveDown();
+  
+  // Customer information
+  doc.text(`Customer: ${receipt.customerName}`);
+  doc.text(`Email: ${receipt.customerEmail}`);
+  if (receipt.customerAddress) {
+    doc.text(`Address: ${receipt.customerAddress.street}, ${receipt.customerAddress.city}, ${receipt.customerAddress.state} ${receipt.customerAddress.zipCode}`);
+  }
+  doc.moveDown();
+  
+  // Items table
+  doc.text('Items:', { underline: true });
+  receipt.items.forEach(item => {
+    doc.text(`${item.name} - Qty: ${item.quantity} - Price: $${item.unitPrice} - Total: $${item.totalPrice}`);
+  });
+  doc.moveDown();
+  
+  // Totals
+  doc.text(`Subtotal: $${receipt.subtotal}`);
+  doc.text(`Tax: $${receipt.taxAmount}`);
+  doc.text(`Discount: $${receipt.discountAmount}`);
+  doc.text(`Total: $${receipt.totalAmount}`, { underline: true });
+  doc.moveDown();
+  doc.text('Thank you for your purchase!', { align: 'center' });
+}
+
+// Generate PDF for subscription payment receipt
+async function generateSubscriptionReceiptPDF(doc, receipt) {
+  // Header
+  doc.fontSize(20).text('SUBSCRIPTION RECEIPT', { align: 'center' });
+  doc.moveDown();
+  
+  // Receipt details
+  doc.fontSize(12).text(`Receipt Number: ${receipt.receiptNumber}`);
+  doc.text(`Date: ${receipt.transactionDate.toLocaleDateString()}`);
+  doc.text(`Payment Method: ${receipt.paymentMethod}`);
+  if (receipt.transactionId) {
+    doc.text(`Transaction ID: ${receipt.transactionId}`);
+  }
+  doc.moveDown();
+  
+  // Subscription information
+  if (receipt.subscriptionId) {
+    doc.text(`Subscription ID: ${receipt.subscriptionId._id}`);
+    doc.text(`Billing Interval: ${receipt.subscriptionId.billingInterval}`);
+    doc.text(`Start Date: ${receipt.subscriptionId.startDate?.toLocaleDateString()}`);
+    doc.text(`End Date: ${receipt.subscriptionId.endDate?.toLocaleDateString()}`);
+  }
+  doc.moveDown();
+  
+  // Payment information
+  if (receipt.paymentId) {
+    doc.text(`Payment Reference: ${receipt.paymentId.reference}`);
+    doc.text(`Payment Gateway: ${receipt.paymentId.gateway}`);
+  }
+  doc.moveDown();
+  
+  // Items (subscription plan)
+  doc.text('Subscription Details:', { underline: true });
+  receipt.items.forEach(item => {
+    doc.text(`${item.name} - ${item.description}`);
+    doc.text(`Amount: $${item.totalPrice}`);
+  });
+  doc.moveDown();
+  
+  // Totals
+  doc.text(`Subtotal: $${receipt.subtotal}`);
+  doc.text(`Tax: $${receipt.taxAmount}`);
+  doc.text(`Discount: $${receipt.discountAmount}`);
+  doc.text(`Total: $${receipt.totalAmount}`, { underline: true });
+  doc.moveDown();
+  doc.text('Thank you for your subscription!', { align: 'center' });
+}
+
+// Generate generic PDF receipt
+async function generateGenericReceiptPDF(doc, receipt) {
+  // Header
+  doc.fontSize(20).text('RECEIPT', { align: 'center' });
+  doc.moveDown();
+  
+  // Receipt details
+  doc.fontSize(12).text(`Receipt Number: ${receipt.receiptNumber}`);
+  doc.text(`Date: ${receipt.transactionDate.toLocaleDateString()}`);
+  doc.text(`Payment Method: ${receipt.paymentMethod}`);
+  if (receipt.transactionId) {
+    doc.text(`Transaction ID: ${receipt.transactionId}`);
+  }
+  doc.moveDown();
+  
+  // Items
+  doc.text('Items:', { underline: true });
+  receipt.items.forEach(item => {
+    doc.text(`${item.name} - Qty: ${item.quantity} - Price: $${item.unitPrice} - Total: $${item.totalPrice}`);
+  });
+  doc.moveDown();
+  
+  // Totals
+  doc.text(`Subtotal: $${receipt.subtotal}`);
+  doc.text(`Tax: $${receipt.taxAmount}`);
+  doc.text(`Discount: $${receipt.discountAmount}`);
+  doc.text(`Total: $${receipt.totalAmount}`, { underline: true });
+  doc.moveDown();
+  doc.text('Thank you for your payment!', { align: 'center' });
+}
+
+// Helper function to get template for scenario
+async function getTemplateForScenario(scenario, organizationId) {
+  try {
+    // Get organization's template preferences
+    const organization = await Organization.findById(organizationId);
+    
+    let templateId = null;
+    if (organization?.receiptSettings) {
+      templateId = scenario === 'woocommerce_order' 
+        ? organization.receiptSettings.defaultOrderTemplate
+        : organization.receiptSettings.defaultSubscriptionTemplate;
+    }
+
+    // If default template is set, use it
+    if (templateId) {
+      const template = await ReceiptTemplate.findById(templateId);
+      if (template && template.isActive) {
+        return template;
+      }
+    }
+
+    // Otherwise, get random template for scenario
+    const templates = await ReceiptTemplate.find({
+      $or: [
+        { scenario: scenario },
+        { scenario: 'universal' }
+      ],
+      isActive: true
+    });
+
+    if (templates.length === 0) {
+      throw new Error('No templates available for this scenario');
+    }
+
+    return templates[Math.floor(Math.random() * templates.length)];
+
+  } catch (error) {
+    console.error('Error getting template for scenario:', error);
+    throw error;
+  }
+} 

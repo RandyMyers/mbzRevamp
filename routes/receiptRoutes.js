@@ -12,6 +12,7 @@ router.use(authenticateToken);
 router.post('/create', receiptControllers.createReceipt);
 
 // GET all receipts with filters
+router.get('/', receiptControllers.getReceipts);
 router.get('/list', receiptControllers.getReceipts);
 
 // GET single receipt by ID
@@ -34,5 +35,23 @@ router.post('/:id/refund', receiptControllers.processRefund);
 
 // BULK generate receipts from orders
 router.post('/bulk-generate', receiptControllers.bulkGenerateReceipts);
+
+// ==================== NEW TWO-SCENARIO ROUTES ====================
+
+// Order receipt generation
+router.post('/orders/generate', receiptControllers.generateOrderReceipt);
+router.post('/orders/bulk-generate', receiptControllers.bulkGenerateOrderReceipts);
+
+// Subscription receipt generation
+router.post('/subscriptions/generate', receiptControllers.generateSubscriptionReceipt);
+
+// Receipt template management
+router.put('/templates/preferences', receiptControllers.setReceiptTemplatePreferences);
+router.get('/templates/preferences/:organizationId', receiptControllers.getReceiptTemplatePreferences);
+router.get('/templates/available/:scenario', receiptControllers.getAvailableTemplates);
+router.get('/templates/random/:scenario', receiptControllers.getRandomTemplate);
+
+// Enhanced PDF generation
+router.get('/:id/pdf/:scenario', receiptControllers.generateReceiptPDF);
 
 module.exports = router; 

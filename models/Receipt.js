@@ -12,7 +12,9 @@ const ReceiptSchema = new Schema({
   customerId: {
     type: Schema.Types.ObjectId,
     ref: 'Customer',
-    required: true
+    required: function() {
+      return this.scenario === 'woocommerce_order';
+    }
   },
   organizationId: {
     type: Schema.Types.ObjectId,
@@ -22,7 +24,9 @@ const ReceiptSchema = new Schema({
   storeId: {
     type: Schema.Types.ObjectId,
     ref: 'Store',
-    required: true
+    required: function() {
+      return this.scenario === 'woocommerce_order';
+    }
   },
   userId: {
     type: Schema.Types.ObjectId,
@@ -33,12 +37,16 @@ const ReceiptSchema = new Schema({
   // Receipt Details
   customerName: {
     type: String,
-    required: true,
+    required: function() {
+      return this.scenario === 'woocommerce_order';
+    },
     trim: true
   },
   customerEmail: {
     type: String,
-    required: true,
+    required: function() {
+      return this.scenario === 'woocommerce_order';
+    },
     trim: true,
     lowercase: true
   },
@@ -48,6 +56,22 @@ const ReceiptSchema = new Schema({
     state: String,
     zipCode: String,
     country: String
+  },
+
+  // Subscription-specific fields
+  subscriptionId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Subscription',
+    required: function() {
+      return this.scenario === 'subscription_payment';
+    }
+  },
+  paymentId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Payment',
+    required: function() {
+      return this.scenario === 'subscription_payment';
+    }
   },
 
   // Financial Information
@@ -82,8 +106,8 @@ const ReceiptSchema = new Schema({
     trim: true
   },
   paymentMethodDetails: {
-    type: String,
-    trim: true
+    type: Object,
+    default: {}
   },
   transactionId: {
     type: String,
@@ -121,6 +145,13 @@ const ReceiptSchema = new Schema({
     }
   }],
 
+  // Receipt scenario
+  scenario: {
+    type: String,
+    enum: ['woocommerce_order', 'subscription_payment'],
+    required: true
+  },
+
   // Status and Type
   status: {
     type: String,
@@ -147,6 +178,26 @@ const ReceiptSchema = new Schema({
   templateData: {
     type: Object,
     default: {}
+  },
+
+  // Template preferences
+  templatePreferences: {
+    defaultOrderTemplate: {
+      type: Schema.Types.ObjectId,
+      ref: 'ReceiptTemplate'
+    },
+    defaultSubscriptionTemplate: {
+      type: Schema.Types.ObjectId,
+      ref: 'ReceiptTemplate'
+    },
+    autoGenerateOrderReceipts: {
+      type: Boolean,
+      default: true
+    },
+    autoGenerateSubscriptionReceipts: {
+      type: Boolean,
+      default: true
+    }
   },
 
   // Email and Communication
@@ -203,6 +254,9 @@ const ReceiptSchema = new Schema({
 // Indexes for performance
 ReceiptSchema.index({ organizationId: 1, createdAt: -1 });
 ReceiptSchema.index({ customerId: 1, createdAt: -1 });
+ReceiptSchema.index({ subscriptionId: 1, createdAt: -1 });
+ReceiptSchema.index({ paymentId: 1, createdAt: -1 });
+ReceiptSchema.index({ scenario: 1 });
 ReceiptSchema.index({ status: 1 });
 ReceiptSchema.index({ receiptNumber: 1 }, { unique: true });
 ReceiptSchema.index({ transactionDate: 1 });

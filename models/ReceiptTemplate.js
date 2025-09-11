@@ -36,6 +36,13 @@ const ReceiptTemplateSchema = new Schema({
     default: true
   },
 
+  // Template scenario support
+  scenario: {
+    type: String,
+    enum: ['woocommerce_order', 'subscription_payment', 'universal'],
+    default: 'universal'
+  },
+
   // Company Information
   companyInfo: {
     name: {

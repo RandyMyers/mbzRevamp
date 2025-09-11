@@ -82,6 +82,26 @@ const OrganizationSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  
+  // Receipt template preferences
+  receiptSettings: {
+    defaultOrderTemplate: {
+      type: Schema.Types.ObjectId,
+      ref: 'ReceiptTemplate'
+    },
+    defaultSubscriptionTemplate: {
+      type: Schema.Types.ObjectId,
+      ref: 'ReceiptTemplate'
+    },
+    autoGenerateOrderReceipts: {
+      type: Boolean,
+      default: true
+    },
+    autoGenerateSubscriptionReceipts: {
+      type: Boolean,
+      default: true
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now,

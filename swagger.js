@@ -1847,6 +1847,325 @@ const options = {
           createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
           updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
         }
+      },
+      // Receipt Schema
+      Receipt: {
+        type: 'object',
+        required: ['organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod', 'scenario'],
+        properties: {
+          _id: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Unique receipt ID'
+          },
+          receiptNumber: {
+            type: 'string',
+            description: 'Auto-generated receipt number'
+          },
+          customerId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Customer ID (required for woocommerce_order scenario)'
+          },
+          storeId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Store ID (required for woocommerce_order scenario)'
+          },
+          organizationId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Organization ID'
+          },
+          userId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who created the receipt'
+          },
+          customerName: {
+            type: 'string',
+            description: 'Customer name'
+          },
+          customerEmail: {
+            type: 'string',
+            format: 'email',
+            description: 'Customer email'
+          },
+          customerAddress: {
+            type: 'object',
+            description: 'Customer address information'
+          },
+          subscriptionId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Subscription ID (required for subscription_payment scenario)'
+          },
+          paymentId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Payment ID (required for subscription_payment scenario)'
+          },
+          scenario: {
+            type: 'string',
+            enum: ['woocommerce_order', 'subscription_payment'],
+            description: 'Receipt scenario type'
+          },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['name', 'quantity', 'unitPrice'],
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Item name'
+                },
+                quantity: {
+                  type: 'number',
+                  description: 'Item quantity'
+                },
+                unitPrice: {
+                  type: 'number',
+                  description: 'Item unit price'
+                },
+                totalPrice: {
+                  type: 'number',
+                  description: 'Item total price'
+                }
+              }
+            }
+          },
+          subtotal: {
+            type: 'number',
+            description: 'Subtotal amount'
+          },
+          taxAmount: {
+            type: 'number',
+            description: 'Tax amount'
+          },
+          discountAmount: {
+            type: 'number',
+            description: 'Discount amount'
+          },
+          totalAmount: {
+            type: 'number',
+            description: 'Total amount'
+          },
+          currency: {
+            type: 'string',
+            enum: ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'NGN'],
+            default: 'USD',
+            description: 'Currency code'
+          },
+          paymentMethod: {
+            type: 'string',
+            description: 'Payment method used'
+          },
+          paymentMethodDetails: {
+            type: 'object',
+            description: 'Additional payment method details'
+          },
+          transactionId: {
+            type: 'string',
+            description: 'External transaction ID'
+          },
+          transactionDate: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Transaction date'
+          },
+          description: {
+            type: 'string',
+            description: 'Additional description'
+          },
+          type: {
+            type: 'string',
+            enum: ['purchase', 'refund', 'exchange'],
+            default: 'purchase',
+            description: 'Receipt type'
+          },
+          templateId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Receipt template ID'
+          },
+          status: {
+            type: 'string',
+            enum: ['active', 'cancelled', 'refunded'],
+            default: 'active',
+            description: 'Receipt status'
+          },
+          emailSent: {
+            type: 'boolean',
+            default: false,
+            description: 'Whether receipt was emailed'
+          },
+          emailSentDate: {
+            type: 'string',
+            format: 'date-time',
+            description: 'When receipt was emailed'
+          },
+          emailRecipients: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                email: {
+                  type: 'string',
+                  format: 'email'
+                },
+                sentAt: {
+                  type: 'string',
+                  format: 'date-time'
+                },
+                status: {
+                  type: 'string',
+                  enum: ['sent', 'failed']
+                }
+              }
+            }
+          },
+          refundAmount: {
+            type: 'number',
+            description: 'Refund amount'
+          },
+          refundDate: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Refund date'
+          },
+          refundReason: {
+            type: 'string',
+            description: 'Reason for refund'
+          },
+          templatePreferences: {
+            type: 'object',
+            properties: {
+              defaultOrderTemplate: {
+                type: 'string',
+                format: 'ObjectId',
+                description: 'Default template for order receipts'
+              },
+              defaultSubscriptionTemplate: {
+                type: 'string',
+                format: 'ObjectId',
+                description: 'Default template for subscription receipts'
+              },
+              autoGenerateOrderReceipts: {
+                type: 'boolean',
+                default: true,
+                description: 'Auto-generate receipts for orders'
+              },
+              autoGenerateSubscriptionReceipts: {
+                type: 'boolean',
+                default: true,
+                description: 'Auto-generate receipts for subscriptions'
+              }
+            }
+          },
+          createdBy: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who created the receipt'
+          },
+          updatedBy: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who last updated the receipt'
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Receipt creation timestamp'
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Receipt last update timestamp'
+          }
+        }
+      },
+      // Receipt Template Schema
+      ReceiptTemplate: {
+        type: 'object',
+        required: ['name', 'organizationId', 'userId'],
+        properties: {
+          _id: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Unique template ID'
+          },
+          name: {
+            type: 'string',
+            description: 'Template name'
+          },
+          description: {
+            type: 'string',
+            description: 'Template description'
+          },
+          scenario: {
+            type: 'string',
+            enum: ['woocommerce_order', 'subscription_payment', 'universal'],
+            default: 'universal',
+            description: 'Template scenario type'
+          },
+          design: {
+            type: 'object',
+            description: 'Template design settings'
+          },
+          layout: {
+            type: 'object',
+            description: 'Template layout configuration'
+          },
+          content: {
+            type: 'object',
+            description: 'Template content structure'
+          },
+          fields: {
+            type: 'array',
+            description: 'Template fields configuration'
+          },
+          isSystemDefault: {
+            type: 'boolean',
+            default: false,
+            description: 'Whether this is a system default template'
+          },
+          isActive: {
+            type: 'boolean',
+            default: true,
+            description: 'Whether template is active'
+          },
+          organizationId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'Organization ID (null for system defaults)'
+          },
+          userId: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who created the template'
+          },
+          createdBy: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who created the template'
+          },
+          updatedBy: {
+            type: 'string',
+            format: 'ObjectId',
+            description: 'User ID who last updated the template'
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Template creation timestamp'
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Template last update timestamp'
+          }
+        }
       }
     },
     security: [
@@ -1908,12 +2227,28 @@ const options = {
         description: 'Feedback management operations'
       },
       {
+        name: 'Surveys',
+        description: 'Survey management operations'
+      },
+      {
+        name: 'Survey Responses',
+        description: 'Survey response management operations'
+      },
+      {
+        name: 'Suggestions',
+        description: 'Community suggestion management operations'
+      },
+      {
         name: 'Invitations',
         description: 'Invitation management operations'
       },
       {
         name: 'Receipts',
         description: 'Receipt management operations'
+      },
+      {
+        name: 'Receipt Templates',
+        description: 'Receipt template management operations'
       },
       {
         name: 'Shipping',
