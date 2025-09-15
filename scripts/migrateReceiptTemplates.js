@@ -384,3 +384,6 @@ if (require.main === module) {
 }
 
 module.exports = { migrateReceiptTemplates, subscriptionReceiptTemplates };
+
+
+

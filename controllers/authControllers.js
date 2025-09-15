@@ -42,6 +42,99 @@ const sendSystemEmail = async (to, subject, html) => {
 // SUPER ADMIN REGISTRATION & LOGIN
 // ========================================
 
+/**
+ * @swagger
+ * /api/auth/super-admin/register:
+ *   post:
+ *     summary: Register a new Super Admin
+ *     tags: [Authentication]
+ *     description: Creates a new super admin account for platform management. This endpoint is used to create the initial platform administrator.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - fullName
+ *               - email
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Unique username for the super admin
+ *                 example: "admin"
+ *               fullName:
+ *                 type: string
+ *                 description: Full name of the super admin
+ *                 example: "John Admin"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Super admin email address
+ *                 example: "admin@mbztechnology.com"
+ *               password:
+ *                 type: string
+ *                 description: Super admin password (min 8 characters)
+ *                 example: "AdminPassword123!"
+ *     responses:
+ *       201:
+ *         description: Super Admin registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Super Admin registered successfully"
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique super admin user ID
+ *                 username:
+ *                   type: string
+ *                   description: Super admin username
+ *                   example: "admin"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: "admin@mbztechnology.com"
+ *                 role:
+ *                   type: string
+ *                   description: User role
+ *                   example: "super-admin"
+ *       400:
+ *         description: User already exists or validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User with this email or username already exists"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
 // Register a Super Admin (Platform Owner)
 exports.registerSuperAdmin = async (req, res) => {
   const { username, fullName, email, password } = req.body;
@@ -534,6 +627,101 @@ exports.loginOrganizationUser = async (req, res) => {
 // AFFILIATE REGISTRATION & LOGIN
 // ========================================
 
+/**
+ * @swagger
+ * /api/auth/affiliate/register:
+ *   post:
+ *     summary: Register a new Affiliate User
+ *     tags: [Authentication]
+ *     description: Creates a new affiliate account for the affiliate program. Affiliates can earn commissions by referring users.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fullName
+ *               - email
+ *               - password
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 description: Full name of the affiliate
+ *                 example: "Jane Smith"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Affiliate email address
+ *                 example: "jane.smith@example.com"
+ *               password:
+ *                 type: string
+ *                 description: Affiliate password (min 8 characters)
+ *                 example: "AffiliatePassword123!"
+ *               referralCode:
+ *                 type: string
+ *                 description: Optional referral code from another affiliate
+ *                 example: "REF123456"
+ *     responses:
+ *       201:
+ *         description: Affiliate registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Affiliate registered successfully"
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique affiliate user ID
+ *                 username:
+ *                   type: string
+ *                   description: Affiliate full name
+ *                   example: "Jane Smith"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: "jane.smith@example.com"
+ *                 role:
+ *                   type: string
+ *                   description: User role
+ *                   example: "affiliate"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *       400:
+ *         description: User already exists or validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User with this email already exists"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
 // Register an Affiliate User
 exports.registerAffiliate = async (req, res) => {
   const { fullName, email, password, referralCode } = req.body;
@@ -630,6 +818,100 @@ exports.registerAffiliate = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/auth/affiliate/login:
+ *   post:
+ *     summary: Login as an Affiliate User
+ *     tags: [Authentication]
+ *     description: Authenticates an affiliate user and returns a JWT token. Affiliates can access their dashboard and referral information.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Affiliate email address
+ *                 example: "jane.smith@example.com"
+ *               password:
+ *                 type: string
+ *                 description: Affiliate password
+ *                 example: "AffiliatePassword123!"
+ *     responses:
+ *       200:
+ *         description: Affiliate login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Affiliate login successful"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 userId:
+ *                   type: string
+ *                   format: ObjectId
+ *                   description: Unique affiliate user ID
+ *                 username:
+ *                   type: string
+ *                   description: Affiliate full name
+ *                   example: "Jane Smith"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: "jane.smith@example.com"
+ *                 role:
+ *                   type: string
+ *                   description: User role
+ *                   example: "affiliate"
+ *                 profilePicture:
+ *                   type: string
+ *                   description: URL to affiliate's profile picture
+ *                   nullable: true
+ *                 status:
+ *                   type: string
+ *                   description: Account status
+ *                   example: "active"
+ *       400:
+ *         description: Invalid credentials or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not found or not an affiliate"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
 // Login Affiliate User
 exports.loginAffiliate = async (req, res) => {
   const { email, password } = req.body;

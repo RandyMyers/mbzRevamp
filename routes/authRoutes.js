@@ -23,6 +23,16 @@ router.post('/super-admin/register', authController.registerSuperAdmin);
 router.post('/super-admin/login', authController.loginSuperAdmin);
 
 // ========================================
+// AFFILIATE ENDPOINTS
+// ========================================
+
+// Register Affiliate
+router.post('/affiliate/register', authController.registerAffiliate);
+
+// Login Affiliate
+router.post('/affiliate/login', authController.loginAffiliate);
+
+// ========================================
 // PASSWORD CHANGE ENDPOINTS
 // ========================================
 
