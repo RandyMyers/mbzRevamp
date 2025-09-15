@@ -224,7 +224,7 @@ exports.registerSuperAdmin = async (req, res) => {
 
 /**
  * @swagger
- * /api/auth/login/super-admin:
+ * /api/auth/super-admin/login:
  *   post:
  *     summary: Login as Super Admin
  *     tags: [Authentication]
