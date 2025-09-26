@@ -32,7 +32,8 @@ const notificationTemplateSchema = new mongoose.Schema(
         'customer_registered', 'customer_updated', 'customer_sync_success', 'customer_sync_failed',
         'product_created', 'low_stock_alert', 'out_of_stock', 'inventory_sync',
         'system_maintenance', 'system_error', 'woocommerce_sync_success', 'woocommerce_sync_failed',
-        'subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', 'custom'
+        'subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', 'custom',
+        'call_scheduled', 'call_reminder', 'call_cancelled', 'call_invitation'
       ],
       required: true,
       default: 'custom'
@@ -58,7 +59,8 @@ const notificationTemplateSchema = new mongoose.Schema(
       type: String,
       enum: [
         'authentication', 'user_management', 'order_management', 'subscription_billing', 
-        'marketing_campaigns', 'customer_management', 'inventory_management', 'system_maintenance'
+        'marketing_campaigns', 'customer_management', 'inventory_management', 'system_maintenance',
+        'communication'
       ],
       required: true,
       default: 'system_maintenance'

@@ -6,7 +6,8 @@ const callSchedulerController = require('../controllers/callSchedulerController'
 // For GET: pass as query params; for POST/PUT/PATCH/DELETE: pass as body fields
 
 router.post('/', callSchedulerController.createCall); // organizationId, userId in body
-router.get('/', callSchedulerController.getCalls); // organizationId (and optional userId) in query
+router.get('/', callSchedulerController.getCalls);
+router.get('/available-senders/:organizationId', callSchedulerController.getAvailableSenders); // organizationId (and optional userId) in query
 router.get('/available-participants/:organizationId', callSchedulerController.getAvailableParticipants); // Get available participants
 router.get('/:id', callSchedulerController.getCallById); // organizationId in query
 router.put('/:id', callSchedulerController.updateCall); // organizationId in body

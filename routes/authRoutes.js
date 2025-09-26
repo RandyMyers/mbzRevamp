@@ -42,4 +42,17 @@ router.post('/change/password', authController.changePassword);
 // Change password for a super admin
 router.post('/super-admin/change/password', authController.changePasswordSuperAdmin);
 
+// ========================================
+// PASSWORD RESET ENDPOINTS
+// ========================================
+
+// Request password reset
+router.post('/forgot-password', authController.forgotPassword);
+
+// Reset password with token
+router.post('/reset-password', authController.resetPassword);
+
+// Verify reset token validity
+router.get('/verify-reset-token/:token', authController.verifyResetToken);
+
 module.exports = router;

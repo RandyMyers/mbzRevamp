@@ -150,6 +150,36 @@ const UserSchema = new Schema({
         }
       }
     },
+    // Onboarding fields
+    onboardingStatus: {
+      isOnboardingComplete: { 
+        type: Boolean, 
+        default: false 
+      },
+      onboardingCompletedAt: { 
+        type: Date 
+      },
+      lastOnboardingStep: { 
+        type: Number, 
+        default: 1,
+        min: 1,
+        max: 4
+      },
+      onboardingPreferences: {
+        skipTutorials: { 
+          type: Boolean, 
+          default: false 
+        },
+        showTips: { 
+          type: Boolean, 
+          default: true 
+        },
+        skipOnboarding: {
+          type: Boolean,
+          default: false
+        }
+      }
+    },
     createdAt: {
       type: Date,
       default: Date.now,

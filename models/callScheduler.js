@@ -12,6 +12,10 @@ const callSchedulerSchema = new mongoose.Schema({
     required: true
   },
   title: { type: String, required: true },
+  description: { 
+    type: String, 
+    maxlength: [1000, 'Description cannot exceed 1000 characters']
+  },
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
   status: {

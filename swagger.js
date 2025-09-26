@@ -2165,6 +2165,273 @@ const options = {
             format: 'date-time',
             description: 'Template last update timestamp'
           }
+        },
+        // Onboarding Schema
+        Onboarding: {
+          type: 'object',
+          required: ['organizationId', 'userId'],
+          properties: {
+            _id: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'Onboarding record ID'
+            },
+            organizationId: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'Organization ID',
+              example: '60d0fe4f3a7b1c001f1e3a4b'
+            },
+            userId: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'User ID (main user of organization)',
+              example: '60d0fe4f3a7b1c001f1e3a4c'
+            },
+            currentStep: {
+              type: 'number',
+              minimum: 1,
+              maximum: 4,
+              default: 1,
+              description: 'Current onboarding step (1-4)',
+              example: 2
+            },
+            completedSteps: {
+              type: 'array',
+              items: {
+                type: 'number',
+                minimum: 1,
+                maximum: 4
+              },
+              description: 'Array of completed step numbers',
+              example: [1]
+            },
+            isOnboardingComplete: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether onboarding is fully complete',
+              example: false
+            },
+            onboardingStartedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When onboarding was started',
+              example: '2023-12-01T10:00:00.000Z'
+            },
+            onboardingCompletedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When onboarding was completed',
+              example: null
+            },
+            skippedOnboarding: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether user skipped onboarding',
+              example: false
+            },
+            storeSetup: {
+              type: 'object',
+              properties: {
+                isComplete: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether store setup is complete'
+                },
+                completedAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'When store setup was completed'
+                },
+                storeId: {
+                  type: 'string',
+                  format: 'ObjectId',
+                  description: 'Created store ID'
+                },
+                setupMode: {
+                  type: 'string',
+                  enum: ['new', 'existing'],
+                  description: 'How store was set up'
+                }
+              }
+            },
+            planSelection: {
+              type: 'object',
+              properties: {
+                isComplete: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether plan selection is complete'
+                },
+                completedAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'When plan was selected'
+                },
+                planId: {
+                  type: 'string',
+                  format: 'ObjectId',
+                  description: 'Selected plan ID'
+                },
+                subscriptionId: {
+                  type: 'string',
+                  format: 'ObjectId',
+                  description: 'Created subscription ID'
+                },
+                isTrialActivated: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether trial was activated'
+                }
+              }
+            },
+            platformTour: {
+              type: 'object',
+              properties: {
+                isComplete: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether platform tour is complete'
+                },
+                completedAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'When tour was completed'
+                },
+                completedModules: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['stores', 'tasks', 'inventory', 'billing', 'analytics', 'customers', 'marketing', 'settings', 'user-management', 'integrations', 'customer-support', 'audit-logs', 'invoices']
+                  },
+                  description: 'Completed tour modules',
+                  example: ['stores', 'tasks', 'analytics']
+                },
+                dashboardTourCompleted: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether dashboard tour is completed'
+                },
+                moduleToursCompleted: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      moduleId: {
+                        type: 'string',
+                        enum: ['stores', 'tasks', 'inventory', 'billing', 'analytics', 'customers', 'marketing', 'settings', 'user-management', 'integrations', 'customer-support', 'audit-logs', 'invoices']
+                      },
+                      completedAt: {
+                        type: 'string',
+                        format: 'date-time'
+                      },
+                      completedBy: {
+                        type: 'string',
+                        format: 'ObjectId'
+                      },
+                      timeSpent: {
+                        type: 'number',
+                        description: 'Time spent in minutes'
+                      },
+                      tourType: {
+                        type: 'string',
+                        enum: ['interactive', 'video', 'help']
+                      }
+                    }
+                  },
+                  description: 'Individual module tour completion tracking'
+                },
+                moduleProgress: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      moduleId: {
+                        type: 'string'
+                      },
+                      isCompleted: {
+                        type: 'boolean'
+                      },
+                      completedAt: {
+                        type: 'string',
+                        format: 'date-time'
+                      },
+                      timeSpent: {
+                        type: 'number'
+                      },
+                      lastAccessedAt: {
+                        type: 'string',
+                        format: 'date-time'
+                      },
+                      progressPercentage: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 100
+                      }
+                    }
+                  },
+                  description: 'Module progress tracking'
+                }
+              }
+            },
+            onboardingPreferences: {
+              type: 'object',
+              properties: {
+                skipTutorials: {
+                  type: 'boolean',
+                  default: false,
+                  description: 'Whether to skip tutorials'
+                },
+                showTips: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Whether to show tips'
+                }
+              }
+            },
+            timeSpentOnSteps: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  step: {
+                    type: 'number',
+                    minimum: 1,
+                    maximum: 4
+                  },
+                  durationSeconds: {
+                    type: 'number',
+                    minimum: 0
+                  },
+                  startedAt: {
+                    type: 'string',
+                    format: 'date-time'
+                  },
+                  endedAt: {
+                    type: 'string',
+                    format: 'date-time'
+                  }
+                }
+              },
+              description: 'Time spent on each step'
+            },
+            lastActivityAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last activity timestamp',
+              example: '2023-12-01T15:30:00.000Z'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record creation timestamp'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record last update timestamp'
+            }
+          }
         }
       }
     },
@@ -2258,6 +2525,10 @@ const options = {
         name: 'Analytics',
         description: 'Analytics and reporting operations'
       },
+      {
+        name: 'Onboarding',
+        description: 'Onboarding process management operations'
+      },
              {
          name: 'Affiliates',
          description: 'Affiliate management operations'
@@ -2297,6 +2568,22 @@ const options = {
        {
          name: 'Payment Gateways',
          description: 'Payment gateway management operations'
+       },
+       {
+         name: 'Self Service',
+         description: 'Self-service portal operations for employees'
+       },
+       {
+         name: 'Content Management',
+         description: 'Content management system operations'
+       },
+       {
+         name: 'Email Signatures',
+         description: 'Email signature management operations'
+       },
+       {
+         name: 'Job Postings',
+         description: 'Job posting and application management operations'
        }
     ]
   },

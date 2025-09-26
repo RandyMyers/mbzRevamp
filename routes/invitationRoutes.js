@@ -15,7 +15,7 @@ const {
 // Test email configuration endpoint
 router.get('/test-email-config', protect, testEmailConfig);
 
-// Public route for accepting invitations (no auth needed)
+// Public route for accepting invitations (no authenticateToken needed)
 router.post('/accept', acceptInvitation);
 
 // Protected routes

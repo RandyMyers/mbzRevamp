@@ -620,6 +620,87 @@ const notificationTemplates = [
     },
     isSystemDefault: true,
     isActive: true
+  },
+
+  // CALL SCHEDULER NOTIFICATIONS (4 templates)
+  {
+    templateName: "call_scheduled",
+    subject: "Call Scheduled: {{callTitle}} - {{companyName}}",
+    body: "A call has been scheduled for {{callDate}} at {{callTime}}. Title: {{callTitle}}. Description: {{callDescription}}. Meeting Link: {{meetingLink}}",
+    type: "email",
+    triggerEvent: "call_scheduled",
+    templateCategory: "communication",
+    priority: "high",
+    tags: ["call", "schedule", "meeting"],
+    variables: {
+      callTitle: "Call title",
+      callDate: "Call date",
+      callTime: "Call time",
+      callDescription: "Call description",
+      meetingLink: "Meeting link",
+      companyName: "Organization name",
+      organizerName: "Call organizer name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "call_invitation",
+    subject: "You're Invited: {{callTitle}} - {{companyName}}",
+    body: "{{organizerName}} has invited you to a call: {{callTitle}} on {{callDate}} at {{callTime}}. Description: {{callDescription}}. Join: {{meetingLink}}",
+    type: "email",
+    triggerEvent: "call_invitation",
+    templateCategory: "communication",
+    priority: "high",
+    tags: ["call", "invitation", "meeting"],
+    variables: {
+      callTitle: "Call title",
+      callDate: "Call date",
+      callTime: "Call time",
+      callDescription: "Call description",
+      meetingLink: "Meeting link",
+      companyName: "Organization name",
+      organizerName: "Call organizer name",
+      participantName: "Participant name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "call_reminder",
+    subject: "Reminder: {{callTitle}} starts in 15 minutes",
+    body: "Reminder: Your call '{{callTitle}}' is starting in 15 minutes. Join: {{meetingLink}}",
+    type: "email",
+    triggerEvent: "call_reminder",
+    templateCategory: "communication",
+    priority: "medium",
+    tags: ["call", "reminder", "meeting"],
+    variables: {
+      callTitle: "Call title",
+      meetingLink: "Meeting link",
+      participantName: "Participant name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "call_cancelled",
+    subject: "Call Cancelled: {{callTitle}} - {{companyName}}",
+    body: "The call '{{callTitle}}' scheduled for {{callDate}} at {{callTime}} has been cancelled by {{organizerName}}.",
+    type: "email",
+    triggerEvent: "call_cancelled",
+    templateCategory: "communication",
+    priority: "medium",
+    tags: ["call", "cancelled", "meeting"],
+    variables: {
+      callTitle: "Call title",
+      callDate: "Call date",
+      callTime: "Call time",
+      organizerName: "Call organizer name",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
   }
 ];
 

@@ -1,25 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const emailSignatureController = require('../controllers/emailSignatureController');
-const { protect } = require('../middleware/authMiddleware');
+const emailSignatureControllers = require('../controllers/emailSignatureControllers');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
-// GET all signatures for user
-router.get('/', protect, emailSignatureController.getUserSignatures);
-
-// GET default signature
-router.get('/default', protect, emailSignatureController.getDefaultSignature);
-
-// CREATE new signature
-router.post('/', protect, emailSignatureController.createSignature);
-
-// UPDATE signature
-router.put('/:signatureId', protect, emailSignatureController.updateSignature);
-
-// DELETE signature (soft delete)
-router.delete('/:signatureId', protect, emailSignatureController.deleteSignature);
-
-// SET default signature
-router.patch('/:signatureId/default', protect, emailSignatureController.setDefaultSignature);
+// Email Signature Routes
+router.post('/', authenticateToken, emailSignatureControllers.createEmailSignature);
+router.get('/', authenticateToken, emailSignatureControllers.getEmailSignatures);
+router.get('/:id', authenticateToken, emailSignatureControllers.getEmailSignatureById);
+router.put('/:id', authenticateToken, emailSignatureControllers.updateEmailSignature);
+router.delete('/:id', authenticateToken, emailSignatureControllers.deleteEmailSignature);
+router.post('/:id/set-default', authenticateToken, emailSignatureControllers.setDefaultEmailSignature);
+router.post('/:id/use', authenticateToken, emailSignatureControllers.recordUsage);
+router.get('/user/:userId', authenticateToken, emailSignatureControllers.getUserEmailSignatures);
 
 module.exports = router;
-

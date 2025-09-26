@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer"); // Add missing nodemailer import
 // Use the correct auditLogHelper import
 const { createAuditLog, logSecurityEvent } = require("../helpers/auditLogHelper");
+// Import onboarding status check
+const { checkOnboardingStatus } = require("./onboardingController");
 
 // SMTP Configuration for system emails
 const smtpConfig = {
@@ -603,6 +605,9 @@ exports.loginOrganizationUser = async (req, res) => {
       severity: 'info'
     });
 
+    // Check onboarding status
+    const onboardingStatus = await checkOnboardingStatus(organization._id);
+
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -615,7 +620,13 @@ exports.loginOrganizationUser = async (req, res) => {
       organization: organization.name,
       organizationCode: user.organizationCode,
       profilePicture: user.profilePicture,
-      status: user.status
+      status: user.status,
+      onboarding: {
+        status: onboardingStatus.status,
+        currentStep: onboardingStatus.currentStep,
+        isComplete: onboardingStatus.isComplete,
+        redirectTo: onboardingStatus.redirectTo
+      }
     });
   } catch (error) {
     console.error('Organization user login error:', error);
@@ -1268,6 +1279,26 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                   type: string
  *                   description: User account status
  *                   example: "active"
+ *                 onboarding:
+ *                   type: object
+ *                   description: Onboarding status information
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       description: Onboarding status
+ *                       example: "in_progress"
+ *                     currentStep:
+ *                       type: number
+ *                       description: Current onboarding step (1-4)
+ *                       example: 2
+ *                     isComplete:
+ *                       type: boolean
+ *                       description: Whether onboarding is complete
+ *                       example: false
+ *                     redirectTo:
+ *                       type: string
+ *                       description: URL to redirect user to
+ *                       example: "/onboarding?step=2"
  *       400:
  *         description: Invalid credentials or user not found
  *         content:
@@ -1618,5 +1649,424 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   console.log('Legacy loginUser called, redirecting to organization login');
   return exports.loginOrganizationUser(req, res);
+};
+
+// ========================================
+// PASSWORD RESET FUNCTIONS
+// ========================================
+
+const crypto = require('crypto');
+const PasswordResetToken = require('../models/PasswordResetToken');
+const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../services/emailService');
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     description: Send password reset email to user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - organizationId
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email address
+ *                 example: "user@example.com"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Password reset email sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset email sent successfully"
+ *       400:
+ *         description: Invalid request or user not found
+ *       500:
+ *         description: Server error
+ */
+exports.forgotPassword = async (req, res) => {
+  const { email, organizationId } = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get('User-Agent') || 'Unknown';
+
+  try {
+    // Validate required fields
+    if (!email || !organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and organizationId are required'
+      });
+    }
+
+    // Find user by email and organizationId
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim(),
+      organization: organizationId,
+      status: 'active'
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a password reset email has been sent'
+      });
+    }
+
+    // Check for existing valid tokens and invalidate them
+    await PasswordResetToken.updateMany(
+      { 
+        userId: user._id, 
+        used: false,
+        expiresAt: { $gt: new Date() }
+      },
+      { used: true, usedAt: new Date() }
+    );
+
+    // Generate secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    // Set token expiration (1 hour from now)
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Create password reset token
+    const passwordResetToken = new PasswordResetToken({
+      token,
+      userId: user._id,
+      organizationId: user.organization,
+      email: user.email,
+      expiresAt,
+      ipAddress,
+      userAgent
+    });
+
+    await passwordResetToken.save();
+
+    // Get organization details
+    const organization = await Organization.findById(user.organization);
+
+    // Send password reset email
+    const emailResult = await sendPasswordResetEmail(user, passwordResetToken, organization);
+
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send password reset email'
+      });
+    }
+
+    // ✅ AUDIT LOG: Password Reset Request
+    await createAuditLog({
+      action: 'Password Reset Requested',
+      user: user._id,
+      resource: 'password_reset',
+      resourceId: passwordResetToken._id,
+      details: {
+        email: user.email,
+        organizationId: user.organization,
+        tokenId: passwordResetToken._id,
+        ipAddress,
+        userAgent
+      },
+      organization: user.organization,
+      severity: 'info'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    
+    // ✅ AUDIT LOG: Password Reset Error
+    await createAuditLog({
+      action: 'Password Reset Request Failed',
+      user: null,
+      resource: 'password_reset',
+      resourceId: null,
+      details: {
+        email,
+        organizationId,
+        error: error.message,
+        ipAddress,
+        userAgent
+      },
+      organization: organizationId,
+      severity: 'error'
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password with token
+ *     description: Reset user password using valid reset token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Password reset token
+ *                 example: "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 description: New password (min 8 characters)
+ *                 example: "NewPassword123!"
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirm new password
+ *                 example: "NewPassword123!"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Invalid token or password mismatch
+ *       404:
+ *         description: Token not found or expired
+ *       500:
+ *         description: Server error
+ */
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword, confirmPassword } = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get('User-Agent') || 'Unknown';
+
+  try {
+    // Validate required fields
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token, newPassword, and confirmPassword are required'
+      });
+    }
+
+    // Validate password confirmation
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+      });
+    }
+
+    // Find valid token
+    const resetToken = await PasswordResetToken.findValidToken(token);
+    
+    if (!resetToken) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(resetToken.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Update user password
+    user.password = hashedPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    // Mark token as used
+    await resetToken.markAsUsed();
+
+    // Get organization details
+    const organization = await Organization.findById(user.organization);
+
+    // Send password reset success email
+    await sendPasswordResetSuccessEmail(user, organization);
+
+    // ✅ AUDIT LOG: Password Reset Success
+    await createAuditLog({
+      action: 'Password Reset Completed',
+      user: user._id,
+      resource: 'password_reset',
+      resourceId: resetToken._id,
+      details: {
+        email: user.email,
+        organizationId: user.organization,
+        tokenId: resetToken._id,
+        ipAddress,
+        userAgent,
+        resetAt: new Date()
+      },
+      organization: user.organization,
+      severity: 'info'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    
+    // ✅ AUDIT LOG: Password Reset Error
+    await createAuditLog({
+      action: 'Password Reset Failed',
+      user: null,
+      resource: 'password_reset',
+      resourceId: null,
+      details: {
+        token: token ? 'provided' : 'missing',
+        error: error.message,
+        ipAddress,
+        userAgent
+      },
+      organization: null,
+      severity: 'error'
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/verify-reset-token/{token}:
+ *   get:
+ *     summary: Verify reset token validity
+ *     description: Check if a password reset token is valid and not expired
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Password reset token
+ *     responses:
+ *       200:
+ *         description: Token verification result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 valid:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token is valid"
+ *       404:
+ *         description: Token not found or expired
+ *       500:
+ *         description: Server error
+ */
+exports.verifyResetToken = async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        valid: false,
+        message: 'Token is required'
+      });
+    }
+
+    // Find valid token
+    const resetToken = await PasswordResetToken.findValidToken(token);
+    
+    if (!resetToken) {
+      return res.status(404).json({
+        success: false,
+        valid: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      valid: true,
+      message: 'Token is valid',
+      expiresAt: resetToken.expiresAt
+    });
+
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    res.status(500).json({
+      success: false,
+      valid: false,
+      message: 'Server error'
+    });
+  }
 };
 

@@ -886,6 +886,8 @@ router.get('/hr/surveys', adminSurveys.listSurveys);
 router.post('/hr/surveys', adminSurveys.createSurvey);
 router.patch('/hr/surveys/:id', adminSurveys.updateSurvey);
 router.post('/hr/surveys/:id/publish', adminSurveys.publishSurvey);
+router.get('/hr/surveys/:id/responses', adminSurveys.getSurveyResponses);
+router.get('/hr/surveys/:id/responses/export', adminSurveys.exportSurveyResponses);
 
 // HR - Documents
 /**

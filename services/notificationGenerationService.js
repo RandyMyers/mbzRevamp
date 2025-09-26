@@ -90,7 +90,7 @@ class NotificationGenerationService {
       // Find the default template for this trigger event
       const template = await NotificationTemplate.findOne({ 
         triggerEvent, 
-        isDefault: true,
+        isSystemDefault: true,
         isActive: true 
       });
 
@@ -167,29 +167,30 @@ class NotificationGenerationService {
    */
   async sendEmailNotification(notificationData) {
     try {
-      const { subject, body, recipientEmail, recipientName } = notificationData;
-      
-      if (!recipientEmail) {
-        throw new Error('Recipient email is required for email notifications');
+      // Create notification record in database
+      const notification = await createAndSendNotification({
+        subject: notificationData.subject,
+        body: notificationData.body,
+        type: notificationData.type,
+        priority: notificationData.priority,
+        variables: notificationData.variables,
+        templateId: notificationData.templateId,
+        templateName: notificationData.templateName,
+        recipientEmail: notificationData.recipientEmail,
+        recipientName: notificationData.recipientName,
+        senderId: notificationData.senderId
+      });
+
+      if (notification.success) {
+        console.log(`✅ Email notification sent: ${notificationData.templateName}`);
+        return { success: true, notificationId: notification.notificationId };
+      } else {
+        console.error(`❌ Failed to send email notification: ${notification.message}`);
+        return { success: false, message: notification.message };
       }
-
-      const emailResult = await sendNotificationEmail(
-        { email: recipientEmail, name: recipientName },
-        subject,
-        body, // HTML content
-        body  // Text content
-      );
-
-      return {
-        success: true,
-        type: 'email',
-        message: 'Email sent successfully',
-        result: emailResult
-      };
-
     } catch (error) {
       console.error('❌ Email notification error:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   }
 

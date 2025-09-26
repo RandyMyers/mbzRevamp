@@ -99,6 +99,14 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const surveyRoutes = require('./routes/surveyRoutes');
 const suggestionRoutes = require('./routes/suggestionRoutes');
 
+// Onboarding routes
+const onboardingRoutes = require('./routes/onboardingRoutes');
+
+// New Self-Service and Content Management routes
+const selfServiceRoutes = require('./routes/selfServiceRoutes');
+const contentManagementRoutes = require('./routes/contentManagementRoutes');
+const jobPostingRoutes = require('./routes/jobPostingRoutes');
+
 const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
 
 // New Shipping Label routes
@@ -245,12 +253,21 @@ app.use('/api/notification-templates', notificationTemplateRoutes);
 app.use('/api/notification-settings', notificationSettingsRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Onboarding routes
+app.use('/api/onboarding', onboardingRoutes);
+
 // New InvoicesAndReceipts & Feedback routes
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/surveys', surveyRoutes);
 app.use('/api/suggestions', suggestionRoutes);
+
+// New Self-Service and Content Management routes
+app.use('/api/self-service', selfServiceRoutes);
+app.use('/api/content-management', contentManagementRoutes);
+app.use('/api/job-postings', jobPostingRoutes);
+
 app.use('/api/invoice/templates', invoiceTemplateRoutes);
 
 // New Shipping Label routes

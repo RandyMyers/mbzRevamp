@@ -3,7 +3,7 @@ const router = express.Router();
 const notificationTemplateController = require('../controllers/notificationTemplateControllers');
 const { protect } = require('../middleware/authMiddleware');
 
-// GET system default templates (no auth required)
+// GET system default templates (no authenticateToken required)
 router.get('/system/defaults', notificationTemplateController.getSystemDefaultTemplates);
 
 // Apply authentication middleware to all other routes

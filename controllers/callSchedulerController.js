@@ -21,11 +21,13 @@
  *               startTime: { type: string, format: date-time }
  *               endTime: { type: string, format: date-time }
  *               title: { type: string }
+ *               description: { type: string, maxLength: 1000 }
  *               participants: 
  *                 type: array
  *                 items: { type: string }
  *                 description: Array of user IDs from the same organization
  *               meetingLink: { type: string }
+ *               senderId: { type: string, description: "Sender ID for email notifications" }
  *     responses:
  *       201: { description: Created }
  *       400: { description: Missing required fields }
@@ -84,11 +86,13 @@
  *               startTime: { type: string, format: date-time }
  *               endTime: { type: string, format: date-time }
  *               title: { type: string }
+ *               description: { type: string, maxLength: 1000 }
  *               participants: 
  *                 type: array
  *                 items: { type: string }
  *                 description: Array of user IDs from the same organization
  *               meetingLink: { type: string }
+ *               senderId: { type: string, description: "Sender ID for email notifications" }
  *     responses:
  *       200: { description: Updated }
  *       400: { description: Missing organizationId }
@@ -168,9 +172,40 @@
  *                       email: { type: string }
  *       400: { description: Missing organizationId }
  *       500: { description: Server error }
+ *
+ * /api/calls/available-senders/{organizationId}:
+ *   get:
+ *     tags: [Call Scheduler]
+ *     summary: Get available senders for an organization
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Organization ID to get senders from
+ *     responses:
+ *       200: 
+ *         description: Available senders list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id: { type: string }
+ *                       name: { type: string }
+ *                       email: { type: string }
+ *       400: { description: Missing organizationId }
+ *       500: { description: Server error }
  */
 const CallScheduler = require('../models/callScheduler');
 const User = require('../models/users');
+const callNotificationService = require('../services/callNotificationService');
 
 // Validate that participants belong to the organization
 const validateParticipants = async (participants, organizationId) => {
@@ -194,7 +229,7 @@ const validateParticipants = async (participants, organizationId) => {
 // Create a new call
 exports.createCall = async (req, res) => {
   try {
-    const { organizationId, userId, participants, ...callData } = req.body;
+    const { organizationId, userId, participants, senderId, ...callData } = req.body;
     console.log(req.body);
     if (!organizationId || !userId) {
       return res.status(400).json({ success: false, error: 'organizationId and userId are required' });
@@ -210,6 +245,21 @@ exports.createCall = async (req, res) => {
     
     // Populate participants with user details
     await call.populate('participants', 'name email');
+    
+    // Send notifications asynchronously (don't block the response)
+    setImmediate(async () => {
+      try {
+        // Send call scheduled notification to organizer
+        await callNotificationService.sendCallScheduledNotification(call);
+        
+        // Send call invitations to participants if any
+        if (participants && participants.length > 0 && senderId) {
+          await callNotificationService.sendCallInvitations(call, participants, senderId);
+        }
+      } catch (notificationError) {
+        console.error('❌ Call notification error (non-blocking):', notificationError.message);
+      }
+    });
     
     res.status(201).json({ success: true, data: call });
   } catch (err) {
@@ -256,10 +306,16 @@ exports.getCallById = async (req, res) => {
 // Update a call (must belong to org)
 exports.updateCall = async (req, res) => {
   try {
-    const { organizationId, participants, ...updateData } = req.body;
+    const { organizationId, participants, senderId, ...updateData } = req.body;
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
+    
+    // Get the original call to compare changes
+    const originalCall = await CallScheduler.findOne({ _id: req.params.id, organizationId })
+      .populate('participants', 'name email');
+    
+    if (!originalCall) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
     
     // Validate participants belong to organization if provided
     if (participants && participants.length > 0) {
@@ -273,6 +329,34 @@ exports.updateCall = async (req, res) => {
     ).populate('participants', 'name email').populate('userId', 'name email');
     
     if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
+    
+    // Send update notifications asynchronously (don't block the response)
+    setImmediate(async () => {
+      try {
+        // Check if participants changed
+        const originalParticipantIds = originalCall.participants ? originalCall.participants.map(p => p._id.toString()) : [];
+        const newParticipantIds = call.participants ? call.participants.map(p => p._id.toString()) : [];
+        const participantsChanged = JSON.stringify(originalParticipantIds.sort()) !== JSON.stringify(newParticipantIds.sort());
+        
+        // Check if important call details changed
+        const detailsChanged = (
+          originalCall.title !== call.title ||
+          originalCall.startTime.getTime() !== call.startTime.getTime() ||
+          originalCall.endTime.getTime() !== call.endTime.getTime() ||
+          originalCall.description !== call.description ||
+          originalCall.meetingLink !== call.meetingLink
+        );
+        
+        // Send updated call invitations if participants changed or details changed
+        if ((participantsChanged || detailsChanged) && call.participants && call.participants.length > 0 && senderId) {
+          const participantIds = call.participants.map(p => p._id);
+          await callNotificationService.sendCallInvitations(call, participantIds, senderId);
+        }
+      } catch (notificationError) {
+        console.error('❌ Call update notification error (non-blocking):', notificationError.message);
+      }
+    });
+    
     res.json({ success: true, data: call });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -286,13 +370,34 @@ exports.cancelCall = async (req, res) => {
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
-    const call = await CallScheduler.findOneAndUpdate(
+    
+    // Get the call with participants before updating
+    const call = await CallScheduler.findOne({ _id: req.params.id, organizationId })
+      .populate('participants', 'name email');
+    
+    if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
+    
+    // Update call status
+    const updatedCall = await CallScheduler.findOneAndUpdate(
       { _id: req.params.id, organizationId },
       { status: 'cancelled' },
       { new: true }
     );
-    if (!call) return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
-    res.json({ success: true, data: call });
+    
+    // Send cancellation notifications asynchronously (don't block the response)
+    setImmediate(async () => {
+      try {
+        // Send cancellation notifications to participants if any
+        if (call.participants && call.participants.length > 0) {
+          const participantIds = call.participants.map(p => p._id);
+          await callNotificationService.sendCallCancelledNotification(call, participantIds);
+        }
+      } catch (notificationError) {
+        console.error('❌ Call cancellation notification error (non-blocking):', notificationError.message);
+      }
+    });
+    
+    res.json({ success: true, data: updatedCall });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
@@ -326,6 +431,28 @@ exports.getAvailableParticipants = async (req, res) => {
       .sort({ name: 1 });
     
     res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Get available senders for an organization (for email invites)
+exports.getAvailableSenders = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'organizationId is required' });
+    }
+    
+    const Sender = require('../models/sender');
+    const senders = await Sender.find({ 
+      organization: organizationId,
+      isActive: true 
+    })
+      .select('name email _id')
+      .sort({ name: 1 });
+    
+    res.json({ success: true, data: senders });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
