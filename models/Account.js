@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');  
 
-const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Equity', 'Revenue', 'Expenses'];
+const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Equity', 'Revenue', 'Expenses']; 
 
 const accountSchema = new mongoose.Schema(
 	{

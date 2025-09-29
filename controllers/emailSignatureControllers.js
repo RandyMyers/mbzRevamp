@@ -1,4 +1,4 @@
-const EmailSignature = require('../models/EmailSignature');
+const EmailSignature = require('../models/emailSignature');
 const User = require('../models/users');
 const Organization = require('../models/organization');
 
