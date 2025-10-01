@@ -65,8 +65,20 @@ const UserSchema = new Schema({
     },
     status: {
       type: String,
-      enum: ['active', 'inactive'],
-      default: 'active',
+      enum: ['active', 'inactive', 'pending-verification'],
+      default: 'pending-verification',
+    },
+    
+    // Email verification status
+    emailVerified: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    
+    emailVerifiedAt: {
+      type: Date,
+      default: null
     },
     organization: {
       type: Schema.Types.ObjectId,

@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authControllers");
+const emailVerificationController = require("../controllers/emailVerificationController");
+const { protect } = require("../middleware/authMiddleware");
 
 // ========================================
 // GENERAL USER ENDPOINTS (for storehubomale)
@@ -54,5 +56,21 @@ router.post('/reset-password', authController.resetPassword);
 
 // Verify reset token validity
 router.get('/verify-reset-token/:token', authController.verifyResetToken);
+
+// ========================================
+// EMAIL VERIFICATION ENDPOINTS
+// ========================================
+
+// Verify email with 6-digit code
+router.post('/verify-email', emailVerificationController.verifyEmail);
+
+// Resend verification code
+router.post('/resend-verification', emailVerificationController.resendVerificationCode);
+
+// Check verification status
+router.get('/check-verification-status', emailVerificationController.checkVerificationStatus);
+
+// Cleanup expired verification codes (Admin only)
+router.post('/cleanup-verification-codes', protect, emailVerificationController.cleanupVerificationCodes);
 
 module.exports = router;

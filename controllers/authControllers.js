@@ -8,6 +8,8 @@ const nodemailer = require("nodemailer"); // Add missing nodemailer import
 const { createAuditLog, logSecurityEvent } = require("../helpers/auditLogHelper");
 // Import onboarding status check
 const { checkOnboardingStatus } = require("./onboardingController");
+// Import email verification service
+const EmailVerificationService = require("../services/emailVerificationService");
 
 // SMTP Configuration for system emails
 const smtpConfig = {
@@ -39,6 +41,60 @@ const sendSystemEmail = async (to, subject, html) => {
     throw error;
   }
 };
+
+// ========================================
+// AUTHENTICATION API OVERVIEW
+// ========================================
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AuthenticationFlow:
+ *       type: object
+ *       description: |
+ *         # Authentication System Overview
+ *         
+ *         ## 🔄 Two Different Verification Systems:
+ *         
+ *         ### 1. Email Verification (Registration) - 6-digit codes
+ *         - **Purpose:** Verify email ownership for new users
+ *         - **When:** During user registration
+ *         - **Code:** 6-digit number (e.g., "123456")
+ *         - **Expires:** 15 minutes
+ *         - **Endpoints:** 
+ *           - `POST /api/auth/verify-email` - Verify 6-digit code
+ *           - `POST /api/auth/resend-verification` - Resend 6-digit code
+ *         
+ *         ### 2. Password Reset (Forgot Password) - Long tokens
+ *         - **Purpose:** Reset forgotten password for existing users
+ *         - **When:** User forgot their password
+ *         - **Token:** Long secure string (e.g., "a1b2c3d4e5f6...")
+ *         - **Expires:** 1 hour
+ *         - **Endpoints:**
+ *           - `POST /api/auth/forgot-password` - Send reset email
+ *           - `POST /api/auth/reset-password` - Reset with token
+ *         
+ *         ## 📋 Complete User Flow:
+ *         
+ *         ### New User Registration:
+ *         1. `POST /api/auth/register` → Creates account, sends 6-digit code
+ *         2. `POST /api/auth/verify-email` → Verify with 6-digit code
+ *         3. `POST /api/auth/login` → Login (now works)
+ *         
+ *         ### Forgot Password:
+ *         1. `POST /api/auth/forgot-password` → Send reset email with token
+ *         2. `POST /api/auth/reset-password` → Reset password with token
+ *         3. `POST /api/auth/login` → Login with new password
+ *         
+ *         ### Change Password (Logged-in Users):
+ *         1. `POST /api/auth/change/password` → Change password (requires current password)
+ *         
+ *         ## ⚠️ Important Notes:
+ *         - **6-digit codes** are ONLY for email verification during registration
+ *         - **Long tokens** are ONLY for password reset
+ *         - **Don't mix them up!** Each has different expiration times and purposes
+ */
 
 // ========================================
 // SUPER ADMIN REGISTRATION & LOGIN
@@ -553,6 +609,16 @@ exports.loginOrganizationUser = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: "Organization not found" 
+      });
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Please verify your email address before logging in. Check your email for a verification code.",
+        emailVerified: false,
+        email: user.email
       });
     }
 
@@ -1088,7 +1154,14 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *   post:
  *     summary: Register a new user and create organization
  *     tags: [Authentication]
- *     description: Creates a new user account along with their organization. This is the main endpoint for storehubomale users.
+ *     description: |
+ *       Creates a new user account along with their organization. This is the main endpoint for storehubomale users.
+ *       
+ *       **After registration:** User receives 6-digit verification code via email
+ *       **Next step:** Use /api/auth/verify-email to verify email with 6-digit code
+ *       **User status:** Starts as "pending-verification", becomes "active" after verification
+ *       
+ *       **⚠️ Different from:** Password reset (use /api/auth/forgot-password for existing users)
  *     requestBody:
  *       required: true
  *       content:
@@ -1140,7 +1213,7 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "User registered successfully"
+ *                   example: "User registered successfully. Please check your email for verification code."
  *                 token:
  *                   type: string
  *                   description: JWT token for authentication
@@ -1172,6 +1245,14 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                   type: string
  *                   description: Unique organization code for login
  *                   example: "testcompany1234567"
+ *                 emailVerified:
+ *                   type: boolean
+ *                   description: Whether email is verified
+ *                   example: false
+ *                 status:
+ *                   type: string
+ *                   description: User account status
+ *                   example: "pending-verification"
  *       400:
  *         description: Validation error or user/organization already exists
  *         content:
@@ -1206,7 +1287,12 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *   post:
  *     summary: Login as an organization user
  *     tags: [Authentication]
- *     description: Authenticates a user and returns a JWT token. This is the main login endpoint for storehubomale users.
+ *     description: |
+ *       Authenticates a user and returns a JWT token. This is the main login endpoint for storehubomale users.
+ *       
+ *       **Requirements:** User must have verified their email (emailVerified: true)
+ *       **If unverified:** Returns 400 error directing user to verify email first
+ *       **Email verification:** Use /api/auth/verify-email with 6-digit code
  *     requestBody:
  *       required: true
  *       content:
@@ -1279,6 +1365,10 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                   type: string
  *                   description: User account status
  *                   example: "active"
+ *                 emailVerified:
+ *                   type: boolean
+ *                   description: Whether email is verified
+ *                   example: true
  *                 onboarding:
  *                   type: object
  *                   description: Onboarding status information
@@ -1300,18 +1390,34 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                       description: URL to redirect user to
  *                       example: "/onboarding?step=2"
  *       400:
- *         description: Invalid credentials or user not found
+ *         description: Invalid credentials, user not found, or email not verified
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "User not found"
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "User not found"
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "Please verify your email address before logging in. Check your email for a verification code."
+ *                     emailVerified:
+ *                       type: boolean
+ *                       example: false
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: "user@example.com"
  *       500:
  *         description: Server error
  *         content:
@@ -1593,31 +1699,25 @@ exports.registerUser = async (req, res) => {
       role: adminRole._id, // Use the ObjectId of the role
       organization: newOrganization._id, // Use the ObjectId of the organization
       organizationCode: newOrganization.organizationCode,
-      status: 'active'
+      status: 'pending-verification', // User needs to verify email first
+      emailVerified: false
     });
 
     // Save the user
     await newUser.save();
 
-    // Email sending temporarily disabled
-    // try {
-    //   await sendSystemEmail(
-    //     email,
-    //     'Welcome to MBZ Technology Platform - Account Created',
-    //     `
-    //       <h2>Welcome to MBZ Technology Platform!</h2>
-    //       <p>Hello ${firstName} ${lastName},</p>
-    //       <p>Your account has been successfully created for ${companyName}.</p>
-    //       <p><strong>Email:</strong> ${email}</p>
-    //       <p><strong>Organization Code:</strong> ${newOrganization.organizationCode}</p>
-    //       <p>You can now log in to your dashboard and start managing your business.</p>
-    //       <p>Best regards,<br>MBZ Technology Team</p>
-    //     `
-    //   );
-    // } catch (emailError) {
-    //   console.error('Failed to send welcome email:', emailError);
-    //   // Don't fail registration if email fails
-    // }
+    // Send email verification code
+    try {
+      const verificationResult = await EmailVerificationService.sendVerificationCode(newUser, req);
+      
+      if (!verificationResult.success) {
+        console.error('Failed to send verification email:', verificationResult.error);
+        // Don't fail registration if email fails, but log the issue
+      }
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Don't fail registration if email fails
+    }
 
     const token = jwt.sign(
       { userId: newUser._id, role: adminRole.name }, 
@@ -1629,7 +1729,7 @@ exports.registerUser = async (req, res) => {
 
     res.status(201).json({ 
       success: true, 
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please check your email for verification code.',
       userId: newUser._id,
       username: newUser.fullName,
       email: newUser.email,
@@ -1637,6 +1737,8 @@ exports.registerUser = async (req, res) => {
       organization: newOrganization.name,
       organizationId: newOrganization._id,
       organizationCode: newOrganization.organizationCode,
+      emailVerified: newUser.emailVerified,
+      status: newUser.status,
       token
     });
   } catch (error) {
@@ -1663,8 +1765,16 @@ const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../se
  * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Request password reset
- *     description: Send password reset email to user
+ *     summary: Request password reset (for existing users who forgot their password)
+ *     description: |
+ *       Send password reset email to user who forgot their password.
+ *       This is different from email verification during registration.
+ *       
+ *       **Use this when:** User forgot their password and needs to reset it
+ *       **Email contains:** Long secure token (not 6-digit code)
+ *       **Next step:** Use /api/auth/reset-password with the token
+ *       
+ *       **⚠️ NOT for:** New user email verification (use /api/auth/verify-email instead)
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -1674,18 +1784,12 @@ const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../se
  *             type: object
  *             required:
  *               - email
- *               - organizationId
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
  *                 description: User's email address
  *                 example: "user@example.com"
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
- *                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
  *     responses:
  *       200:
  *         description: Password reset email sent successfully
@@ -1699,30 +1803,29 @@ const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../se
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "Password reset email sent successfully"
+ *                   example: "If an account with that email exists, a password reset email has been sent"
  *       400:
- *         description: Invalid request or user not found
+ *         description: Invalid request or email not provided
  *       500:
  *         description: Server error
  */
 exports.forgotPassword = async (req, res) => {
-  const { email, organizationId } = req.body;
+  const { email } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
   const userAgent = req.get('User-Agent') || 'Unknown';
 
   try {
     // Validate required fields
-    if (!email || !organizationId) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email and organizationId are required'
+        message: 'Email is required'
       });
     }
 
-    // Find user by email and organizationId
+    // Find user by email only (no organizationId required)
     const user = await User.findOne({ 
       email: email.toLowerCase().trim(),
-      organization: organizationId,
       status: 'active'
     });
 
@@ -1810,12 +1913,11 @@ exports.forgotPassword = async (req, res) => {
       resourceId: null,
       details: {
         email,
-        organizationId,
         error: error.message,
         ipAddress,
         userAgent
       },
-      organization: organizationId,
+      organization: null,
       severity: 'error'
     });
 
@@ -1830,8 +1932,16 @@ exports.forgotPassword = async (req, res) => {
  * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Reset password with token
- *     description: Reset user password using valid reset token
+ *     summary: Reset password with token (for forgot password)
+ *     description: |
+ *       Reset user password using valid reset token from forgot password email.
+ *       
+ *       **Use this when:** User forgot their password and received reset token via email
+ *       **Token type:** Long secure token (not 6-digit code)
+ *       **Token source:** Received from /api/auth/forgot-password email
+ *       **Expiration:** 1 hour
+ *       
+ *       **⚠️ Different from:** Email verification (use /api/auth/verify-email for registration)
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
