@@ -197,26 +197,34 @@ exports.verifyEmail = async (req, res) => {
  */
 exports.resendVerificationCode = async (req, res) => {
   try {
+    console.log('🔄 [EMAIL VERIFICATION CONTROLLER] Resend verification code request received');
+    console.log('🔄 [EMAIL VERIFICATION CONTROLLER] Request body:', req.body);
+    
     const { email } = req.body;
     
     // Validate required fields
     if (!email) {
+      console.log('❌ [EMAIL VERIFICATION CONTROLLER] Email is missing from request body');
       return res.status(400).json({
         success: false,
         message: 'Email is required'
       });
     }
     
+    console.log('🔄 [EMAIL VERIFICATION CONTROLLER] Calling EmailVerificationService.resendVerificationCode...');
     // Resend verification code
     const result = await EmailVerificationService.resendVerificationCode(email, req);
+    console.log('🔄 [EMAIL VERIFICATION CONTROLLER] Service result:', result);
     
     if (!result.success) {
+      console.log('❌ [EMAIL VERIFICATION CONTROLLER] Service returned failure:', result.message);
       return res.status(400).json({
         success: false,
         message: result.message
       });
     }
     
+    console.log('✅ [EMAIL VERIFICATION CONTROLLER] Resend successful, sending response');
     res.status(200).json({
       success: true,
       message: result.message,
@@ -224,7 +232,7 @@ exports.resendVerificationCode = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Resend verification code error:', error);
+    console.error('❌ [EMAIL VERIFICATION CONTROLLER] Resend verification code error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while resending verification code'

@@ -19,11 +19,12 @@ class EmailVerificationService {
    */
   static async sendVerificationCode(user, req) {
     try {
+      console.log(`📧 [EMAIL VERIFICATION] Starting verification process for user: ${user.email}`);
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent') || 'Unknown';
       
       // Invalidate any existing unverified codes for this email
-      await EmailVerification.updateMany(
+      const invalidationResult = await EmailVerification.updateMany(
         {
           email: user.email,
           isVerified: false
@@ -47,11 +48,13 @@ class EmailVerificationService {
       });
       
       await emailVerification.save();
+      console.log(`📧 [EMAIL VERIFICATION] Verification record saved, now sending email to: ${user.email}`);
       
       // Send verification email
       const emailResult = await this.sendVerificationEmail(user, verificationCode);
       
       if (!emailResult.success) {
+        console.error('🔐 [EMAIL VERIFICATION] Email sending failed:', emailResult.error);
         throw new Error(`Failed to send verification email: ${emailResult.error}`);
       }
       
@@ -211,16 +214,18 @@ class EmailVerificationService {
       // Check if email is already verified
       if (user.emailVerified) {
         return {
-          success: false,
-          message: 'Email is already verified'
+          success: true,
+          message: 'Email is already verified. You can log in to your account.'
         };
       }
       
       // Send new verification code
-      return await this.sendVerificationCode(user, req);
+      const result = await this.sendVerificationCode(user, req);
+      
+      return result;
       
     } catch (error) {
-      console.error('Error resending verification code:', error);
+      console.error('❌ [EMAIL VERIFICATION] Error resending verification code:', error);
       return {
         success: false,
         error: error.message
@@ -326,13 +331,21 @@ class EmailVerificationService {
       
       const emailResult = await sendSystemEmail(user.email, subject, htmlContent);
       
-      return {
-        success: true,
-        messageId: emailResult.messageId
-      };
+      if (emailResult.success) {
+        console.log(`✅ Email verification code sent to ${user.email} - Message ID: ${emailResult.messageId}`);
+        return {
+          success: true,
+          messageId: emailResult.messageId
+        };
+      } else {
+        return {
+          success: false,
+          error: emailResult.error
+        };
+      }
       
     } catch (error) {
-      console.error('Error sending verification email:', error);
+      console.error('❌ [EMAIL VERIFICATION EMAIL] Error sending verification email:', error);
       return {
         success: false,
         error: error.message

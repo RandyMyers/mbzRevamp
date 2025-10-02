@@ -4,6 +4,8 @@ const Customer = require('../models/customers');
 const Inventory = require('../models/inventory'); // Import Inventory model
 const connectDB = require('./connectDB');
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
+const https = require('https');
+const StoreErrorHandler = require('../services/storeErrorHandler');
 
 // Get the customerId if customer exists, otherwise return null
 const getCustomerIdByWooCommerceId = async (woocommerceCustomerId, email, organizationId, storeId) => {
@@ -17,7 +19,8 @@ const getCustomerIdByWooCommerceId = async (woocommerceCustomerId, email, organi
     return customer ? customer._id : null; // Return null if customer not found
   };
   
-  const getInventoryIdByProductId = async (productId, sku, organizationId, storeId) => {
+
+const getInventoryIdByProductId = async (productId, sku, organizationId, storeId) => {
     const inventory = await Inventory.findOne({
       $and: [
         { organizationId },
@@ -35,16 +38,43 @@ const syncOrderJob = async (jobData) => {
 
     console.log('Starting order sync for store:', storeId);
 
+    // Create HTTPS agent configuration for SSL bypass (if needed)
+    let httpsAgent = null;
+    if (process.env.WOOCOMMERCE_BYPASS_SSL === 'true' || process.env.NODE_ENV === 'development') {
+      httpsAgent = new https.Agent({
+        rejectUnauthorized: false // WARNING: This bypasses SSL certificate validation
+      });
+    }
+
     const wooCommerce = new WooCommerceRestApi({
       url: store.url,
       consumerKey: store.apiKey,
       consumerSecret: store.secretKey,
       version: 'wc/v3',
+      queryStringAuth: true, // Force Basic Authentication as query string
+      ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
     });
 
     const getAllOrders = async (page = 1) => {
-      const response = await wooCommerce.get('orders', { per_page: 100, page });
-      return response.data;
+      try {
+        const response = await wooCommerce.get('orders', { per_page: 100, page });
+        return response.data;
+      } catch (error) {
+        // Parse the error using our error handler
+        const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'order sync');
+        StoreErrorHandler.logError(errorInfo, 'syncOrderWorker.getAllOrders');
+        
+        // Send detailed error message to parent process
+        parentPort.postMessage({
+          status: 'error',
+          message: StoreErrorHandler.createUserMessage(errorInfo),
+          errorType: errorInfo.errorType,
+          suggestions: errorInfo.suggestedActions,
+          technicalDetails: errorInfo.technicalDetails
+        });
+        
+        throw error;
+      }
     };
 
     let orders = [];
@@ -219,7 +249,20 @@ const syncOrderJob = async (jobData) => {
     });
   } catch (error) {
     console.error('Error in order sync job:', error);
-    parentPort.postMessage({ status: 'error', message: error.message });
+    
+    // Parse the error using our error handler
+    const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'order sync');
+    StoreErrorHandler.logError(errorInfo, 'syncOrderWorker.main');
+    
+    // Send detailed error information to parent process
+    parentPort.postMessage({
+      status: 'error',
+      message: StoreErrorHandler.createUserMessage(errorInfo),
+      errorType: errorInfo.errorType,
+      suggestions: errorInfo.suggestedActions,
+      technicalDetails: errorInfo.technicalDetails,
+      severity: errorInfo.severity
+    });
   }
 };
 

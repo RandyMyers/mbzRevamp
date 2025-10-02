@@ -1,6 +1,7 @@
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 const Store = require('../models/store');
 const logEvent = require('./logEvent');
+const https = require('https');
 
 /**
  * Initialize WooCommerce API instance for a store
@@ -12,12 +13,21 @@ const initializeWooCommerceAPI = (store) => {
     throw new Error('Invalid store configuration for WooCommerce API');
   }
 
+  // Create HTTPS agent configuration for SSL bypass (if needed)
+  let httpsAgent = null;
+  if (process.env.WOOCOMMERCE_BYPASS_SSL === 'true' || process.env.NODE_ENV === 'development') {
+    httpsAgent = new https.Agent({
+      rejectUnauthorized: false // WARNING: This bypasses SSL certificate validation
+    });
+  }
+
   return new WooCommerceRestApi({
     url: store.url,
     consumerKey: store.apiKey,
     consumerSecret: store.secretKey,
     version: 'wc/v3',
-    queryStringAuth: true // Force Basic Authentication as query string
+    queryStringAuth: true, // Force Basic Authentication as query string
+    ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
   });
 };
 

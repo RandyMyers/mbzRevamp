@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const User = require("../models/users");
 const Role = require("../models/role");
 const Organization = require("../models/organization");
@@ -66,14 +69,14 @@ const sendSystemEmail = async (to, subject, html) => {
  *           - `POST /api/auth/verify-email` - Verify 6-digit code
  *           - `POST /api/auth/resend-verification` - Resend 6-digit code
  *         
- *         ### 2. Password Reset (Forgot Password) - Long tokens
+ *         ### 2. Password Reset (Forgot Password) - 6-digit codes
  *         - **Purpose:** Reset forgotten password for existing users
  *         - **When:** User forgot their password
- *         - **Token:** Long secure string (e.g., "a1b2c3d4e5f6...")
- *         - **Expires:** 1 hour
+ *         - **Code:** 6-digit verification code (e.g., "123456")
+ *         - **Expires:** 15 minutes
  *         - **Endpoints:**
- *           - `POST /api/auth/forgot-password` - Send reset email
- *           - `POST /api/auth/reset-password` - Reset with token
+ *           - `POST /api/auth/forgot-password` - Send reset email with code
+ *           - `POST /api/auth/reset-password` - Reset with email and code
  *         
  *         ## 📋 Complete User Flow:
  *         
@@ -83,17 +86,19 @@ const sendSystemEmail = async (to, subject, html) => {
  *         3. `POST /api/auth/login` → Login (now works)
  *         
  *         ### Forgot Password:
- *         1. `POST /api/auth/forgot-password` → Send reset email with token
- *         2. `POST /api/auth/reset-password` → Reset password with token
+ *         1. `POST /api/auth/forgot-password` → Send reset email with 6-digit code
+ *         2. `POST /api/auth/reset-password` → Reset password with email and code
  *         3. `POST /api/auth/login` → Login with new password
  *         
  *         ### Change Password (Logged-in Users):
  *         1. `POST /api/auth/change/password` → Change password (requires current password)
  *         
  *         ## ⚠️ Important Notes:
- *         - **6-digit codes** are ONLY for email verification during registration
- *         - **Long tokens** are ONLY for password reset
- *         - **Don't mix them up!** Each has different expiration times and purposes
+ *         - **6-digit codes** are used for BOTH email verification (registration) AND password reset
+ *         - **Registration codes** expire in 15 minutes
+ *         - **Password reset codes** expire in 15 minutes
+ *         - **OTP codes** (for login) expire in 5 minutes
+ *         - All codes are 6-digit format but serve different purposes
  */
 
 // ========================================
@@ -437,7 +442,6 @@ exports.loginSuperAdmin = async (req, res) => {
 // Register an Organization User (Business Owner/Manager)
 exports.registerOrganizationUser = async (req, res) => {
   const { fullName, businessName, email, password } = req.body;
-  console.log('Organization User Registration:', req.body);
 
   try {
     // Check if user already exists
@@ -486,7 +490,6 @@ exports.registerOrganizationUser = async (req, res) => {
     });
 
     await defaultAdminRole.save();
-    console.log('✅ Default admin role created for organization:', defaultAdminRole._id);
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -645,6 +648,33 @@ exports.loginOrganizationUser = async (req, res) => {
       });
     }
 
+    // Check if user has OTP enabled
+    if (user.otpEnabled) {
+      // If OTP is enabled, don't generate token yet - send OTP code
+      const OTPService = require('../services/otpService');
+      
+      // Generate and send OTP code
+      const otpResult = await OTPService.generateLoginOTP(user._id, organization._id, req);
+      
+      if (!otpResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: otpResult.error
+        });
+      }
+
+      // Return response indicating OTP is required
+      return res.status(200).json({
+        success: true,
+        message: "Password verified. Please enter the OTP code sent to your email.",
+        requiresOTP: true,
+        userId: user._id,
+        email: user.email,
+        expiresAt: otpResult.data.expiresAt
+      });
+    }
+
+    // If OTP is not enabled, proceed with normal login
     // Generate JWT token
     const token = jwt.sign(
       { userId: user._id, role: user.role }, 
@@ -802,7 +832,6 @@ exports.loginOrganizationUser = async (req, res) => {
 // Register an Affiliate User
 exports.registerAffiliate = async (req, res) => {
   const { fullName, email, password, referralCode } = req.body;
-  console.log('Affiliate Registration:', req.body);
 
   try {
     // Check if user already exists
@@ -1293,6 +1322,14 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *       **Requirements:** User must have verified their email (emailVerified: true)
  *       **If unverified:** Returns 400 error directing user to verify email first
  *       **Email verification:** Use /api/auth/verify-email with 6-digit code
+ *       
+ *       **OTP Support:** If user has OTP enabled, login will require two-step authentication:
+ *       1. First, validate email/password (this endpoint)
+ *       2. Then, validate OTP code sent to email using /api/auth/validate-otp
+ *       
+ *       **Response Types:**
+ *       - **Normal Login:** Returns JWT token immediately (OTP disabled)
+ *       - **OTP Required:** Returns `requiresOTP: true` with userId for OTP validation
  *     requestBody:
  *       required: true
  *       content:
@@ -1314,81 +1351,109 @@ exports.changePasswordSuperAdmin = async (req, res) => {
  *                 example: "TestPassword123!"
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: Login successful (normal login) or OTP required
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Login successful"
- *                 token:
- *                   type: string
- *                   description: JWT token for authentication
- *                 userId:
- *                   type: string
- *                   format: ObjectId
- *                   description: Unique user ID
- *                 username:
- *                   type: string
- *                   description: User's full name
- *                   example: "John Doe"
- *                 email:
- *                   type: string
- *                   format: email
- *                   example: "john.doe@example.com"
- *                 role:
- *                   type: string
- *                   description: User's role in the organization
- *                   example: "admin"
- *                 organizationId:
- *                   type: string
- *                   format: ObjectId
- *                   description: Unique organization ID
- *                 organization:
- *                   type: string
- *                   description: Organization name
- *                   example: "Test Company"
- *                 organizationCode:
- *                   type: string
- *                   description: Organization code
- *                   example: "testcompany1234567"
- *                 profilePicture:
- *                   type: string
- *                   description: URL to user's profile picture
- *                   nullable: true
- *                 status:
- *                   type: string
- *                   description: User account status
- *                   example: "active"
- *                 emailVerified:
- *                   type: boolean
- *                   description: Whether email is verified
- *                   example: true
- *                 onboarding:
- *                   type: object
- *                   description: Onboarding status information
+ *               oneOf:
+ *                 - type: object
+ *                   description: Normal login response (when OTP is disabled)
  *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                       example: "Login successful"
+ *                     token:
+ *                       type: string
+ *                       description: JWT token for authentication
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Unique user ID
+ *                     username:
+ *                       type: string
+ *                       description: User's full name
+ *                       example: "John Doe"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: "john.doe@example.com"
+ *                     role:
+ *                       type: string
+ *                       description: User's role in the organization
+ *                       example: "admin"
+ *                     organizationId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: Unique organization ID
+ *                     organization:
+ *                       type: string
+ *                       description: Organization name
+ *                       example: "Test Company"
+ *                     organizationCode:
+ *                       type: string
+ *                       description: Organization code
+ *                       example: "testcompany1234567"
+ *                     profilePicture:
+ *                       type: string
+ *                       description: URL to user's profile picture
+ *                       nullable: true
  *                     status:
  *                       type: string
- *                       description: Onboarding status
- *                       example: "in_progress"
- *                     currentStep:
- *                       type: number
- *                       description: Current onboarding step (1-4)
- *                       example: 2
- *                     isComplete:
+ *                       description: User account status
+ *                       example: "active"
+ *                     emailVerified:
  *                       type: boolean
- *                       description: Whether onboarding is complete
- *                       example: false
- *                     redirectTo:
+ *                       description: Whether email is verified
+ *                       example: true
+ *                     onboarding:
+ *                       type: object
+ *                       description: Onboarding status information
+ *                       properties:
+ *                         status:
+ *                           type: string
+ *                           description: Onboarding status
+ *                           example: "in_progress"
+ *                         currentStep:
+ *                           type: number
+ *                           description: Current onboarding step (1-4)
+ *                           example: 2
+ *                         isComplete:
+ *                           type: boolean
+ *                           description: Whether onboarding is complete
+ *                           example: false
+ *                         redirectTo:
+ *                           type: string
+ *                           description: URL to redirect user to
+ *                           example: "/onboarding?step=2"
+ *                 - type: object
+ *                   description: OTP required response (when user has OTP enabled)
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
  *                       type: string
- *                       description: URL to redirect user to
- *                       example: "/onboarding?step=2"
+ *                       example: "Password verified. Please enter the OTP code sent to your email."
+ *                     requiresOTP:
+ *                       type: boolean
+ *                       example: true
+ *                     userId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       description: User ID for OTP validation
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       description: User's email address
+ *                       example: "john.doe@example.com"
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: OTP code expiration time
+ *                       example: "2024-01-15T10:35:00.000Z"
  *       400:
  *         description: Invalid credentials, user not found, or email not verified
  *         content:
@@ -1634,7 +1699,6 @@ exports.changePasswordSuperAdmin = async (req, res) => {
 
 // Simple register user function for testing
 exports.registerUser = async (req, res) => {
-  console.log('Register user called with data:', req.body);
   
   try {
     const { firstName, lastName, email, password, companyName, referralCode } = req.body;
@@ -1707,15 +1771,20 @@ exports.registerUser = async (req, res) => {
     await newUser.save();
 
     // Send email verification code
+    console.log(`📧 [REGISTRATION] Attempting to send verification email to: ${newUser.email}`);
     try {
       const verificationResult = await EmailVerificationService.sendVerificationCode(newUser, req);
       
       if (!verificationResult.success) {
-        console.error('Failed to send verification email:', verificationResult.error);
+        console.error('❌ [AUTH CONTROLLER] Failed to send verification email:', verificationResult.error);
+        console.error('❌ [AUTH CONTROLLER] Email verification details:', verificationResult);
         // Don't fail registration if email fails, but log the issue
+      } else {
+        console.log('✅ [AUTH CONTROLLER] Email verification process initiated successfully');
       }
     } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
+      console.error('❌ [AUTH CONTROLLER] Email verification error:', emailError);
+      console.error('❌ [AUTH CONTROLLER] Email error stack:', emailError.stack);
       // Don't fail registration if email fails
     }
 
@@ -1725,7 +1794,6 @@ exports.registerUser = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('User registered successfully:', newUser._id);
 
     res.status(201).json({ 
       success: true, 
@@ -1754,12 +1822,269 @@ exports.loginUser = async (req, res) => {
 };
 
 // ========================================
+// OTP VALIDATION FUNCTIONS
+// ========================================
+
+/**
+ * @swagger
+ * /api/auth/validate-otp:
+ *   post:
+ *     summary: Validate OTP code for login
+ *     description: Validate the 6-digit OTP code sent to user's email during login
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, code]
+ *             properties:
+ *               userId: { type: string, description: "User ID from login response" }
+ *               code: { type: string, description: "6-digit OTP code" }
+ *     responses:
+ *       200: { description: OTP validated successfully, returns JWT token }
+ *       400: { description: Invalid or expired OTP code }
+ *       500: { description: Server error }
+ */
+exports.validateOTP = async (req, res) => {
+  const { userId, code } = req.body;
+
+  try {
+    // Validate required fields
+    if (!userId || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID and OTP code are required'
+      });
+    }
+
+    // Get user details
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if user has OTP enabled
+    if (!user.otpEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP is not enabled for this user'
+      });
+    }
+
+    // Find the organization
+    const organization = await Organization.findOne({ 
+      organizationCode: user.organizationCode 
+    });
+    if (!organization) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Organization not found" 
+      });
+    }
+
+    // Validate OTP code
+    const OTPService = require('../services/otpService');
+    const otpResult = await OTPService.validateLoginOTP(userId, code, organization._id, req);
+
+    if (!otpResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: otpResult.error
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: "7d" }
+    );
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // ✅ AUDIT LOG: Successful Login with OTP
+    await createAuditLog({
+      action: 'User Login with OTP',
+      user: user._id,
+      resource: 'user',
+      resourceId: user._id,
+      details: {
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        organizationName: organization.name,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        loginMethod: 'email_with_otp'
+      },
+      organization: organization._id,
+      severity: 'info'
+    });
+
+    // Check onboarding status
+    const onboardingStatus = await checkOnboardingStatus(organization._id);
+
+    res.status(200).json({
+      success: true,
+      message: "OTP validated successfully. Login completed.",
+      token,
+      userId: user._id,
+      username: user.fullName,
+      email: user.email,
+      role: user.role,
+      organizationId: organization._id,
+      organization: organization.name,
+      organizationCode: user.organizationCode,
+      profilePicture: user.profilePicture,
+      status: user.status,
+      onboarding: {
+        status: onboardingStatus.status,
+        currentStep: onboardingStatus.currentStep,
+        isComplete: onboardingStatus.isComplete,
+        redirectTo: onboardingStatus.redirectTo
+      }
+    });
+
+  } catch (error) {
+    console.error('OTP validation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error" 
+    });
+  }
+};
+
+// ========================================
+// OTP MANAGEMENT FUNCTIONS
+// ========================================
+
+/**
+ * @swagger
+ * /api/auth/enable-otp:
+ *   post:
+ *     summary: Enable OTP for user account
+ *     description: Enable OTP (One-Time Password) security feature for user login
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: OTP enabled successfully }
+ *       400: { description: OTP already enabled or error }
+ *       401: { description: Unauthorized }
+ *       500: { description: Server error }
+ */
+exports.enableOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const organizationId = req.user.organizationId;
+
+    const OTPService = require('../services/otpService');
+    const result = await OTPService.enableOTP(userId, organizationId, req);
+
+    if (result.success) {
+      res.status(200).json(result);
+    } else {
+      res.status(400).json(result);
+    }
+
+  } catch (error) {
+    console.error('Enable OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/disable-otp:
+ *   post:
+ *     summary: Disable OTP for user account
+ *     description: Disable OTP (One-Time Password) security feature for user login
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: OTP disabled successfully }
+ *       400: { description: OTP not enabled or error }
+ *       401: { description: Unauthorized }
+ *       500: { description: Server error }
+ */
+exports.disableOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const organizationId = req.user.organizationId;
+
+    const OTPService = require('../services/otpService');
+    const result = await OTPService.disableOTP(userId, organizationId, req);
+
+    if (result.success) {
+      res.status(200).json(result);
+    } else {
+      res.status(400).json(result);
+    }
+
+  } catch (error) {
+    console.error('Disable OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/otp-settings:
+ *   get:
+ *     summary: Get user OTP settings
+ *     description: Get current OTP settings and status for the authenticated user
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: OTP settings retrieved successfully }
+ *       401: { description: Unauthorized }
+ *       500: { description: Server error }
+ */
+exports.getOTPSettings = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const OTPService = require('../services/otpService');
+    const result = await OTPService.getUserOTPSettings(userId);
+
+    if (result.success) {
+      res.status(200).json(result);
+    } else {
+      res.status(400).json(result);
+    }
+
+  } catch (error) {
+    console.error('Get OTP settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// ========================================
 // PASSWORD RESET FUNCTIONS
 // ========================================
 
 const crypto = require('crypto');
 const PasswordResetToken = require('../models/PasswordResetToken');
-const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../services/emailService');
+const PasswordResetCode = require('../models/passwordResetCode');
+const { sendPasswordResetEmail, sendPasswordResetSuccessEmail, sendPasswordResetCodeEmail } = require('../services/emailService');
 
 /**
  * @swagger
@@ -1771,8 +2096,8 @@ const { sendPasswordResetEmail, sendPasswordResetSuccessEmail } = require('../se
  *       This is different from email verification during registration.
  *       
  *       **Use this when:** User forgot their password and needs to reset it
- *       **Email contains:** Long secure token (not 6-digit code)
- *       **Next step:** Use /api/auth/reset-password with the token
+ *       **Email contains:** 6-digit verification code (similar to registration)
+ *       **Next step:** Use /api/auth/reset-password with email and code
  *       
  *       **⚠️ NOT for:** New user email verification (use /api/auth/verify-email instead)
  *     tags: [Authentication]
@@ -1833,12 +2158,12 @@ exports.forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(200).json({
         success: true,
-        message: 'If an account with that email exists, a password reset email has been sent'
+        message: 'If an account with that email exists, a password reset code has been sent'
       });
     }
 
-    // Check for existing valid tokens and invalidate them
-    await PasswordResetToken.updateMany(
+    // Check for existing valid codes and invalidate them
+    await PasswordResetCode.updateMany(
       { 
         userId: user._id, 
         used: false,
@@ -1847,15 +2172,15 @@ exports.forgotPassword = async (req, res) => {
       { used: true, usedAt: new Date() }
     );
 
-    // Generate secure random token
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Set token expiration (1 hour from now)
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // Set code expiration (15 minutes from now)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Create password reset token
-    const passwordResetToken = new PasswordResetToken({
-      token,
+    // Create password reset code
+    const passwordResetCode = new PasswordResetCode({
+      code,
       userId: user._id,
       organizationId: user.organization,
       email: user.email,
@@ -1864,32 +2189,32 @@ exports.forgotPassword = async (req, res) => {
       userAgent
     });
 
-    await passwordResetToken.save();
+    await passwordResetCode.save();
 
     // Get organization details
     const organization = await Organization.findById(user.organization);
 
-    // Send password reset email
-    const emailResult = await sendPasswordResetEmail(user, passwordResetToken, organization);
+    // Send password reset code email
+    const emailResult = await sendPasswordResetCodeEmail(user, code, organization);
 
     if (!emailResult.success) {
-      console.error('Failed to send password reset email:', emailResult.error);
+      console.error('Failed to send password reset code email:', emailResult.error);
       return res.status(500).json({
         success: false,
-        message: 'Failed to send password reset email'
+        message: 'Failed to send password reset code email'
       });
     }
 
     // ✅ AUDIT LOG: Password Reset Request
     await createAuditLog({
-      action: 'Password Reset Requested',
+      action: 'Password Reset Code Requested',
       user: user._id,
-      resource: 'password_reset',
-      resourceId: passwordResetToken._id,
+      resource: 'password_reset_code',
+      resourceId: passwordResetCode._id,
       details: {
         email: user.email,
         organizationId: user.organization,
-        tokenId: passwordResetToken._id,
+        codeId: passwordResetCode._id,
         ipAddress,
         userAgent
       },
@@ -1899,7 +2224,7 @@ exports.forgotPassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Password reset email sent successfully'
+      message: 'Password reset code sent successfully'
     });
 
   } catch (error) {
@@ -1907,9 +2232,9 @@ exports.forgotPassword = async (req, res) => {
     
     // ✅ AUDIT LOG: Password Reset Error
     await createAuditLog({
-      action: 'Password Reset Request Failed',
+      action: 'Password Reset Code Request Failed',
       user: null,
-      resource: 'password_reset',
+      resource: 'password_reset_code',
       resourceId: null,
       details: {
         email,
@@ -1932,14 +2257,14 @@ exports.forgotPassword = async (req, res) => {
  * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Reset password with token (for forgot password)
+ *     summary: Reset password with code (for forgot password)
  *     description: |
- *       Reset user password using valid reset token from forgot password email.
+ *       Reset user password using valid 6-digit code from forgot password email.
  *       
- *       **Use this when:** User forgot their password and received reset token via email
- *       **Token type:** Long secure token (not 6-digit code)
- *       **Token source:** Received from /api/auth/forgot-password email
- *       **Expiration:** 1 hour
+ *       **Use this when:** User forgot their password and received 6-digit code via email
+ *       **Code type:** 6-digit verification code (similar to registration)
+ *       **Code source:** Received from /api/auth/forgot-password email
+ *       **Expiration:** 15 minutes
  *       
  *       **⚠️ Different from:** Email verification (use /api/auth/verify-email for registration)
  *     tags: [Authentication]
@@ -1950,14 +2275,20 @@ exports.forgotPassword = async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - token
+ *               - email
+ *               - code
  *               - newPassword
  *               - confirmPassword
  *             properties:
- *               token:
+ *               email:
  *                 type: string
- *                 description: Password reset token
- *                 example: "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
+ *                 format: email
+ *                 description: User's email address
+ *                 example: "john.doe@example.com"
+ *               code:
+ *                 type: string
+ *                 description: 6-digit password reset code
+ *                 example: "123456"
  *               newPassword:
  *                 type: string
  *                 minLength: 8
@@ -1982,23 +2313,23 @@ exports.forgotPassword = async (req, res) => {
  *                   type: string
  *                   example: "Password reset successfully"
  *       400:
- *         description: Invalid token or password mismatch
+ *         description: Invalid code, password mismatch, or missing required fields
  *       404:
- *         description: Token not found or expired
+ *         description: Code not found or expired
  *       500:
  *         description: Server error
  */
 exports.resetPassword = async (req, res) => {
-  const { token, newPassword, confirmPassword } = req.body;
+  const { email, code, newPassword, confirmPassword } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
   const userAgent = req.get('User-Agent') || 'Unknown';
 
   try {
     // Validate required fields
-    if (!token || !newPassword || !confirmPassword) {
+    if (!email || !code || !newPassword || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Token, newPassword, and confirmPassword are required'
+        message: 'Email, code, newPassword, and confirmPassword are required'
       });
     }
 
@@ -2019,18 +2350,18 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Find valid token
-    const resetToken = await PasswordResetToken.findValidToken(token);
+    // Find valid code
+    const resetCode = await PasswordResetCode.findValidCode(code, email);
     
-    if (!resetToken) {
+    if (!resetCode) {
       return res.status(404).json({
         success: false,
-        message: 'Invalid or expired reset token'
+        message: 'Invalid or expired reset code'
       });
     }
 
-    // Find user
-    const user = await User.findById(resetToken.userId);
+    // Get user from the resetCode (already populated)
+    const user = resetCode.userId;
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -2046,8 +2377,8 @@ exports.resetPassword = async (req, res) => {
     user.passwordChangedAt = new Date();
     await user.save();
 
-    // Mark token as used
-    await resetToken.markAsUsed();
+    // Mark code as used
+    await resetCode.markAsUsed();
 
     // Get organization details
     const organization = await Organization.findById(user.organization);
@@ -2059,12 +2390,12 @@ exports.resetPassword = async (req, res) => {
     await createAuditLog({
       action: 'Password Reset Completed',
       user: user._id,
-      resource: 'password_reset',
-      resourceId: resetToken._id,
+      resource: 'password_reset_code',
+      resourceId: resetCode._id,
       details: {
         email: user.email,
         organizationId: user.organization,
-        tokenId: resetToken._id,
+        codeId: resetCode._id,
         ipAddress,
         userAgent,
         resetAt: new Date()

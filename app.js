@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const dotenv = require('dotenv');
+const dotenv = require('dotenv'); 
 
 const fileUpload = require('express-fileupload');
 const receiverEvent = require('./helper/receiverEvent');
@@ -288,8 +288,9 @@ rateSyncService.initialize()
 
 // Start the server
 const PORT = process.env.PORT || 8800;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+  
 });
 
 // Remove the global error handler - let each controller handle its own errors

@@ -1,7 +1,11 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const nodemailer = require('nodemailer');
 const Sender = require('../models/sender');
 const Email = require('../models/emails');
 const EmailLogs = require('../models/emailLogs'); // Import the EmailLogs model
+
 
 const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy, emailTemplate, variables, to, subject, text, html }) => {
   try {

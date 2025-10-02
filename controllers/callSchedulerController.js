@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 /**
  * @swagger
  * tags:
@@ -26,6 +29,14 @@
  *                 type: array
  *                 items: { type: string }
  *                 description: Array of user IDs from the same organization
+ *               externalParticipants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name: { type: string, description: "External participant name" }
+ *                     email: { type: string, format: email, description: "External participant email" }
+ *                 description: Array of external participants (non-organization members)
  *               meetingLink: { type: string }
  *               senderId: { type: string, description: "Sender ID for email notifications" }
  *     responses:
@@ -91,6 +102,14 @@
  *                 type: array
  *                 items: { type: string }
  *                 description: Array of user IDs from the same organization
+ *               externalParticipants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name: { type: string, description: "External participant name" }
+ *                     email: { type: string, format: email, description: "External participant email" }
+ *                 description: Array of external participants (non-organization members)
  *               meetingLink: { type: string }
  *               senderId: { type: string, description: "Sender ID for email notifications" }
  *     responses:
@@ -229,7 +248,7 @@ const validateParticipants = async (participants, organizationId) => {
 // Create a new call
 exports.createCall = async (req, res) => {
   try {
-    const { organizationId, userId, participants, senderId, ...callData } = req.body;
+    const { organizationId, userId, participants, externalParticipants, senderId, ...callData } = req.body;
     console.log(req.body);
     if (!organizationId || !userId) {
       return res.status(400).json({ success: false, error: 'organizationId and userId are required' });
@@ -240,7 +259,32 @@ exports.createCall = async (req, res) => {
       await validateParticipants(participants, organizationId);
     }
     
-    const call = new CallScheduler({ ...callData, organizationId, userId, participants });
+    // Validate external participants have required fields
+    if (externalParticipants && externalParticipants.length > 0) {
+      for (const extParticipant of externalParticipants) {
+        if (!extParticipant.name || !extParticipant.email) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'External participants must have both name and email' 
+          });
+        }
+        // Basic email validation
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extParticipant.email)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: `Invalid email format for external participant: ${extParticipant.email}` 
+          });
+        }
+      }
+    }
+    
+    const call = new CallScheduler({ 
+      ...callData, 
+      organizationId, 
+      userId, 
+      participants,
+      externalParticipants: externalParticipants || []
+    });
     await call.save();
     
     // Populate participants with user details
@@ -252,9 +296,14 @@ exports.createCall = async (req, res) => {
         // Send call scheduled notification to organizer
         await callNotificationService.sendCallScheduledNotification(call);
         
-        // Send call invitations to participants if any
+        // Send call invitations to internal participants if any
         if (participants && participants.length > 0 && senderId) {
           await callNotificationService.sendCallInvitations(call, participants, senderId);
+        }
+        
+        // Send call invitations to external participants if any
+        if (externalParticipants && externalParticipants.length > 0) {
+          await callNotificationService.sendExternalCallInvitations(call, externalParticipants);
         }
       } catch (notificationError) {
         console.error('❌ Call notification error (non-blocking):', notificationError.message);
@@ -306,7 +355,7 @@ exports.getCallById = async (req, res) => {
 // Update a call (must belong to org)
 exports.updateCall = async (req, res) => {
   try {
-    const { organizationId, participants, senderId, ...updateData } = req.body;
+    const { organizationId, participants, externalParticipants, senderId, ...updateData } = req.body;
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
@@ -322,9 +371,28 @@ exports.updateCall = async (req, res) => {
       await validateParticipants(participants, organizationId);
     }
     
+    // Validate external participants have required fields if provided
+    if (externalParticipants && externalParticipants.length > 0) {
+      for (const extParticipant of externalParticipants) {
+        if (!extParticipant.name || !extParticipant.email) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'External participants must have both name and email' 
+          });
+        }
+        // Basic email validation
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extParticipant.email)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: `Invalid email format for external participant: ${extParticipant.email}` 
+          });
+        }
+      }
+    }
+    
     const call = await CallScheduler.findOneAndUpdate(
       { _id: req.params.id, organizationId },
-      { ...updateData, participants },
+      { ...updateData, participants, externalParticipants },
       { new: true }
     ).populate('participants', 'name email').populate('userId', 'name email');
     

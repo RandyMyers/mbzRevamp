@@ -27,6 +27,17 @@ const callSchedulerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  externalParticipants: [{
+    name: { type: String, required: true },
+    email: { 
+      type: String, 
+      required: true,
+      lowercase: true,
+      trim: true
+    },
+    invitedAt: { type: Date, default: Date.now },
+    invitationSent: { type: Boolean, default: false }
+  }],
   meetingLink: { type: String }
 }, { timestamps: true });
 

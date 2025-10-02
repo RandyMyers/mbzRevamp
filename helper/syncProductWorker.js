@@ -4,7 +4,9 @@ const Inventory = require('../models/inventory');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
+const https = require('https');
 const connectDB = require('./connectDB');
+const StoreErrorHandler = require('../services/storeErrorHandler');
 
 const syncProductJob = async (jobData) => {
   try {
@@ -15,18 +17,45 @@ const syncProductJob = async (jobData) => {
     // Connect to MongoDB
     connectDB();
 
+    // Create HTTPS agent configuration for SSL bypass (if needed)
+    let httpsAgent = null;
+    if (process.env.WOOCOMMERCE_BYPASS_SSL === 'true' || process.env.NODE_ENV === 'development') {
+      httpsAgent = new https.Agent({
+        rejectUnauthorized: false // WARNING: This bypasses SSL certificate validation
+      });
+    }
+
     // Initialize WooCommerce API
     const wooCommerce = new WooCommerceRestApi({
       url: store.url,
       consumerKey: store.apiKey,
       consumerSecret: store.secretKey,
       version: 'wc/v3',
+      queryStringAuth: true, // Force Basic Authentication as query string
+      ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
     });
 
     // Fetch all products from WooCommerce
     const getAllProducts = async (page = 1) => {
-      const response = await wooCommerce.get('products', { per_page: 100, page });
-      return response.data;
+      try {
+        const response = await wooCommerce.get('products', { per_page: 100, page });
+        return response.data;
+      } catch (error) {
+        // Parse the error using our error handler
+        const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'product sync');
+        StoreErrorHandler.logError(errorInfo, 'syncProductWorker.getAllProducts');
+        
+        // Send detailed error message to parent process
+        parentPort.postMessage({
+          status: 'error',
+          message: StoreErrorHandler.createUserMessage(errorInfo),
+          errorType: errorInfo.errorType,
+          suggestions: errorInfo.suggestedActions,
+          technicalDetails: errorInfo.technicalDetails
+        });
+        
+        throw error;
+      }
     };
 
     let products = [];
@@ -181,7 +210,20 @@ const syncProductJob = async (jobData) => {
     });
   } catch (error) {
     console.error('Error in product sync job:', error);
-    parentPort.postMessage({ status: 'error', message: error.message });
+    
+    // Parse the error using our error handler
+    const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'product sync');
+    StoreErrorHandler.logError(errorInfo, 'syncProductWorker.main');
+    
+    // Send detailed error information to parent process
+    parentPort.postMessage({
+      status: 'error',
+      message: StoreErrorHandler.createUserMessage(errorInfo),
+      errorType: errorInfo.errorType,
+      suggestions: errorInfo.suggestedActions,
+      technicalDetails: errorInfo.technicalDetails,
+      severity: errorInfo.severity
+    });
   }
 };
 

@@ -27,6 +27,9 @@
  *       400: { description: Missing required fields }
  *       500: { description: Server error }
  */
+const dotenv = require('dotenv');
+dotenv.config();
+
 const nodemailer = require('nodemailer');
 
 // POST /api/contact

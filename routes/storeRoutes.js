@@ -24,4 +24,7 @@ router.patch("/sync/:storeId", storeController.syncStoreWithWooCommerce);
 router.post("/:storeId/webhooks", storeController.createStoreWebhooks);
 router.get("/:storeId/webhooks/status", storeController.getStoreWebhookStatus);
 
+// Store error notifications
+router.get("/:storeId/error-notifications", storeController.getStoreErrorNotifications);
+
 module.exports = router; 

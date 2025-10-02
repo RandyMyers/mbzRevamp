@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const Notification = require('../models/notification');
 const NotificationTemplate = require('../models/notificationTemplates');
 const User = require('../models/users');

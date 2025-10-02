@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const Invitation = require('../models/invitation');
 const User = require('../models/users');
 const Organization = require('../models/organization');

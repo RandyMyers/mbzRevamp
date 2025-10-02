@@ -39,6 +39,14 @@ const UserSchema = new Schema({
       type: Boolean,
       default: false,
     },
+    // OTP (One-Time Password) Settings
+    otpEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    otpEnabledAt: {
+      type: Date,
+    },
     lastLogin: {
       type: Date,
     },

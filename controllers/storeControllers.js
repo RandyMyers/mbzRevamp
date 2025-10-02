@@ -5,6 +5,36 @@ const cloudinary = require('cloudinary').v2;
 const { createDefaultWebhooks, validateStoreForWebhooks } = require('../services/webhookAutoCreationService');
 const { Worker } = require('worker_threads');
 const path = require('path');
+const StoreErrorHandler = require('../services/storeErrorHandler');
+const { createAuditLog } = require('../helpers/auditLogHelper');
+
+// Store error notifications for user feedback
+const storeErrorNotification = async (storeId, operation, errorMessage, organizationId, userId) => {
+  try {
+    // Create audit log for store sync error
+    await createAuditLog({
+      action: `Store ${operation} Error`,
+      user: userId,
+      resource: 'store_sync_error',
+      resourceId: storeId,
+      details: {
+        storeId,
+        operation,
+        errorMessage: errorMessage.message,
+        errorType: errorMessage.errorType,
+        suggestions: errorMessage.suggestions,
+        technicalDetails: errorMessage.technicalDetails,
+        severity: errorMessage.severity
+      },
+      organization: organizationId,
+      severity: errorMessage.severity || 'error'
+    });
+
+    console.log(`📝 Store ${operation} error logged for user notification`);
+  } catch (auditError) {
+    console.error('Failed to create audit log for store error:', auditError);
+  }
+};
 
 // Synchronize products with WooCommerce API
 const syncProducts = async (storeId, organizationId, userId) => {
@@ -45,6 +75,11 @@ const syncProducts = async (storeId, organizationId, userId) => {
         console.log(`✅ Product sync completed: ${message.message}`);
       } else if (message.status === 'error') {
         console.error(`❌ Product sync error: ${message.message}`);
+        console.error(`📋 Error Type: ${message.errorType}`);
+        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+        
+        // Store error information in the database for user notification
+        storeErrorNotification(storeId, 'product_sync', message, organizationId, userId);
       }
     });
 
@@ -97,6 +132,11 @@ const syncCustomers = async (storeId, organizationId, userId) => {
         console.log(`✅ Customer sync completed: ${message.message}`);
       } else if (message.status === 'error') {
         console.error(`❌ Customer sync error: ${message.message}`);
+        console.error(`📋 Error Type: ${message.errorType}`);
+        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+        
+        // Store error information in the database for user notification
+        storeErrorNotification(storeId, 'customer_sync', message, organizationId, userId);
       }
     });
 
@@ -149,6 +189,11 @@ const syncOrders = async (storeId, organizationId, userId) => {
         console.log(`✅ Order sync completed: ${message.message}`);
       } else if (message.status === 'error') {
         console.error(`❌ Order sync error: ${message.message}`);
+        console.error(`📋 Error Type: ${message.errorType}`);
+        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+        
+        // Store error information in the database for user notification
+        storeErrorNotification(storeId, 'order_sync', message, organizationId, userId);
       }
     });
 
@@ -384,6 +429,19 @@ exports.createStore = async (req, res) => {
           console.log(`✅ Auto-sync completed for store: ${savedStore.name}`);
         } catch (syncError) {
           console.error(`❌ Auto-sync error for store ${savedStore.name}:`, syncError);
+          
+          // Parse the sync error using our error handler
+          const errorInfo = StoreErrorHandler.parseStoreError(syncError, savedStore, 'auto sync');
+          StoreErrorHandler.logError(errorInfo, 'createStore.autoSync');
+          
+          // Store error notification for user feedback
+          storeErrorNotification(savedStore._id, 'auto_sync', {
+            message: StoreErrorHandler.createUserMessage(errorInfo),
+            errorType: errorInfo.errorType,
+            suggestions: errorInfo.suggestedActions,
+            technicalDetails: errorInfo.technicalDetails,
+            severity: errorInfo.severity
+          }, organizationId, userId);
         }
       }, 1000); // Small delay to ensure store is fully saved
     }
@@ -1123,6 +1181,52 @@ exports.getStoreWebhookStatus = async (req, res) => {
       success: false, 
       message: "Failed to get webhook status", 
       error: error.message 
+    });
+  }
+};
+
+// Get store error notifications for user feedback
+exports.getStoreErrorNotifications = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { userId, organizationId } = req.user;
+
+    // Get recent error notifications for the store from audit logs
+    const AuditLog = require('../models/auditLog');
+    
+    const errorNotifications = await AuditLog.find({
+      resource: 'store_sync_error',
+      resourceId: storeId,
+      organization: organizationId,
+      severity: { $in: ['error', 'warning'] },
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+    })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .select('action details createdAt severity');
+
+    const formattedNotifications = errorNotifications.map(notification => ({
+      id: notification._id,
+      action: notification.action,
+      message: notification.details?.errorMessage || notification.action,
+      errorType: notification.details?.errorType,
+      suggestions: notification.details?.suggestions || [],
+      technicalDetails: notification.details?.technicalDetails,
+      severity: notification.severity,
+      timestamp: notification.createdAt
+    }));
+
+    res.status(200).json({
+      success: true,
+      notifications: formattedNotifications,
+      count: formattedNotifications.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching store error notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch store error notifications'
     });
   }
 };

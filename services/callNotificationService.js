@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const notificationGenerationService = require('./notificationGenerationService');
 const User = require('../models/users');
 const Organization = require('../models/organization');
@@ -256,6 +259,109 @@ class CallNotificationService {
 
     } catch (error) {
       console.error('❌ Call reminder error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send call invitation emails to external participants (non-organization members)
+   * @param {Object} call - Call object from database
+   * @param {Array} externalParticipants - Array of external participant objects with name and email
+   * @param {Object} options - Additional options
+   * @returns {Promise<Object>} Result of notification sending
+   */
+  async sendExternalCallInvitations(call, externalParticipants, options = {}) {
+    try {
+      console.log(`📧 Sending external call invitations for call: ${call.title}`);
+
+      // Get organizer and organization information
+      const organizer = await User.findById(call.userId);
+      const organization = await Organization.findById(call.organizationId);
+
+      if (!organizer || !organization) {
+        throw new Error('Organizer or organization not found');
+      }
+
+      // Prepare call data for template variables
+      const callData = {
+        callTitle: call.title,
+        callDate: new Date(call.startTime).toLocaleDateString(),
+        callTime: new Date(call.startTime).toLocaleTimeString(),
+        callDescription: call.description || 'No description provided',
+        meetingLink: call.meetingLink || 'TBD',
+        companyName: organization.name,
+        organizerName: organizer.fullName
+      };
+
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: []
+      };
+
+      // Send invitation to each external participant
+      for (const participant of externalParticipants) {
+        try {
+          if (!participant.email || !participant.name) {
+            results.failed++;
+            results.errors.push(`External participant missing name or email: ${JSON.stringify(participant)}`);
+            continue;
+          }
+
+          // Send notification using the template system
+          const notificationResult = await this.notificationService.generateByTriggerEvent(
+            'external_call_invitation',
+            {
+              ...callData,
+              participantName: participant.name
+            },
+            {
+              recipientEmail: participant.email,
+              recipientName: participant.name,
+              priority: 'high',
+              ...options
+            }
+          );
+
+          if (notificationResult.success) {
+            results.success++;
+            console.log(`✅ External call invitation sent to ${participant.email}`);
+          } else {
+            results.failed++;
+            results.errors.push(`Failed to send to ${participant.email}: ${notificationResult.message}`);
+          }
+
+        } catch (error) {
+          results.failed++;
+          results.errors.push(`Error sending to external participant ${participant.email}: ${error.message}`);
+          console.error(`❌ Error sending invitation to external participant ${participant.email}:`, error);
+        }
+      }
+
+      // Audit log
+      await createAuditLog({
+        action: 'External Call Invitations Sent',
+        user: call.userId,
+        resource: 'call_scheduler',
+        resourceId: call._id,
+        details: {
+          callTitle: call.title,
+          externalParticipantsCount: externalParticipants.length,
+          successCount: results.success,
+          failedCount: results.failed
+        },
+        organization: call.organizationId,
+        severity: 'info'
+      });
+
+      return {
+        success: results.failed === 0,
+        message: `External call invitations sent: ${results.success} successful, ${results.failed} failed`,
+        data: results
+      };
+
+    } catch (error) {
+      console.error('❌ External call invitation error:', error);
       throw error;
     }
   }

@@ -1,14 +1,31 @@
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
+const https = require('https');
 
 class WooCommerceService {
   constructor(store) {
     this.store = store;
+    
+    // Create HTTPS agent configuration
+    let httpsAgent = null;
+    
+    // Check if SSL verification should be bypassed (DEVELOPMENT/TESTING ONLY)
+    if (process.env.WOOCOMMERCE_BYPASS_SSL === 'true' || process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  [WARNING] SSL certificate verification is DISABLED for WooCommerce API calls');
+      console.warn('⚠️  [WARNING] This should ONLY be used for development/testing purposes');
+      console.warn('⚠️  [WARNING] For production, please renew your SSL certificate instead');
+      
+      httpsAgent = new https.Agent({
+        rejectUnauthorized: false // WARNING: This bypasses SSL certificate validation
+      });
+    }
+    
     this.api = new WooCommerceRestApi({
       url: store.url,
       consumerKey: store.apiKey,
       consumerSecret: store.secretKey,
       version: 'wc/v3',
-      queryStringAuth: true // Force Basic Authentication as query string
+      queryStringAuth: true, // Force Basic Authentication as query string
+      ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
     });
   }
 
@@ -39,10 +56,24 @@ class WooCommerceService {
       }
       return { success: true, data: response.data };
     } catch (error) {
+      // Enhanced error logging for SSL and connection issues
+      if (error.code === 'CERT_HAS_EXPIRED') {
+        console.error('❌ [SSL Error] Certificate has expired for:', this.store.url);
+        console.error('🔧 [Solution] Please renew the SSL certificate for your WooCommerce store');
+      } else if (error.code === 'ENOTFOUND') {
+        console.error('❌ [DNS Error] Cannot resolve hostname:', this.store.url);
+      } else if (error.code === 'ECONNREFUSED') {
+        console.error('❌ [Connection Error] Connection refused to:', this.store.url);
+      } else if (error.code === 'ETIMEDOUT') {
+        console.error('❌ [Timeout Error] Connection timeout to:', this.store.url);
+      }
+      
       return {
         success: false,
         error: error.response?.data || error.message,
-        statusCode: error.response?.status
+        statusCode: error.response?.status,
+        errorCode: error.code,
+        isSSLError: error.code === 'CERT_HAS_EXPIRED'
       };
     }
   }

@@ -73,4 +73,20 @@ router.get('/check-verification-status', emailVerificationController.checkVerifi
 // Cleanup expired verification codes (Admin only)
 router.post('/cleanup-verification-codes', protect, emailVerificationController.cleanupVerificationCodes);
 
+// ========================================
+// OTP (ONE-TIME PASSWORD) ENDPOINTS
+// ========================================
+
+// Validate OTP code during login
+router.post('/validate-otp', authController.validateOTP);
+
+// Enable OTP for user account (requires authentication)
+router.post('/enable-otp', protect, authController.enableOTP);
+
+// Disable OTP for user account (requires authentication)
+router.post('/disable-otp', protect, authController.disableOTP);
+
+// Get user OTP settings (requires authentication)
+router.get('/otp-settings', protect, authController.getOTPSettings);
+
 module.exports = router;
