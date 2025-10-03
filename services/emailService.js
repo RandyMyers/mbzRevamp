@@ -3,13 +3,14 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 const dotenv = require('dotenv');
 dotenv.config();
 
-// Email service configuration - Using MBZTECH SMTP settings with fallbacks
-console.log('🔧 [DEBUG] SMTP Configuration Check:');
+// Email service configuration - Using MBZTECH SMTP settings with fallbacks (simplified)
+console.log('🔧 [DEBUG] SMTP Configuration Check (Simplified):');
 console.log('SMTP_HOST:', process.env.SMTP_HOST || 'mbztechnology.com (fallback)');
 console.log('SMTP_PORT:', process.env.SMTP_PORT || '465 (fallback)');
 console.log('SMTP_USER:', process.env.SMTP_USER ? 'SET from env' : 'NOT SET - using fallback: info@mbztechnology.com');
 console.log('SMTP_PASS:', process.env.SMTP_PASS ? 'SET from env' : 'NOT SET - using fallback');
 console.log('SMTP_FROM:', process.env.SMTP_FROM || 'NOT SET - using fallback with SMTP_USER');
+console.log('🔧 [DEBUG] Using simplified SMTP config (no pooling/rate limiting)');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'mbztechnology.com',
@@ -740,8 +741,39 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
     };
 
     console.log(`📧 [EMAIL SERVICE] Attempting to send password reset code email to: ${user.email}`);
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Password reset code email sent successfully to ${user.email} - Message ID: ${info.messageId}`);
+    
+    // Add timeout wrapper and retry logic
+    const sendEmailWithRetry = async (options, maxRetries = 3) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`📧 [EMAIL SERVICE] Attempt ${attempt}/${maxRetries} - Sending email to ${user.email}`);
+          
+          const info = await Promise.race([
+            transporter.sendMail(options),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
+            )
+          ]);
+          
+          console.log(`✅ Password reset code email sent successfully to ${user.email} - Message ID: ${info.messageId} (Attempt ${attempt})`);
+          return info;
+          
+        } catch (error) {
+          console.error(`❌ [EMAIL SERVICE] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+          
+          if (attempt === maxRetries) {
+            throw error;
+          }
+          
+          // Wait before retry (exponential backoff)
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(`⏳ [EMAIL SERVICE] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    };
+    
+    const info = await sendEmailWithRetry(mailOptions);
 
     // ✅ AUDIT LOG: Password Reset Code Email Sent
     await createAuditLog({
@@ -768,6 +800,43 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
   } catch (error) {
     console.error('❌ Password reset code email error:', error);
     
+    // Parse specific error types for better user feedback
+    let errorType = 'unknown';
+    let userMessage = error.message;
+    let technicalDetails = {};
+
+    if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+      errorType = 'connection_timeout';
+      userMessage = 'SMTP connection timeout - your hosting provider may be blocking outbound SMTP connections. Please contact your hosting provider or use an alternative email service.';
+      technicalDetails = {
+        errorCode: error.code,
+        command: error.command || 'CONN',
+        timeout: '30 seconds',
+        suggestion: 'Check if your hosting provider allows outbound SMTP connections on port 465'
+      };
+    } else if (error.code === 'ENOTFOUND' || error.message.includes('ENOTFOUND')) {
+      errorType = 'dns_error';
+      userMessage = 'SMTP server not found - please check your SMTP host configuration';
+      technicalDetails = {
+        errorCode: error.code,
+        host: process.env.SMTP_HOST || 'mbztechnology.com'
+      };
+    } else if (error.code === 'ECONNREFUSED') {
+      errorType = 'connection_refused';
+      userMessage = 'SMTP connection refused - server may be down or port is blocked';
+      technicalDetails = {
+        errorCode: error.code,
+        port: process.env.SMTP_PORT || 465
+      };
+    } else if (error.code === 'EAUTH') {
+      errorType = 'authentication_error';
+      userMessage = 'SMTP authentication failed - please check your email credentials';
+      technicalDetails = {
+        errorCode: error.code,
+        user: process.env.SMTP_USER || 'info@mbztechnology.com'
+      };
+    }
+
     // ✅ AUDIT LOG: Password Reset Code Email Failed
     try {
       await createAuditLog({
@@ -779,7 +848,10 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
           email: user.email,
           code: code,
           organizationId: organization._id,
-          error: error.message
+          error: error.message,
+          errorType: errorType,
+          userMessage: userMessage,
+          technicalDetails: technicalDetails
         },
         organization: organization._id,
         severity: 'error'
@@ -790,7 +862,9 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
 
     return {
       success: false,
-      error: error.message
+      error: userMessage,
+      errorType: errorType,
+      technicalDetails: technicalDetails
     };
   }
 };
@@ -970,17 +1044,18 @@ exports.sendLoginOTPEmail = async (user, code, organization) => {
   }
 };
 
-// Test SMTP connection with fallback values
+// Test SMTP connection with simplified configuration
 exports.testSMTPConnection = async () => {
   try {
-    console.log('🔧 [SMTP TEST] Testing SMTP connection with current configuration...');
+    console.log('🔧 [SMTP TEST] Testing SMTP connection with simplified configuration...');
     console.log('🔧 [SMTP TEST] Host:', process.env.SMTP_HOST || 'mbztechnology.com (fallback)');
     console.log('🔧 [SMTP TEST] Port:', process.env.SMTP_PORT || '465 (fallback)');
     console.log('🔧 [SMTP TEST] User:', process.env.SMTP_USER || 'info@mbztechnology.com (fallback)');
+    console.log('🔧 [SMTP TEST] Config: Simplified (no pooling/rate limiting)');
     
     await transporter.verify();
-    console.log('✅ [SMTP TEST] Connection successful!');
-    return { success: true, message: 'SMTP connection verified successfully' };
+    console.log('✅ [SMTP TEST] Connection successful with simplified config!');
+    return { success: true, message: 'SMTP connection verified successfully with simplified configuration' };
   } catch (error) {
     console.error('❌ [SMTP TEST] Connection failed:', error.message);
     return { success: false, error: error.message };
