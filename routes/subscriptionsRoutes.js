@@ -9,6 +9,9 @@ router.get('/:id', subscriptionController.getSubscriptionById);
 router.put('/:id', subscriptionController.updateSubscription);
 router.delete('/:id', subscriptionController.deleteSubscription);
 
+// Create subscription with payment (NEW)
+router.post('/create', subscriptionController.createSubscriptionWithPayment);
+
 // Assign a plan to a user
 router.post('/assign', subscriptionController.assignSubscription);
 // Renew a subscription

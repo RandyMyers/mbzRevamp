@@ -325,4 +325,215 @@ exports.cancelSubscription = async (req, res) => {
       error: err.message 
     });
   }
+};
+
+/**
+ * @swagger
+ * /api/subscriptions/create:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Create subscription with payment record
+ *     description: Creates a new subscription and linked payment record when user selects a plan
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [planId, billingCycle, amount, currency]
+ *             properties:
+ *               planId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Subscription plan ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               billingCycle:
+ *                 type: string
+ *                 enum: [monthly, quarterly, yearly]
+ *                 description: Billing cycle
+ *                 example: "monthly"
+ *               amount:
+ *                 type: number
+ *                 description: Payment amount
+ *                 example: 10.00
+ *               currency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP, NGN, BTC, USDT]
+ *                 description: Payment currency
+ *                 example: "USD"
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [flutterwave, paystack, squad, bank]
+ *                 description: Selected payment method
+ *                 example: "flutterwave"
+ *     responses:
+ *       201:
+ *         description: Subscription and payment created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Subscription created successfully"
+ *                 subscription:
+ *                   $ref: '#/components/schemas/Subscription'
+ *                 payment:
+ *                   $ref: '#/components/schemas/Payment'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *             application/json:
+ *               schema:
+ *                 type: object
+ *                 properties:
+ *                   success:
+ *                     type: boolean
+ *                     example: false
+ *                   message:
+ *                     type: string
+ *                     example: "Validation error"
+ *       500:
+ *         description: Server error
+ */
+exports.createSubscriptionWithPayment = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+    const { planId, billingCycle, amount, currency, paymentMethod } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'User not authenticated' 
+      });
+    }
+
+    if (!planId || !billingCycle || !amount || !currency) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: planId, billingCycle, amount, currency' 
+      });
+    }
+
+    // Verify plan exists
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Subscription plan not found' 
+      });
+    }
+
+    // Check if user already has an active subscription
+    const existingSubscription = await Subscription.findOne({ 
+      user: userId, 
+      status: 'active' 
+    });
+    
+    if (existingSubscription) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User already has an active subscription' 
+      });
+    }
+
+    // Calculate subscription dates
+    const startDate = new Date();
+    const endDate = new Date();
+    
+    if (billingCycle === 'monthly') {
+      endDate.setMonth(endDate.getMonth() + 1);
+    } else if (billingCycle === 'quarterly') {
+      endDate.setMonth(endDate.getMonth() + 3);
+    } else if (billingCycle === 'yearly') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    }
+
+    // Create subscription with pending status
+    const subscription = new Subscription({
+      user: userId,
+      plan: planId,
+      billingInterval: billingCycle,
+      currency: currency,
+      startDate: startDate,
+      endDate: endDate,
+      status: 'pending', // Will be updated to 'active' when payment is successful
+      isActive: false,
+      paymentMethod: paymentMethod || 'unknown'
+    });
+
+    await subscription.save();
+
+    // Create payment record with pending status
+    const { v4: uuidv4 } = require('uuid');
+    const paymentReference = uuidv4();
+    
+    const payment = new Payment({
+      user: userId,
+      subscription: subscription._id,
+      plan: planId,
+      gateway: paymentMethod || 'unknown',
+      amount: amount,
+      currency: currency,
+      status: 'pending',
+      reference: paymentReference
+    });
+
+    await payment.save();
+
+    // Update subscription with payment reference
+    subscription.payment = payment._id;
+    await subscription.save();
+
+    // Log the event
+    await logEvent({
+      action: 'create_subscription_with_payment',
+      user: userId,
+      resource: 'Subscription',
+      resourceId: subscription._id,
+      details: { 
+        planId: planId,
+        billingCycle: billingCycle,
+        amount: amount,
+        currency: currency,
+        paymentMethod: paymentMethod,
+        paymentId: payment._id
+      },
+      organization: organizationId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Subscription created successfully',
+      subscription: {
+        _id: subscription._id,
+        status: subscription.status,
+        billingInterval: subscription.billingInterval,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        plan: plan
+      },
+      payment: {
+        _id: payment._id,
+        reference: payment.reference,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        gateway: payment.gateway
+      }
+    });
+
+  } catch (err) {
+    console.error('Error creating subscription with payment:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: err.message 
+    });
+  }
 }; 

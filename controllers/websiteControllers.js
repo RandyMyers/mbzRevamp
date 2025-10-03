@@ -14,10 +14,121 @@
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [organizationId, userId, businessName, businessType, domain, description]
+ *             properties:
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID creating the website
+ *                 example: "507f1f77bcf86cd799439011"
+ *               businessName:
+ *                 type: string
+ *                 description: Business name
+ *                 example: "My Amazing Business"
+ *                 maxLength: 100
+ *               businessType:
+ *                 type: string
+ *                 enum: [Fashion & Apparel, Electronics & Gadgets, Food & Beverages, Home & Furniture, Health & Beauty, Sports & Fitness, Books & Media, Art & Crafts, Services, Other]
+ *                 description: Type of business
+ *                 example: "Services"
+ *               domain:
+ *                 type: string
+ *                 description: Domain name (without .com)
+ *                 example: "myamazingbusiness"
+ *                 pattern: "^[a-z0-9-]+$"
+ *               description:
+ *                 type: string
+ *                 description: Business description
+ *                 example: "We provide amazing services to help businesses grow"
+ *                 maxLength: 500
+ *               templateId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Selected template ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               needLogoDesign:
+ *                 type: boolean
+ *                 description: Whether logo design is needed
+ *                 example: false
+ *                 default: false
+ *               logoDesignNotes:
+ *                 type: string
+ *                 description: Notes for logo design
+ *                 example: "Please make it modern and professional"
+ *                 maxLength: 500
+ *               logoDesignPreferences:
+ *                 type: object
+ *                 description: Logo design preferences
+ *                 properties:
+ *                   style:
+ *                     type: string
+ *                     enum: [Minimal, Vintage, Modern, Handwritten, 3D, Flat, Illustrative, Other]
+ *                     example: "Modern"
+ *                   colorScheme:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       pattern: "^#([0-9A-F]{3}){1,2}$"
+ *                     example: ["#007bff", "#28a745"]
+ *                   includeIcon:
+ *                     type: boolean
+ *                     example: true
+ *                   includeText:
+ *                     type: boolean
+ *                     example: true
+ *                   inspirationLinks:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                       format: uri
+ *                     example: ["https://example.com/logo1", "https://example.com/logo2"]
  *     responses:
- *       201: { description: Created }
- *       400: { description: Validation error }
- *       403: { description: Unauthorized }
+ *       201: 
+ *         description: Website created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Website created successfully"
+ *                 website:
+ *                   $ref: '#/components/schemas/Website'
+ *       400: 
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields"
+ *       403: 
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied"
  *
  * /api/websites/check-domain:
  *   get:

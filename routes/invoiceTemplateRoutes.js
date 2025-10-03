@@ -24,42 +24,42 @@ router.use((req, res, next) => {
 // ==================== INVOICE TEMPLATE ROUTES ====================
 
 // CREATE invoice template
-router.post('/invoice/create', templateControllers.createInvoiceTemplate);
+router.post('/invoice/templates/invoice/create', templateControllers.createInvoiceTemplate);
 
 // GET all invoice templates
-router.get('/invoice/list', templateControllers.getInvoiceTemplates);
+router.get('/invoice/templates/invoice/list', templateControllers.getInvoiceTemplates);
 
 // GET single invoice template by ID
-router.get('/invoice/:id', templateControllers.getInvoiceTemplateById);
+router.get('/invoice/templates/invoice/:id', templateControllers.getInvoiceTemplateById);
 
 // UPDATE invoice template
-router.put('/invoice/:id', templateControllers.updateInvoiceTemplate);
+router.put('/invoice/templates/invoice/:id', templateControllers.updateInvoiceTemplate);
 
 // DELETE invoice template
-router.delete('/invoice/:id', templateControllers.deleteInvoiceTemplate);
+router.delete('/invoice/templates/invoice/:id', templateControllers.deleteInvoiceTemplate);
 
 // SET default invoice template
-router.put('/invoice/:id/set-default', templateControllers.setDefaultInvoiceTemplate);
+router.put('/invoice/templates/invoice/:id/set-default', templateControllers.setDefaultInvoiceTemplate);
 
 // ==================== RECEIPT TEMPLATE ROUTES ====================
 
 // CREATE receipt template
-router.post('/receipt/create', templateControllers.createReceiptTemplate);
+router.post('/invoice/templates/receipt/create', templateControllers.createReceiptTemplate);
 
 // GET all receipt templates
-router.get('/receipt/list', templateControllers.getReceiptTemplates);
+router.get('/invoice/templates/receipt/list', templateControllers.getReceiptTemplates);
 
 // GET single receipt template by ID
-router.get('/receipt/:id', templateControllers.getReceiptTemplateById);
+router.get('/invoice/templates/receipt/:id', templateControllers.getReceiptTemplateById);
 
 // UPDATE receipt template
-router.put('/receipt/:id', templateControllers.updateReceiptTemplate);
+router.put('/invoice/templates/receipt/:id', templateControllers.updateReceiptTemplate);
 
 // DELETE receipt template
-router.delete('/receipt/:id', templateControllers.deleteReceiptTemplate);
+router.delete('/invoice/templates/receipt/:id', templateControllers.deleteReceiptTemplate);
 
 // SET default receipt template
-router.put('/receipt/:id/set-default', templateControllers.setDefaultReceiptTemplate);
+router.put('/invoice/templates/receipt/:id/set-default', templateControllers.setDefaultReceiptTemplate);
 
 // ==================== SYSTEM DEFAULT TEMPLATE ROUTES ====================
 

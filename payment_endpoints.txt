@@ -1,6 +1,6 @@
-🎯 EXACT BACKEND ENDPOINTS USED FOR SUBSCRIPTION PAYMENTS
+🎯 COMPLETE SUBSCRIPTION PAYMENT SYSTEM - ALL ENDPOINTS
 
-Based on actual client code analysis, here are the exact endpoints used:
+Complete subscription and payment flow with all missing features implemented:
 
 🔑 PAYMENT GATEWAY PUBLIC KEY ENDPOINTS
 
@@ -12,6 +12,40 @@ GET /api/payment-gateways/squad/public-key
 Response:
 {
   "publicKey": "FLWPUBK_TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+🆕 STEP 1: CREATE SUBSCRIPTION WITH PAYMENT (NEW)
+
+POST /api/subscriptions/create
+
+Body:
+{
+  "planId": "string",
+  "billingCycle": "monthly|quarterly|yearly",
+  "amount": "number",
+  "currency": "USD|EUR|GBP|NGN|BTC|USDT",
+  "paymentMethod": "flutterwave|paystack|squad|bank"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Subscription created successfully",
+  "subscription": {
+    "_id": "subscription_id",
+    "status": "pending",
+    "billingInterval": "monthly",
+    "startDate": "2024-01-01T00:00:00.000Z",
+    "endDate": "2024-02-01T00:00:00.000Z"
+  },
+  "payment": {
+    "_id": "payment_id",
+    "reference": "uuid-reference",
+    "amount": 10.00,
+    "currency": "USD",
+    "status": "pending",
+    "gateway": "flutterwave"
+  }
 }
 
 💳 PAYMENT PROCESSING ENDPOINTS
@@ -50,21 +84,51 @@ POST /api/payments/upload-proof
 Body: multipart/form-data
 - screenshot: File
 
-📝 PAYMENT FLOW SUMMARY
+🆕 PAYMENT VERIFICATION & WEBHOOKS (NEW)
 
+4. Payment Verification (Manual):
+POST /api/payments/verify
+
+Body:
+{
+  "paymentId": "string",
+  "paymentReference": "string",
+  "gateway": "flutterwave|paystack|squad|bank",
+  "gatewayResponse": {},
+  "amount": "number"
+}
+
+5. Payment Webhooks (Automatic):
+POST /api/payments/webhook/flutterwave
+POST /api/payments/webhook/paystack  
+POST /api/payments/webhook/squad
+
+📝 COMPLETE PAYMENT FLOW SUMMARY
+
+STEP 1: CREATE SUBSCRIPTION
+1. Call: POST /api/subscriptions/create
+2. Creates subscription (status: "pending") and payment (status: "pending")
+3. Returns subscriptionId and paymentId
+
+STEP 2: PROCESS PAYMENT
 Flutterwave & Paystack:
 1. Get public key: GET /api/payment-gateways/{gateway}/public-key
-2. Process payment: Direct to gateway (no backend call needed)
-3. Handle callback: Frontend only
+2. Process payment: Direct to gateway
+3. Gateway sends webhook: POST /api/payments/webhook/{gateway}
+4. Webhook updates payment to "success" and subscription to "active"
 
 Squad:
 1. Get public key: GET /api/payment-gateways/squad/public-key (optional)
 2. Initiate payment: POST /api/payments/initiate-squad
 3. Redirect to checkout: Use returned checkout_url
+4. Gateway sends webhook: POST /api/payments/webhook/squad
+5. Webhook updates payment to "success" and subscription to "active"
 
 Bank Transfer:
 1. Upload proof: POST /api/payments/upload-proof
 2. Submit payment: POST /api/payments/initiate
+3. Manual verification: POST /api/payments/verify
+4. Updates payment to "success" and subscription to "active"
 
 🔧 ADDITIONAL PAYMENT MANAGEMENT ENDPOINTS
 
@@ -90,9 +154,35 @@ DELETE /api/payment-gateways/{type}
 - All endpoints expect JWT authentication in headers where needed
 - Base URL: https://mbzrevamp.onrender.com/api (production) or http://localhost:8800/api (local)
 
-🔧 FRONTEND IMPLEMENTATION GUIDE:
+🔧 COMPLETE FRONTEND IMPLEMENTATION GUIDE:
 
-STEP 1: HARDCODE PAYMENT METHOD TYPES
+STEP 1: CREATE SUBSCRIPTION FIRST (NEW)
+Before processing payment, you MUST create the subscription:
+
+```javascript
+const createSubscription = async (planData) => {
+  const response = await fetch('/api/subscriptions/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      planId: planData.planId,
+      billingCycle: planData.billingCycle,
+      amount: planData.amount,
+      currency: planData.currency,
+      paymentMethod: planData.paymentMethod
+    })
+  });
+  
+  const result = await response.json();
+  // Store subscriptionId and paymentId for later use
+  return result;
+};
+```
+
+STEP 2: HARDCODE PAYMENT METHOD TYPES
 The payment method types (flutterwave, paystack, squad) are HARDCODED in the frontend.
 You need to create buttons/handlers for these 3 specific payment methods:
 
@@ -112,26 +202,31 @@ You need to create buttons/handlers for these 3 specific payment methods:
      dispatch(getGatewayPublicKey('squad')); // HARDCODED
    }
 
-STEP 2: IMPLEMENT PAYMENT FLOW
+STEP 3: IMPLEMENT COMPLETE PAYMENT FLOW
 For each payment method, follow this exact process:
 
 FLUTTERWAVE FLOW:
-1. User clicks "Pay with Flutterwave"
-2. Call: GET /api/payment-gateways/flutterwave/public-key
-3. Get publicKey from response
-4. Initialize Flutterwave payment with publicKey
-5. Handle success/failure callback
+1. Create subscription: POST /api/subscriptions/create
+2. User clicks "Pay with Flutterwave"
+3. Call: GET /api/payment-gateways/flutterwave/public-key
+4. Get publicKey from response
+5. Initialize Flutterwave payment with publicKey
+6. On success: Gateway sends webhook → subscription becomes active
+7. Handle success/failure callback
 
 PAYSTACK FLOW:
-1. User clicks "Pay with Paystack"
-2. Call: GET /api/payment-gateways/paystack/public-key
-3. Get publicKey from response
-4. Initialize Paystack payment with publicKey (amount * 100)
-5. Handle success/failure callback
+1. Create subscription: POST /api/subscriptions/create
+2. User clicks "Pay with Paystack"
+3. Call: GET /api/payment-gateways/paystack/public-key
+4. Get publicKey from response
+5. Initialize Paystack payment with publicKey (amount * 100)
+6. On success: Gateway sends webhook → subscription becomes active
+7. Handle success/failure callback
 
 SQUAD FLOW:
-1. User clicks "Pay with Squad"
-2. Call: GET /api/payment-gateways/squad/public-key (optional)
+1. Create subscription: POST /api/subscriptions/create
+2. User clicks "Pay with Squad"
+3. Call: GET /api/payment-gateways/squad/public-key (optional)
 3. Call: POST /api/payment-gateways/initiate-squad with payment data
 4. Get checkout_url from response
 5. Redirect user to checkout_url

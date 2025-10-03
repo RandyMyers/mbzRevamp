@@ -326,4 +326,409 @@ exports.refundPayment = async (req, res) => {
   } catch (err) {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
+};
+
+/**
+ * @swagger
+ * /api/payments/verify:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Verify payment and activate subscription
+ *     description: Verifies payment success and activates the associated subscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [paymentId, paymentReference, gateway]
+ *             properties:
+ *               paymentId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Payment ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               paymentReference:
+ *                 type: string
+ *                 description: Payment reference from gateway
+ *                 example: "FLW-123456789"
+ *               gateway:
+ *                 type: string
+ *                 enum: [flutterwave, paystack, squad, bank]
+ *                 description: Payment gateway used
+ *                 example: "flutterwave"
+ *               gatewayResponse:
+ *                 type: object
+ *                 description: Gateway response data
+ *               amount:
+ *                 type: number
+ *                 description: Actual amount paid
+ *                 example: 10.00
+ *     responses:
+ *       200:
+ *         description: Payment verified and subscription activated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Payment verified and subscription activated"
+ *                 subscription:
+ *                   $ref: '#/components/schemas/Subscription'
+ *                 payment:
+ *                   $ref: '#/components/schemas/Payment'
+ *       404:
+ *         description: Payment not found
+ *       400:
+ *         description: Payment already verified or invalid
+ *       500:
+ *         description: Server error
+ */
+exports.verifyPayment = async (req, res) => {
+  try {
+    const { paymentId, paymentReference, gateway, gatewayResponse, amount } = req.body;
+    
+    if (!paymentId || !paymentReference || !gateway) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: paymentId, paymentReference, gateway' 
+      });
+    }
+
+    // Find the payment record
+    const payment = await Payment.findById(paymentId).populate('subscription');
+    if (!payment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Payment not found' 
+      });
+    }
+
+    // Check if payment is already verified
+    if (payment.status === 'success') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Payment already verified' 
+      });
+    }
+
+    // Update payment status to success
+    payment.status = 'success';
+    payment.paymentData = gatewayResponse || {};
+    payment.reference = paymentReference;
+    if (amount) payment.amount = amount;
+    payment.verifiedAt = new Date();
+    await payment.save();
+
+    // Find and activate the subscription
+    const subscription = await Subscription.findById(payment.subscription);
+    if (subscription) {
+      subscription.status = 'active';
+      subscription.isActive = true;
+      subscription.activatedAt = new Date();
+      await subscription.save();
+    }
+
+    // Log the event
+    await logEvent({
+      action: 'payment_verified',
+      user: payment.user,
+      resource: 'Payment',
+      resourceId: payment._id,
+      details: { 
+        gateway: gateway,
+        paymentReference: paymentReference,
+        amount: amount || payment.amount,
+        subscriptionId: subscription?._id
+      },
+      organization: req.user?.organization
+    });
+
+    res.json({
+      success: true,
+      message: 'Payment verified and subscription activated',
+      subscription: subscription,
+      payment: payment
+    });
+
+  } catch (err) {
+    console.error('Error verifying payment:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: err.message 
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/payments/webhook/flutterwave:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Flutterwave payment webhook
+ *     description: Handles Flutterwave payment webhook notifications
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 example: "charge.completed"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "123456"
+ *                   tx_ref:
+ *                     type: string
+ *                     example: "FLW-123456789"
+ *                   amount:
+ *                     type: number
+ *                     example: 1000
+ *                   currency:
+ *                     type: string
+ *                     example: "NGN"
+ *                   status:
+ *                     type: string
+ *                     example: "successful"
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid webhook data
+ *       500:
+ *         description: Server error
+ */
+exports.handleFlutterwaveWebhook = async (req, res) => {
+  try {
+    const { event, data } = req.body;
+    
+    if (event === 'charge.completed' && data.status === 'successful') {
+      // Find payment by reference
+      const payment = await Payment.findOne({ reference: data.tx_ref }).populate('subscription');
+      
+      if (payment && payment.status === 'pending') {
+        // Update payment status
+        payment.status = 'success';
+        payment.paymentData = data;
+        payment.verifiedAt = new Date();
+        await payment.save();
+
+        // Activate subscription
+        if (payment.subscription) {
+          const subscription = payment.subscription;
+          subscription.status = 'active';
+          subscription.isActive = true;
+          subscription.activatedAt = new Date();
+          await subscription.save();
+        }
+
+        // Log the event
+        await logEvent({
+          action: 'flutterwave_payment_success',
+          user: payment.user,
+          resource: 'Payment',
+          resourceId: payment._id,
+          details: { 
+            tx_ref: data.tx_ref,
+            amount: data.amount,
+            currency: data.currency
+          },
+          organization: req.user?.organization
+        });
+      }
+    }
+
+    res.status(200).json({ status: 'success' });
+  } catch (err) {
+    console.error('Flutterwave webhook error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/payments/webhook/paystack:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Paystack payment webhook
+ *     description: Handles Paystack payment webhook notifications
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 example: "charge.success"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "123456"
+ *                   reference:
+ *                     type: string
+ *                     example: "PAYSTACK-123456789"
+ *                   amount:
+ *                     type: number
+ *                     example: 100000
+ *                   currency:
+ *                     type: string
+ *                     example: "NGN"
+ *                   status:
+ *                     type: string
+ *                     example: "success"
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid webhook data
+ *       500:
+ *         description: Server error
+ */
+exports.handlePaystackWebhook = async (req, res) => {
+  try {
+    const { event, data } = req.body;
+    
+    if (event === 'charge.success' && data.status === 'success') {
+      // Find payment by reference
+      const payment = await Payment.findOne({ reference: data.reference }).populate('subscription');
+      
+      if (payment && payment.status === 'pending') {
+        // Update payment status
+        payment.status = 'success';
+        payment.paymentData = data;
+        payment.verifiedAt = new Date();
+        await payment.save();
+
+        // Activate subscription
+        if (payment.subscription) {
+          const subscription = payment.subscription;
+          subscription.status = 'active';
+          subscription.isActive = true;
+          subscription.activatedAt = new Date();
+          await subscription.save();
+        }
+
+        // Log the event
+        await logEvent({
+          action: 'paystack_payment_success',
+          user: payment.user,
+          resource: 'Payment',
+          resourceId: payment._id,
+          details: { 
+            reference: data.reference,
+            amount: data.amount,
+            currency: data.currency
+          },
+          organization: req.user?.organization
+        });
+      }
+    }
+
+    res.status(200).json({ status: 'success' });
+  } catch (err) {
+    console.error('Paystack webhook error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/payments/webhook/squad:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Squad payment webhook
+ *     description: Handles Squad payment webhook notifications
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 example: "payment.completed"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   transaction_ref:
+ *                     type: string
+ *                     example: "SQUAD-123456789"
+ *                   amount:
+ *                     type: number
+ *                     example: 100000
+ *                   currency:
+ *                     type: string
+ *                     example: "NGN"
+ *                   status:
+ *                     type: string
+ *                     example: "success"
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid webhook data
+ *       500:
+ *         description: Server error
+ */
+exports.handleSquadWebhook = async (req, res) => {
+  try {
+    const { event, data } = req.body;
+    
+    if (event === 'payment.completed' && data.status === 'success') {
+      // Find payment by reference
+      const payment = await Payment.findOne({ reference: data.transaction_ref }).populate('subscription');
+      
+      if (payment && payment.status === 'pending') {
+        // Update payment status
+        payment.status = 'success';
+        payment.paymentData = data;
+        payment.verifiedAt = new Date();
+        await payment.save();
+
+        // Activate subscription
+        if (payment.subscription) {
+          const subscription = payment.subscription;
+          subscription.status = 'active';
+          subscription.isActive = true;
+          subscription.activatedAt = new Date();
+          await subscription.save();
+        }
+
+        // Log the event
+        await logEvent({
+          action: 'squad_payment_success',
+          user: payment.user,
+          resource: 'Payment',
+          resourceId: payment._id,
+          details: { 
+            transaction_ref: data.transaction_ref,
+            amount: data.amount,
+            currency: data.currency
+          },
+          organization: req.user?.organization
+        });
+      }
+    }
+
+    res.status(200).json({ status: 'success' });
+  } catch (err) {
+    console.error('Squad webhook error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
 }; 

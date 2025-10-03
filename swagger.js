@@ -1981,15 +1981,17 @@ const options = {
           trialStart: { type: 'string', format: 'date-time', description: 'Trial start date' },
           trialEnd: { type: 'string', format: 'date-time', description: 'Trial end date' },
           trialConverted: { type: 'boolean', default: false, description: 'Whether trial was converted to paid' },
-          billingInterval: { type: 'string', enum: ['monthly', 'yearly'], default: 'monthly', description: 'Billing interval' },
-          currency: { type: 'string', enum: ['USD', 'NGN', 'EUR', 'GBP'], default: 'USD', description: 'Subscription currency' },
+          billingInterval: { type: 'string', enum: ['monthly', 'quarterly', 'yearly'], default: 'monthly', description: 'Billing interval' },
+          currency: { type: 'string', enum: ['USD', 'NGN', 'EUR', 'GBP', 'BTC', 'USDT'], default: 'USD', description: 'Subscription currency' },
           startDate: { type: 'string', format: 'date-time', default: 'Date.now', description: 'Subscription start date' },
           endDate: { type: 'string', format: 'date-time', description: 'Subscription end date' },
           renewalDate: { type: 'string', format: 'date-time', description: 'Next renewal date' },
-          isActive: { type: 'boolean', default: true, description: 'Whether subscription is active' },
+          isActive: { type: 'boolean', default: false, description: 'Whether subscription is active' },
           paymentStatus: { type: 'string', enum: ['Paid', 'Pending', 'Failed'], default: 'Pending', description: 'Payment status' },
-          status: { type: 'string', enum: ['active', 'pending', 'canceled', 'expired'], default: 'active', description: 'Subscription status' },
+          status: { type: 'string', enum: ['active', 'pending', 'canceled', 'expired'], default: 'pending', description: 'Subscription status' },
           payment: { type: 'string', format: 'ObjectId', description: 'Payment ID' },
+          paymentMethod: { type: 'string', enum: ['flutterwave', 'paystack', 'squad', 'bank'], description: 'Payment method used' },
+          activatedAt: { type: 'string', format: 'date-time', description: 'Subscription activation timestamp' },
           canceledAt: { type: 'string', format: 'date-time', description: 'Cancellation date' },
           createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
           updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
@@ -2011,6 +2013,7 @@ const options = {
           reference: { type: 'string', description: 'Payment reference (unique)' },
           paymentData: { type: 'object', description: 'Gateway response data' },
           screenshotUrl: { type: 'string', description: 'Bank transfer proof URL' },
+          verifiedAt: { type: 'string', format: 'date-time', description: 'Payment verification timestamp' },
           createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
           updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
         }
@@ -2028,6 +2031,87 @@ const options = {
           publicKey: { type: 'string', description: 'Public key' },
           secretKey: { type: 'string', description: 'Secret key' },
           isActive: { type: 'boolean', default: true, description: 'Whether gateway is active' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+        }
+      },
+      // Payment Webhook Schemas
+      FlutterwaveWebhook: {
+        type: 'object',
+        properties: {
+          event: { type: 'string', example: 'charge.completed', description: 'Webhook event type' },
+          data: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: '123456', description: 'Transaction ID' },
+              tx_ref: { type: 'string', example: 'FLW-123456789', description: 'Transaction reference' },
+              amount: { type: 'number', example: 1000, description: 'Amount in kobo' },
+              currency: { type: 'string', example: 'NGN', description: 'Currency' },
+              status: { type: 'string', example: 'successful', description: 'Payment status' }
+            }
+          }
+        }
+      },
+      PaystackWebhook: {
+        type: 'object',
+        properties: {
+          event: { type: 'string', example: 'charge.success', description: 'Webhook event type' },
+          data: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: '123456', description: 'Transaction ID' },
+              reference: { type: 'string', example: 'PAYSTACK-123456789', description: 'Transaction reference' },
+              amount: { type: 'number', example: 100000, description: 'Amount in kobo' },
+              currency: { type: 'string', example: 'NGN', description: 'Currency' },
+              status: { type: 'string', example: 'success', description: 'Payment status' }
+            }
+          }
+        }
+      },
+      SquadWebhook: {
+        type: 'object',
+        properties: {
+          event: { type: 'string', example: 'payment.completed', description: 'Webhook event type' },
+          data: {
+            type: 'object',
+            properties: {
+              transaction_ref: { type: 'string', example: 'SQUAD-123456789', description: 'Transaction reference' },
+              amount: { type: 'number', example: 100000, description: 'Amount in kobo' },
+              currency: { type: 'string', example: 'NGN', description: 'Currency' },
+              status: { type: 'string', example: 'success', description: 'Payment status' }
+            }
+          }
+        }
+      },
+      // Website Schema
+      Website: {
+        type: 'object',
+        required: ['organization', 'businessName', 'businessType', 'domain', 'description'],
+        properties: {
+          _id: { type: 'string', format: 'ObjectId', description: 'Website ID' },
+          organization: { type: 'string', format: 'ObjectId', description: 'Organization ID' },
+          businessName: { type: 'string', description: 'Business name', maxLength: 100 },
+          businessType: { type: 'string', enum: ['Fashion & Apparel', 'Electronics & Gadgets', 'Food & Beverages', 'Home & Furniture', 'Health & Beauty', 'Sports & Fitness', 'Books & Media', 'Art & Crafts', 'Services', 'Other'], description: 'Business type' },
+          domain: { type: 'string', description: 'Domain name', pattern: '^[a-z0-9-]+$' },
+          description: { type: 'string', description: 'Business description', maxLength: 500 },
+          logo: {
+            type: 'object',
+            properties: {
+              url: { type: 'string', description: 'Logo URL' },
+              publicId: { type: 'string', description: 'Cloudinary public ID' },
+              originalName: { type: 'string', description: 'Original file name' }
+            }
+          },
+          needLogoDesign: { type: 'boolean', default: false, description: 'Whether logo design is needed' },
+          logoDesignNotes: { type: 'string', maxLength: 500, description: 'Logo design notes' },
+          template: { type: 'string', format: 'ObjectId', description: 'Selected template ID' },
+          primaryColor: { type: 'string', default: '#800020', description: 'Primary color' },
+          secondaryColor: { type: 'string', default: '#0A2472', description: 'Secondary color' },
+          complementaryColor: { type: 'string', default: '#e18d01', description: 'Complementary color' },
+          businessAddress: { type: 'string', maxLength: 500, description: 'Business address' },
+          businessContactInfo: { type: 'string', maxLength: 500, description: 'Contact information' },
+          supportEmail: { type: 'string', format: 'email', description: 'Support email' },
+          status: { type: 'string', enum: ['draft', 'in_progress', 'completed', 'published'], default: 'draft', description: 'Website status' },
           createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
           updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
         }
