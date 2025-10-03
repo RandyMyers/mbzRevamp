@@ -1485,7 +1485,7 @@ exports.updateInvitation = async (req, res) => {
 // Test email configuration
 exports.testEmailConfig = async (req, res) => {
   try {
-    const { validateEmailConfig } = require('../services/emailService');
+    const { validateEmailConfig, testSMTPConnection } = require('../services/emailService');
     
     const isValid = validateEmailConfig();
     
@@ -1494,38 +1494,43 @@ exports.testEmailConfig = async (req, res) => {
         success: false,
         message: 'Email configuration is incomplete',
         details: {
-          SMTP_HOST: process.env.SMTP_HOST || 'Missing',
-          SMTP_PORT: process.env.SMTP_PORT || 'Missing',
-          SMTP_USER: process.env.SMTP_USER ? 'Set' : 'Missing',
-          SMTP_PASS: process.env.SMTP_PASS ? 'Set' : 'Missing',
-          SMTP_SECURE: process.env.SMTP_SECURE || 'Missing'
+          SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
+          SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
+          SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
+          SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
+          SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER'
         }
       });
     }
 
-    // Test SMTP connection
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-
-    await transporter.verify();
+    // Test actual SMTP connection
+    const connectionTest = await testSMTPConnection();
     
+    if (!connectionTest.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Email configuration is valid but SMTP connection failed',
+        error: connectionTest.error,
+        details: {
+          SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
+          SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
+          SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
+          SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
+          SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER'
+        }
+      });
+    }
+
     res.json({
       success: true,
       message: 'Email configuration is valid and SMTP connection successful',
       details: {
-        SMTP_HOST: process.env.SMTP_HOST,
-        SMTP_PORT: process.env.SMTP_PORT,
-        SMTP_SECURE: process.env.SMTP_SECURE,
-        SMTP_USER: 'Configured',
-        SMTP_PASS: 'Configured'
+        SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
+        SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
+        SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
+        SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
+        SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER',
+        connectionTest: connectionTest.message
       }
     });
 

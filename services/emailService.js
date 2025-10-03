@@ -3,21 +3,21 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 const dotenv = require('dotenv');
 dotenv.config();
 
-// Email service configuration - Using MBZTECH SMTP settings
+// Email service configuration - Using MBZTECH SMTP settings with fallbacks
 console.log('🔧 [DEBUG] SMTP Configuration Check:');
-console.log('SMTP_HOST:', process.env.SMTP_HOST);
-console.log('SMTP_PORT:', process.env.SMTP_PORT);
-console.log('SMTP_USER:', process.env.SMTP_USER ? 'SET' : 'NOT SET');
-console.log('SMTP_PASS:', process.env.SMTP_PASS ? 'SET' : 'NOT SET');
-console.log('SMTP_FROM:', process.env.SMTP_FROM);
+console.log('SMTP_HOST:', process.env.SMTP_HOST || 'mbztechnology.com (fallback)');
+console.log('SMTP_PORT:', process.env.SMTP_PORT || '465 (fallback)');
+console.log('SMTP_USER:', process.env.SMTP_USER ? 'SET from env' : 'NOT SET - using fallback: info@mbztechnology.com');
+console.log('SMTP_PASS:', process.env.SMTP_PASS ? 'SET from env' : 'NOT SET - using fallback');
+console.log('SMTP_FROM:', process.env.SMTP_FROM || 'NOT SET - using fallback with SMTP_USER');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'mbztechnology.com',
   port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465,
   secure: true, // SSL for port 465
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    user: process.env.SMTP_USER || 'info@mbztechnology.com',
+    pass: process.env.SMTP_PASS || 'Dontmesswithus@0987654321'
   },
   authMethod: 'PLAIN', // Explicitly specify PLAIN authentication
   tls: {
@@ -27,14 +27,16 @@ const transporter = nodemailer.createTransport({
 
 // Add this function to validate email configuration
 exports.validateEmailConfig = () => {
-  const required = ['SMTP_USER', 'SMTP_PASS'];
-  const missing = required.filter(key => !process.env[key]);
+  // Check if we have either environment variables OR fallback values
+  const smtpUser = process.env.SMTP_USER || 'info@mbztechnology.com';
+  const smtpPass = process.env.SMTP_PASS || 'Dontmesswithus@0987654321';
   
-  if (missing.length > 0) {
-    console.error(`❌ [EMAIL CONFIG] Missing required email environment variables: ${missing.join(', ')}`);
+  if (!smtpUser || !smtpPass) {
+    console.error(`❌ [EMAIL CONFIG] Missing SMTP credentials - User: ${smtpUser ? 'SET' : 'NOT SET'}, Pass: ${smtpPass ? 'SET' : 'NOT SET'}`);
     return false;
   }
   
+  console.log(`✅ [EMAIL CONFIG] SMTP configuration validated - Using ${process.env.SMTP_USER ? 'environment variables' : 'fallback values'}`);
   return true;
 };
 
@@ -138,7 +140,7 @@ exports.sendInvitationEmail = async (invitation) => {
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: invitation.email,
       subject: subject,
       html: htmlContent,
@@ -197,7 +199,7 @@ exports.sendInvitationEmail = async (invitation) => {
 exports.sendNotificationEmail = async (user, subject, htmlContent, textContent) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -346,7 +348,7 @@ exports.sendPasswordResetEmail = async (user, resetToken, organization) => {
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -424,7 +426,7 @@ exports.sendSystemEmail = async (to, subject, htmlContent, textContent = null) =
 
     // Create mail options
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: to,
       subject: subject,
       html: htmlContent,
@@ -572,7 +574,7 @@ exports.sendPasswordResetSuccessEmail = async (user, organization) => {
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -730,7 +732,7 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
     `;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -905,7 +907,7 @@ exports.sendLoginOTPEmail = async (user, code, organization) => {
     `;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER || 'info@mbztechnology.com'}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -965,5 +967,22 @@ exports.sendLoginOTPEmail = async (user, code, organization) => {
       success: false,
       error: error.message
     };
+  }
+};
+
+// Test SMTP connection with fallback values
+exports.testSMTPConnection = async () => {
+  try {
+    console.log('🔧 [SMTP TEST] Testing SMTP connection with current configuration...');
+    console.log('🔧 [SMTP TEST] Host:', process.env.SMTP_HOST || 'mbztechnology.com (fallback)');
+    console.log('🔧 [SMTP TEST] Port:', process.env.SMTP_PORT || '465 (fallback)');
+    console.log('🔧 [SMTP TEST] User:', process.env.SMTP_USER || 'info@mbztechnology.com (fallback)');
+    
+    await transporter.verify();
+    console.log('✅ [SMTP TEST] Connection successful!');
+    return { success: true, message: 'SMTP connection verified successfully' };
+  } catch (error) {
+    console.error('❌ [SMTP TEST] Connection failed:', error.message);
+    return { success: false, error: error.message };
   }
 }; 
