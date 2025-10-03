@@ -169,3 +169,5 @@ userOTPSchema.methods.canRequestOTP = function() {
 };
 
 module.exports = mongoose.model('UserOTP', userOTPSchema);
+
+

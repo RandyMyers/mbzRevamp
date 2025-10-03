@@ -86,7 +86,7 @@ const { sendInvitationEmail } = require('../services/emailService');
 
 /**
  * @swagger
- * /api/invitations/create:
+ * /api/invitations:
  *   post:
  *     summary: Create a new invitation
  *     tags: [Invitations]
@@ -398,65 +398,6 @@ const { sendInvitationEmail } = require('../services/emailService');
  *                   example: "Failed to resend invitation"
  */
 
-/**
- * @swagger
- * /api/invitations/{invitationId}/cancel:
- *   put:
- *     summary: Cancel invitation
- *     tags: [Invitations]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: invitationId
- *         required: true
- *         schema:
- *           type: string
- *           format: ObjectId
- *         description: Invitation ID
- *         example: "507f1f77bcf86cd799439011"
- *     responses:
- *       200:
- *         description: Invitation cancelled successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 invitation:
- *                   $ref: '#/components/schemas/Invitation'
- *       401:
- *         description: Unauthorized - Invalid or missing JWT token
- *       404:
- *         description: Invitation not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Invitation not found"
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Failed to cancel invitation"
- */
 
 /**
  * @swagger
@@ -646,7 +587,7 @@ const { sendInvitationEmail } = require('../services/emailService');
 
 /**
  * @swagger
- * /api/invitations/{invitationId}/update:
+ * /api/invitations/{invitationId}:
  *   put:
  *     summary: Update invitation details
  *     tags: [Invitations]

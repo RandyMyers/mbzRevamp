@@ -16,7 +16,7 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
       throw new Error('Sender email is not active or not found.');
     }
 
-    // Create the Nodemailer transporter
+    // Create the Nodemailer transporter with proper timeout and connection settings
     const transporter = nodemailer.createTransport({
       host: sender.smtpHost,
       port: sender.smtpPort,
@@ -24,17 +24,48 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
       auth: {
         user: sender.username,
         pass: sender.password,
+        authMethod: 'PLAIN' // Explicitly set auth method
       },
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000,   // 30 seconds
+      socketTimeout: 60000,     // 60 seconds
+      pool: true,               // Use connection pooling
+      maxConnections: 5,        // Maximum number of connections in the pool
+      maxMessages: 100,         // Maximum number of messages to send through a single connection
+      rateDelta: 20000,         // Rate limiting: 20 seconds
+      rateLimit: 5,             // Maximum 5 emails per rateDelta
+      tls: {
+        rejectUnauthorized: false, // Accept self-signed certificates
+        ciphers: 'SSLv3'
+      },
+      debug: false, // Set to true for debugging
+      logger: false // Set to true for logging
     });
 
-    // Send the email
-    const info = await transporter.sendMail({
-      from: sender.email, // Use sender email if 'from' is not specified
-      to,
-      subject,
-      text,
-      html,
-    });
+    // Verify the connection before sending
+    console.log(`🔍 Verifying SMTP connection for ${sender.email}...`);
+    try {
+      await transporter.verify();
+      console.log(`✅ SMTP connection verified for ${sender.email}`);
+    } catch (verifyError) {
+      console.error(`❌ SMTP connection verification failed for ${sender.email}:`, verifyError.message);
+      throw new Error(`SMTP connection failed: ${verifyError.message}`);
+    }
+
+    // Send the email with timeout wrapper
+    console.log(`📧 Sending email from ${sender.email} to ${to}...`);
+    const info = await Promise.race([
+      transporter.sendMail({
+        from: sender.email, // Use sender email if 'from' is not specified
+        to,
+        subject,
+        text,
+        html,
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
+      )
+    ]);
 
     console.log('Email sent: %s', info.messageId); // Log the success
 
@@ -91,7 +122,25 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
     // For backward compatibility, return true if successful
     return result;
   } catch (error) {
-    console.error('Error sending email:', error.message);
+    console.error('❌ Error sending email:', error.message);
+
+    // Parse specific error types for better user feedback
+    let errorType = 'unknown';
+    let userMessage = error.message;
+
+    if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+      errorType = 'timeout';
+      userMessage = 'Connection timeout - please check your SMTP server settings and network connection';
+    } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      errorType = 'connection';
+      userMessage = 'Cannot connect to SMTP server - please verify your SMTP host and port settings';
+    } else if (error.message.includes('EAUTH') || error.message.includes('authentication')) {
+      errorType = 'authentication';
+      userMessage = 'SMTP authentication failed - please check your username and password';
+    } else if (error.message.includes('certificate') || error.message.includes('SSL')) {
+      errorType = 'ssl';
+      userMessage = 'SSL/TLS certificate issue - please check your SMTP security settings';
+    }
 
     // Save the failed email to the Email collection
     const emailData = {
@@ -99,7 +148,9 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
       subject,
       body: html || text,
       status: 'failed',
-      errorMessage: error.message, // Capture the error message
+      errorMessage: error.message, // Technical error message
+      errorType: errorType, // Categorized error type
+      userMessage: userMessage, // User-friendly error message
       createdBy,
       organization,
     };
@@ -112,6 +163,8 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
       emailId: failedEmail._id,
       status: 'failed',
       errorMessage: error.message,
+      errorType: errorType,
+      userMessage: userMessage,
       sentAt: new Date(),
     });
 
@@ -121,7 +174,8 @@ const sendEmail = async ({ senderId, campaign, workflow, organization, createdBy
     failedEmail.emailLogs.push(emailLog._id);
     await failedEmail.save(); // Save the updated Email document
 
-    throw new Error(`Failed to send email: ${error.message}`);
+    // Return more detailed error information
+    throw new Error(`${errorType.toUpperCase()}: ${userMessage}`);
   }
 };
 

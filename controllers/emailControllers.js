@@ -132,14 +132,6 @@ const Sender = require('../models/sender'); // Import Sender model for email sen
  *                 format: ObjectId
  *                 description: Sender ID for the email
  *                 example: "507f1f77bcf86cd799439011"
- *               campaign:
- *                 type: string
- *                 description: Campaign identifier
- *                 example: "welcome-campaign"
- *               workflow:
- *                 type: string
- *                 description: Workflow identifier
- *                 example: "onboarding"
  *     responses:
  *       201:
  *         description: Email created and sent successfully
@@ -188,7 +180,7 @@ const Sender = require('../models/sender'); // Import Sender model for email sen
 // CREATE a new email
 exports.createEmail = async (req, res) => {
   try {
-    const { recipient, subject, body, variables, emailTemplate, createdBy, organization, user, senderId, campaign, workflow } = req.body;
+    const { recipient, subject, body, variables, emailTemplate, createdBy, organization, user, senderId } = req.body;
     
     // Handle both 'createdBy' and 'user' field names for compatibility
     const userId = createdBy || user;
@@ -230,8 +222,6 @@ exports.createEmail = async (req, res) => {
       // Send the email using the sendEmail helper function
       const emailSent = await sendEmail({
         senderId: sender._id,
-        campaign: campaign,
-        workflow: workflow,
         organization: organization,
         createdBy: userId,
         emailTemplate: emailTemplate,
