@@ -701,6 +701,165 @@ const notificationTemplates = [
     },
     isSystemDefault: true,
     isActive: true
+  },
+
+  // TASK MANAGEMENT (8 templates)
+  {
+    templateName: "task_created",
+    subject: "New Task Assigned: {{taskTitle}} - {{companyName}}",
+    body: "A new task '{{taskTitle}}' has been created and assigned to you by {{createdByName}}. Due Date: {{dueDate}}. Priority: {{priority}}. Description: {{taskDescription}}",
+    type: "email",
+    triggerEvent: "task_created",
+    templateCategory: "task_management",
+    priority: "high",
+    tags: ["task", "created", "assignment"],
+    variables: {
+      taskTitle: "Task title",
+      taskDescription: "Task description",
+      createdByName: "Name of user who created the task",
+      assignedToName: "Name of user assigned to task",
+      dueDate: "Task due date",
+      priority: "Task priority (low/medium/high)",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_assigned",
+    subject: "Task Assignment: {{taskTitle}} - {{companyName}}",
+    body: "You have been assigned to a task '{{taskTitle}}' by {{assignedByName}}. Due Date: {{dueDate}}. Priority: {{priority}}. Please review and start working on it.",
+    type: "email",
+    triggerEvent: "task_assigned",
+    templateCategory: "task_management",
+    priority: "high",
+    tags: ["task", "assigned", "assignment"],
+    variables: {
+      taskTitle: "Task title",
+      assignedByName: "Name of user who assigned the task",
+      assignedToName: "Name of user assigned to task",
+      dueDate: "Task due date",
+      priority: "Task priority (low/medium/high)",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_status_updated",
+    subject: "Task Status Updated: {{taskTitle}} - {{newStatus}}",
+    body: "Task '{{taskTitle}}' status has been updated to '{{newStatus}}' by {{updatedByName}}. Previous status: {{oldStatus}}. Due Date: {{dueDate}}",
+    type: "email",
+    triggerEvent: "task_status_updated",
+    templateCategory: "task_management",
+    priority: "medium",
+    tags: ["task", "status", "update"],
+    variables: {
+      taskTitle: "Task title",
+      newStatus: "New task status",
+      oldStatus: "Previous task status",
+      updatedByName: "Name of user who updated the task",
+      dueDate: "Task due date",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_due_soon",
+    subject: "Task Due Soon: {{taskTitle}} - {{companyName}}",
+    body: "Reminder: Task '{{taskTitle}}' is due {{dueDate}}. Current status: {{taskStatus}}. Priority: {{priority}}. Please complete it on time.",
+    type: "email",
+    triggerEvent: "task_due_soon",
+    templateCategory: "task_management",
+    priority: "high",
+    tags: ["task", "due", "reminder"],
+    variables: {
+      taskTitle: "Task title",
+      dueDate: "Task due date",
+      taskStatus: "Current task status",
+      priority: "Task priority (low/medium/high)",
+      assignedToName: "Name of user assigned to task",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_overdue",
+    subject: "Task Overdue: {{taskTitle}} - {{companyName}}",
+    body: "Alert: Task '{{taskTitle}}' is overdue. Due date was {{dueDate}}. Current status: {{taskStatus}}. Please complete it as soon as possible.",
+    type: "email",
+    triggerEvent: "task_overdue",
+    templateCategory: "task_management",
+    priority: "critical",
+    tags: ["task", "overdue", "alert"],
+    variables: {
+      taskTitle: "Task title",
+      dueDate: "Task due date",
+      taskStatus: "Current task status",
+      priority: "Task priority (low/medium/high)",
+      assignedToName: "Name of user assigned to task",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "subtask_completed",
+    subject: "Subtask Completed: {{subtaskTitle}} - {{taskTitle}}",
+    body: "Subtask '{{subtaskTitle}}' for task '{{taskTitle}}' has been completed by {{completedByName}}. Task progress: {{progress}}%",
+    type: "system",
+    triggerEvent: "subtask_completed",
+    templateCategory: "task_management",
+    priority: "medium",
+    tags: ["task", "subtask", "completed"],
+    variables: {
+      subtaskTitle: "Subtask title",
+      taskTitle: "Parent task title",
+      completedByName: "Name of user who completed subtask",
+      progress: "Task progress percentage",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_comment_added",
+    subject: "New Comment on Task: {{taskTitle}} - {{companyName}}",
+    body: "{{commentedByName}} added a comment to task '{{taskTitle}}': \"{{commentText}}\". Please review the comment and respond if needed.",
+    type: "email",
+    triggerEvent: "task_comment_added",
+    templateCategory: "task_management",
+    priority: "medium",
+    tags: ["task", "comment", "communication"],
+    variables: {
+      taskTitle: "Task title",
+      commentedByName: "Name of user who added comment",
+      commentText: "Comment text (truncated if long)",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "task_attachment_uploaded",
+    subject: "Attachment Uploaded to Task: {{taskTitle}} - {{companyName}}",
+    body: "{{uploadedByName}} uploaded an attachment '{{fileName}}' to task '{{taskTitle}}'. File size: {{fileSize}}. Please review the attachment.",
+    type: "system",
+    triggerEvent: "task_attachment_uploaded",
+    templateCategory: "task_management",
+    priority: "low",
+    tags: ["task", "attachment", "file"],
+    variables: {
+      taskTitle: "Task title",
+      fileName: "Uploaded file name",
+      fileSize: "File size",
+      uploadedByName: "Name of user who uploaded file",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
   }
 ];
 
