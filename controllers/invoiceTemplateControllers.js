@@ -884,18 +884,21 @@ exports.setDefaultInvoiceTemplate = async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
 
-    const template = await InvoiceTemplate.findByIdAndUpdate(
-      id,
-      { isDefault: true, updatedBy: userId },
-      { new: true }
-    );
-
+    // Find the template first
+    const template = await InvoiceTemplate.findById(id);
     if (!template) {
       return res.status(404).json({
         success: false,
         message: 'Invoice template not found'
       });
     }
+
+    // Set as default - this will trigger the pre-save middleware to unset other defaults
+    template.isDefault = true;
+    template.updatedBy = userId;
+    
+    // Save the template (this will trigger the pre-save middleware)
+    await template.save();
 
     // Create audit log
     await createAuditLog({
@@ -1438,18 +1441,21 @@ exports.setDefaultReceiptTemplate = async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
 
-    const template = await ReceiptTemplate.findByIdAndUpdate(
-      id,
-      { isDefault: true, updatedBy: userId },
-      { new: true }
-    );
-
+    // Find the template first
+    const template = await ReceiptTemplate.findById(id);
     if (!template) {
       return res.status(404).json({
         success: false,
         message: 'Receipt template not found'
       });
     }
+
+    // Set as default - this will trigger the pre-save middleware to unset other defaults
+    template.isDefault = true;
+    template.updatedBy = userId;
+    
+    // Save the template (this will trigger the pre-save middleware)
+    await template.save();
 
     // Create audit log
     await createAuditLog({

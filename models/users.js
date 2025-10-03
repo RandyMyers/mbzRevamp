@@ -124,8 +124,15 @@ const UserSchema = new Schema({
     },
     timezone: {
       type: String,
-      enum: ['UTC', 'EST', 'PST', 'GMT', 'CET'],
-      default: 'UTC'
+      default: 'UTC',
+      validate: {
+        validator: function(v) {
+          // Allow any valid IANA timezone identifier
+          const moment = require('moment-timezone');
+          return moment.tz.names().includes(v);
+        },
+        message: 'Invalid timezone identifier. Please use a valid IANA timezone (e.g., America/New_York, Europe/London, Africa/Johannesburg)'
+      }
     },
     dateFormat: {
       type: String,

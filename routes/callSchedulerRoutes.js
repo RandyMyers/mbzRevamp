@@ -9,6 +9,14 @@ router.post('/', callSchedulerController.createCall); // organizationId, userId 
 router.get('/', callSchedulerController.getCalls);
 router.get('/available-senders/:organizationId', callSchedulerController.getAvailableSenders); // organizationId (and optional userId) in query
 router.get('/available-participants/:organizationId', callSchedulerController.getAvailableParticipants); // Get available participants
+
+// Timezone and recurring meeting routes
+router.get('/timezones', callSchedulerController.getAvailableTimezones);
+router.post('/convert-timezone', callSchedulerController.convertMeetingTime);
+router.post('/optimal-times', callSchedulerController.findOptimalTimes);
+router.post('/generate-recurring', callSchedulerController.generateRecurringDates);
+router.get('/current-time/:timezone', callSchedulerController.getCurrentTime);
+
 router.get('/:id', callSchedulerController.getCallById); // organizationId in query
 router.put('/:id', callSchedulerController.updateCall); // organizationId in body
 router.patch('/:id/cancel', callSchedulerController.cancelCall); // organizationId in body

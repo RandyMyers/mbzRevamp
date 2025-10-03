@@ -833,6 +833,244 @@ const options = {
             }
           }
         },
+
+        // InvoiceTemplate Schema
+        InvoiceTemplate: {
+          type: 'object',
+          required: ['name', 'userId'],
+          properties: {
+            _id: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'Invoice template ID'
+            },
+            name: {
+              type: 'string',
+              description: 'Template name',
+              example: 'Professional Invoice Template'
+            },
+            userId: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'User ID who owns the template'
+            },
+            templateType: {
+              type: 'string',
+              enum: ['professional', 'modern', 'minimal', 'classic', 'creative', 'custom'],
+              default: 'professional',
+              description: 'Template design type'
+            },
+            isDefault: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether this is the default template'
+            },
+            isSystemDefault: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether this is a system default template'
+            },
+            isActive: {
+              type: 'boolean',
+              default: true,
+              description: 'Whether template is active'
+            },
+            companyInfo: {
+              type: 'object',
+              description: 'Company information for the template',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Company name',
+                  example: 'MBZ Technology'
+                },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  description: 'Company email',
+                  example: 'billing@mbztechnology.com'
+                },
+                phone: {
+                  type: 'string',
+                  description: 'Company phone',
+                  example: '+27 11 123 4567'
+                },
+                address: {
+                  type: 'object',
+                  properties: {
+                    street: { type: 'string', example: '123 Business Street' },
+                    city: { type: 'string', example: 'Johannesburg' },
+                    state: { type: 'string', example: 'Gauteng' },
+                    zipCode: { type: 'string', example: '2000' },
+                    country: { type: 'string', example: 'South Africa' }
+                  }
+                },
+                website: {
+                  type: 'string',
+                  description: 'Company website',
+                  example: 'https://mbztechnology.com'
+                },
+                logo: {
+                  type: 'string',
+                  description: 'Company logo URL',
+                  example: 'https://example.com/logo.png'
+                }
+              }
+            },
+            design: {
+              type: 'object',
+              description: 'Template design settings',
+              properties: {
+                primaryColor: {
+                  type: 'string',
+                  default: '#000000',
+                  description: 'Primary color',
+                  example: '#1e40af'
+                },
+                secondaryColor: {
+                  type: 'string',
+                  default: '#666666',
+                  description: 'Secondary color',
+                  example: '#64748b'
+                },
+                backgroundColor: {
+                  type: 'string',
+                  default: '#ffffff',
+                  description: 'Background color',
+                  example: '#ffffff'
+                },
+                fontFamily: {
+                  type: 'string',
+                  default: 'Arial, sans-serif',
+                  description: 'Font family',
+                  example: 'Inter, sans-serif'
+                },
+                fontSize: {
+                  type: 'number',
+                  default: 12,
+                  description: 'Base font size'
+                },
+                headerFontSize: {
+                  type: 'number',
+                  default: 18,
+                  description: 'Header font size'
+                },
+                footerFontSize: {
+                  type: 'number',
+                  default: 10,
+                  description: 'Footer font size'
+                }
+              }
+            },
+            layout: {
+              type: 'object',
+              description: 'Template layout configuration',
+              properties: {
+                showLogo: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show company logo'
+                },
+                showCompanyInfo: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show company information'
+                },
+                showCustomerInfo: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show customer information'
+                },
+                showItemsTable: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show items table'
+                },
+                showTotals: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show totals section'
+                },
+                showTerms: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show terms and conditions'
+                },
+                showNotes: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show notes section'
+                }
+              }
+            },
+            fields: {
+              type: 'object',
+              description: 'Field visibility configuration',
+              properties: {
+                showInvoiceNumber: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show invoice number'
+                },
+                showIssueDate: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show issue date'
+                },
+                showDueDate: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show due date'
+                },
+                showCustomerAddress: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show customer address'
+                },
+                showItemDescription: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show item descriptions'
+                },
+                showSubtotal: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show subtotal'
+                },
+                showTax: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show tax amount'
+                },
+                showTotal: {
+                  type: 'boolean',
+                  default: true,
+                  description: 'Show total amount'
+                }
+              }
+            },
+            createdBy: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'User ID who created the template'
+            },
+            updatedBy: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'User ID who last updated the template'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Template creation timestamp'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Template last update timestamp'
+            }
+          }
+        },
                  // Affiliate Schema
          Affiliate: {
            type: 'object',
@@ -2432,6 +2670,215 @@ const options = {
               description: 'Record last update timestamp'
             }
           }
+        },
+
+        // CallScheduler Schema
+        CallScheduler: {
+          type: 'object',
+          required: ['organizationId', 'userId', 'title', 'startTime', 'endTime'],
+          properties: {
+            _id: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'Call scheduler ID'
+            },
+            organizationId: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'Organization ID',
+              example: '60d0fe4f3a7b1c001f1e3a4b'
+            },
+            userId: {
+              type: 'string',
+              format: 'ObjectId',
+              description: 'User ID who created the call',
+              example: '60d0fe4f3a7b1c001f1e3a4c'
+            },
+            title: {
+              type: 'string',
+              description: 'Call title',
+              example: 'Weekly Team Sync'
+            },
+            description: {
+              type: 'string',
+              maxLength: 1000,
+              description: 'Call description',
+              example: 'Weekly team meeting to discuss project updates'
+            },
+            startTime: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Call start time',
+              example: '2024-01-15T10:00:00Z'
+            },
+            endTime: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Call end time',
+              example: '2024-01-15T11:00:00Z'
+            },
+            status: {
+              type: 'string',
+              enum: ['scheduled', 'cancelled', 'completed'],
+              default: 'scheduled',
+              description: 'Call status'
+            },
+            participants: {
+              type: 'array',
+              items: {
+                type: 'string',
+                format: 'ObjectId'
+              },
+              description: 'Array of user IDs participating in the call'
+            },
+            externalParticipants: {
+              type: 'array',
+              description: 'External participants not in the system',
+              items: {
+                type: 'object',
+                required: ['name', 'email'],
+                properties: {
+                  name: {
+                    type: 'string',
+                    description: 'External participant name',
+                    example: 'John Doe'
+                  },
+                  email: {
+                    type: 'string',
+                    format: 'email',
+                    description: 'External participant email',
+                    example: 'john.doe@example.com'
+                  },
+                  invitedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    description: 'When invitation was sent'
+                  },
+                  invitationSent: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Whether invitation was sent'
+                  }
+                }
+              }
+            },
+            meetingLink: {
+              type: 'string',
+              description: 'Meeting link (Zoom, Teams, etc.)',
+              example: 'https://zoom.us/j/123456789'
+            },
+            // Recurring meeting fields
+            isRecurring: {
+              type: 'boolean',
+              default: false,
+              description: 'Whether this is a recurring meeting'
+            },
+            recurrencePattern: {
+              type: 'string',
+              enum: ['daily', 'weekly', 'biweekly', 'monthly', 'custom'],
+              description: 'Recurrence pattern for recurring meetings'
+            },
+            recurrenceEndDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When recurring meetings should end'
+            },
+            recurrenceInterval: {
+              type: 'number',
+              default: 1,
+              description: 'Recurrence interval (every X days/weeks/months)'
+            },
+            recurrenceDays: {
+              type: 'array',
+              items: {
+                type: 'number',
+                minimum: 0,
+                maximum: 6
+              },
+              description: 'Days of week for custom recurrence (0=Sunday, 6=Saturday)'
+            },
+            // Timezone support
+            timezone: {
+              type: 'string',
+              default: 'UTC',
+              description: 'Meeting timezone',
+              example: 'Africa/Johannesburg'
+            },
+            organizerTimezone: {
+              type: 'string',
+              default: 'UTC',
+              description: 'Organizer timezone',
+              example: 'Africa/Johannesburg'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record creation timestamp'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record last update timestamp'
+            }
+          }
+        },
+
+        // Timezone Conversion Response Schema
+        TimezoneConversion: {
+          type: 'object',
+          properties: {
+            participant: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Participant ID'
+                },
+                name: {
+                  type: 'string',
+                  description: 'Participant name'
+                },
+                email: {
+                  type: 'string',
+                  description: 'Participant email'
+                },
+                timezone: {
+                  type: 'string',
+                  description: 'Participant timezone'
+                }
+              }
+            },
+            meetingTime: {
+              type: 'object',
+              properties: {
+                time: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'Converted meeting time'
+                },
+                display: {
+                  type: 'string',
+                  description: 'Human-readable time format'
+                },
+                timezone: {
+                  type: 'string',
+                  description: 'Target timezone'
+                },
+                offset: {
+                  type: 'string',
+                  description: 'Timezone offset'
+                },
+                isDST: {
+                  type: 'boolean',
+                  description: 'Whether daylight saving time is active'
+                }
+              }
+            },
+            timezoneDisplayName: {
+              type: 'string',
+              description: 'User-friendly timezone name'
+            }
+          }
         }
       }
     },
@@ -2490,6 +2937,10 @@ const options = {
         description: 'Notification management operations'
       },
       {
+        name: 'Call Scheduler',
+        description: 'Call scheduling and timezone management operations'
+      },
+      {
         name: 'Feedback',
         description: 'Feedback management operations'
       },
@@ -2512,6 +2963,10 @@ const options = {
       {
         name: 'Receipts',
         description: 'Receipt management operations'
+      },
+      {
+        name: 'Invoice Templates',
+        description: 'Invoice template management operations'
       },
       {
         name: 'Receipt Templates',

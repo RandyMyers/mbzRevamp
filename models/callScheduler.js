@@ -38,7 +38,39 @@ const callSchedulerSchema = new mongoose.Schema({
     invitedAt: { type: Date, default: Date.now },
     invitationSent: { type: Boolean, default: false }
   }],
-  meetingLink: { type: String }
+  meetingLink: { type: String },
+  // Recurring meeting fields
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  recurrencePattern: {
+    type: String,
+    enum: ['daily', 'weekly', 'biweekly', 'monthly', 'custom'],
+    default: null
+  },
+  recurrenceEndDate: {
+    type: Date,
+    default: null
+  },
+  recurrenceInterval: {
+    type: Number,
+    default: 1 // Every 1 week, 1 month, etc.
+  },
+  recurrenceDays: [{
+    type: Number, // 0 = Sunday, 1 = Monday, etc.
+    min: 0,
+    max: 6
+  }],
+  // Timezone support
+  timezone: {
+    type: String,
+    default: 'UTC'
+  },
+  organizerTimezone: {
+    type: String,
+    default: 'UTC'
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('CallScheduler', callSchedulerSchema); 

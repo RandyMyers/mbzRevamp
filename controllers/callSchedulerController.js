@@ -225,6 +225,7 @@ dotenv.config();
 const CallScheduler = require('../models/callScheduler');
 const User = require('../models/users');
 const callNotificationService = require('../services/callNotificationService');
+const timezoneService = require('../services/timezoneService');
 
 // Validate that participants belong to the organization
 const validateParticipants = async (participants, organizationId) => {
@@ -521,6 +522,247 @@ exports.getAvailableSenders = async (req, res) => {
       .sort({ name: 1 });
     
     res.json({ success: true, data: senders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ========================================
+// TIMEZONE AND RECURRING MEETING ENDPOINTS
+// ========================================
+
+/**
+ * @swagger
+ * /api/calls/timezones:
+ *   get:
+ *     summary: Get available timezones
+ *     tags: [Call Scheduler]
+ *     responses:
+ *       200:
+ *         description: Available timezones grouped by region
+ */
+exports.getAvailableTimezones = async (req, res) => {
+  try {
+    const timezones = timezoneService.getAvailableTimezones();
+    res.json({ success: true, data: timezones });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/calls/convert-timezone:
+ *   post:
+ *     summary: Convert meeting time to participant timezones
+ *     tags: [Call Scheduler]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               meetingTime:
+ *                 type: string
+ *                 format: date-time
+ *               meetingTimezone:
+ *                 type: string
+ *               participants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     timezone:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Meeting times converted for all participants
+ */
+exports.convertMeetingTime = async (req, res) => {
+  try {
+    const { meetingTime, meetingTimezone = 'UTC', participants } = req.body;
+    
+    if (!meetingTime || !participants || !Array.isArray(participants)) {
+      return res.status(400).json({
+        success: false,
+        error: 'meetingTime and participants array are required'
+      });
+    }
+    
+    const convertedTimes = timezoneService.getMeetingTimesForAllParticipants(
+      meetingTime,
+      participants,
+      meetingTimezone
+    );
+    
+    res.json({ success: true, data: convertedTimes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/calls/optimal-times:
+ *   post:
+ *     summary: Find optimal meeting times for participants
+ *     tags: [Call Scheduler]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               participants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     timezone:
+ *                       type: string
+ *               duration:
+ *                 type: number
+ *                 default: 60
+ *     responses:
+ *       200:
+ *         description: Suggested optimal meeting times
+ */
+exports.findOptimalTimes = async (req, res) => {
+  try {
+    const { participants, duration = 60 } = req.body;
+    
+    if (!participants || !Array.isArray(participants)) {
+      return res.status(400).json({
+        success: false,
+        error: 'participants array is required'
+      });
+    }
+    
+    const optimalTimes = timezoneService.findOptimalMeetingTime(participants, duration);
+    
+    res.json({ success: true, data: optimalTimes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/calls/generate-recurring:
+ *   post:
+ *     summary: Generate recurring meeting dates
+ *     tags: [Call Scheduler]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               recurrencePattern:
+ *                 type: string
+ *                 enum: [daily, weekly, biweekly, monthly, custom]
+ *               recurrenceInterval:
+ *                 type: number
+ *                 default: 1
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               daysOfWeek:
+ *                 type: array
+ *                 items:
+ *                   type: number
+ *                   minimum: 0
+ *                   maximum: 6
+ *     responses:
+ *       200:
+ *         description: Generated recurring meeting dates
+ */
+exports.generateRecurringDates = async (req, res) => {
+  try {
+    const { 
+      startDate, 
+      recurrencePattern, 
+      recurrenceInterval = 1, 
+      endDate = null, 
+      daysOfWeek = [] 
+    } = req.body;
+    
+    if (!startDate || !recurrencePattern) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate and recurrencePattern are required'
+      });
+    }
+    
+    const dates = timezoneService.generateRecurringDates(
+      startDate,
+      recurrencePattern,
+      recurrenceInterval,
+      endDate,
+      daysOfWeek
+    );
+    
+    res.json({ success: true, data: dates });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * @swagger
+ * /api/calls/current-time/{timezone}:
+ *   get:
+ *     summary: Get current time in a specific timezone
+ *     tags: [Call Scheduler]
+ *     parameters:
+ *       - in: path
+ *         name: timezone
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Current time in the specified timezone
+ */
+exports.getCurrentTime = async (req, res) => {
+  try {
+    const { timezone } = req.params;
+    
+    if (!timezoneService.isValidTimezone(timezone)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid timezone'
+      });
+    }
+    
+    const currentTime = timezoneService.getCurrentTimeInTimezone(timezone);
+    
+    res.json({ 
+      success: true, 
+      data: {
+        timezone,
+        currentTime,
+        displayName: timezoneService.getTimezoneDisplayName(timezone)
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

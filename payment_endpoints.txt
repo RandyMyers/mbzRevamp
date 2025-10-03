@@ -1,0 +1,159 @@
+🎯 EXACT BACKEND ENDPOINTS USED FOR SUBSCRIPTION PAYMENTS
+
+Based on actual client code analysis, here are the exact endpoints used:
+
+🔑 PAYMENT GATEWAY PUBLIC KEY ENDPOINTS
+
+Get Public Key for Payment Gateways:
+GET /api/payment-gateways/flutterwave/public-key
+GET /api/payment-gateways/paystack/public-key  
+GET /api/payment-gateways/squad/public-key
+
+Response:
+{
+  "publicKey": "FLWPUBK_TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+💳 PAYMENT PROCESSING ENDPOINTS
+
+1. Squad Payment Initiation:
+POST /api/payments/initiate-squad
+
+Body:
+{
+  "userId": "string",
+  "planId": "string",
+  "amount": "number",
+  "billingCycle": "string",
+  "currency": "string",
+  "email": "string", 
+  "name": "string"
+}
+
+2. Bank Transfer Payment:
+POST /api/payments/initiate
+
+Body:
+{
+  "userId": "string",
+  "planId": "string",
+  "gateway": "bank",
+  "amount": "number",
+  "currency": "string",
+  "status": "manual_review",
+  "screenshotUrl": "string"
+}
+
+3. Upload Payment Proof (Bank Transfer):
+POST /api/payments/upload-proof
+
+Body: multipart/form-data
+- screenshot: File
+
+📝 PAYMENT FLOW SUMMARY
+
+Flutterwave & Paystack:
+1. Get public key: GET /api/payment-gateways/{gateway}/public-key
+2. Process payment: Direct to gateway (no backend call needed)
+3. Handle callback: Frontend only
+
+Squad:
+1. Get public key: GET /api/payment-gateways/squad/public-key (optional)
+2. Initiate payment: POST /api/payments/initiate-squad
+3. Redirect to checkout: Use returned checkout_url
+
+Bank Transfer:
+1. Upload proof: POST /api/payments/upload-proof
+2. Submit payment: POST /api/payments/initiate
+
+🔧 ADDITIONAL PAYMENT MANAGEMENT ENDPOINTS
+
+Payment CRUD (if needed):
+POST /api/payment/create
+GET /api/payment/user/{userId}
+GET /api/payment/{paymentId}
+PATCH /api/payment/update/status/{paymentId}
+PATCH /api/payment/refund/{paymentId}
+DELETE /api/payment/delete/{paymentId}
+
+Gateway Management:
+GET /api/payment-gateways/
+GET /api/payment-gateways/{type}
+POST /api/payment-gateways/
+PUT /api/payment-gateways/{type}
+DELETE /api/payment-gateways/{type}
+
+⚠️ IMPORTANT NOTES:
+- Flutterwave & Paystack: Only need public key, payment processed directly by gateway
+- Squad: Requires backend initiation call to get checkout URL
+- Bank Transfer: Requires file upload + payment initiation
+- All endpoints expect JWT authentication in headers where needed
+- Base URL: https://mbzrevamp.onrender.com/api (production) or http://localhost:8800/api (local)
+
+🔧 FRONTEND IMPLEMENTATION GUIDE:
+
+STEP 1: HARDCODE PAYMENT METHOD TYPES
+The payment method types (flutterwave, paystack, squad) are HARDCODED in the frontend.
+You need to create buttons/handlers for these 3 specific payment methods:
+
+1. Create 3 payment method buttons:
+   - "Pay with Flutterwave" → calls handleFlutterwavePay()
+   - "Pay with Paystack" → calls handlePaystackHandler() 
+   - "Pay with Squad" → calls handleSquadPay()
+
+2. Hardcode the gateway types in your handlers:
+   const handleFlutterwavePay = () => {
+     dispatch(getGatewayPublicKey('flutterwave')); // HARDCODED
+   }
+   const handlePaystackPay = () => {
+     dispatch(getGatewayPublicKey('paystack')); // HARDCODED
+   }
+   const handleSquadPay = () => {
+     dispatch(getGatewayPublicKey('squad')); // HARDCODED
+   }
+
+STEP 2: IMPLEMENT PAYMENT FLOW
+For each payment method, follow this exact process:
+
+FLUTTERWAVE FLOW:
+1. User clicks "Pay with Flutterwave"
+2. Call: GET /api/payment-gateways/flutterwave/public-key
+3. Get publicKey from response
+4. Initialize Flutterwave payment with publicKey
+5. Handle success/failure callback
+
+PAYSTACK FLOW:
+1. User clicks "Pay with Paystack"
+2. Call: GET /api/payment-gateways/paystack/public-key
+3. Get publicKey from response
+4. Initialize Paystack payment with publicKey (amount * 100)
+5. Handle success/failure callback
+
+SQUAD FLOW:
+1. User clicks "Pay with Squad"
+2. Call: GET /api/payment-gateways/squad/public-key (optional)
+3. Call: POST /api/payment-gateways/initiate-squad with payment data
+4. Get checkout_url from response
+5. Redirect user to checkout_url
+
+BANK TRANSFER FLOW:
+1. User uploads payment proof file
+2. Call: POST /api/payments/upload-proof (multipart/form-data)
+3. Get file URL from response
+4. Call: POST /api/payments/initiate with payment data + file URL
+5. Redirect to success page
+
+STEP 3: REQUIRED DATA STRUCTURE
+Your payment data should include:
+{
+  "userId": "string",
+  "planId": "string", 
+  "amount": "number",
+  "currency": "string",
+  "email": "string",
+  "name": "string",
+  "billingCycle": "string"
+}
+
+⚠️ CRITICAL: Do NOT try to fetch available payment methods dynamically.
+The system is designed to be STATIC with these 3 hardcoded payment methods.
