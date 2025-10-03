@@ -470,6 +470,169 @@ exports.sendSystemEmail = async (to, subject, htmlContent, textContent = null) =
   }
 };
 
+// Send password reset code email (6-digit code)
+exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
+  try {
+    // ✅ VALIDATE EMAIL CONFIGURATION
+    if (!this.validateEmailConfig()) {
+      throw new Error('Email configuration is incomplete');
+    }
+
+    // Create email content
+    const subject = `Password Reset Code - ${organization.name}`;
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Password Reset Code - ${organization.name}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #000F89; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          .details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
+          .code { background: #f8f9fa; border: 2px solid #000F89; padding: 20px; margin: 20px 0; border-radius: 5px; text-align: center; font-size: 24px; font-weight: bold; color: #000F89; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 5px; color: #856404; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Password Reset Code</h1>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${user.fullName}!</h2>
+            <p>You requested to reset your password for <strong>${organization.name}</strong>.</p>
+            
+            <div class="details">
+              <h3>Your Reset Code:</h3>
+              <div class="code">${code}</div>
+              <p><strong>Please enter this 6-digit code to reset your password.</strong></p>
+            </div>
+            
+            <div class="warning">
+              <h4>⚠️ Important Security Information:</h4>
+              <ul>
+                <li>This code will expire in <strong>15 minutes</strong></li>
+                <li>Never share this code with anyone</li>
+                <li>If you didn't request this reset, please ignore this email</li>
+                <li>For security, this code can only be used once</li>
+              </ul>
+            </div>
+            
+            <div class="details">
+              <h3>Reset Details:</h3>
+              <ul>
+                <li><strong>Organization:</strong> ${organization.name}</li>
+                <li><strong>Email:</strong> ${user.email}</li>
+                <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
+                <li><strong>Expires:</strong> ${new Date(Date.now() + 15 * 60 * 1000).toLocaleString()}</li>
+              </ul>
+            </div>
+            
+            <p>If you need help or didn't request this password reset, please contact our support team.</p>
+          </div>
+          
+          <div class="footer">
+            <p>This email was sent by ${organization.name}</p>
+            <p>© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+      Password Reset Code - ${organization.name}
+      
+      Hello ${user.fullName}!
+      
+      You requested to reset your password for ${organization.name}.
+      
+      Your Reset Code: ${code}
+      
+      Please enter this 6-digit code to reset your password.
+      
+      Important Security Information:
+      - This code will expire in 15 minutes
+      - Never share this code with anyone
+      - If you didn't request this reset, please ignore this email
+      - For security, this code can only be used once
+      
+      Reset Details:
+      - Organization: ${organization.name}
+      - Email: ${user.email}
+      - Requested: ${new Date().toLocaleString()}
+      - Expires: ${new Date(Date.now() + 15 * 60 * 1000).toLocaleString()}
+      
+      If you need help or didn't request this password reset, please contact our support team.
+      
+      © ${new Date().getFullYear()} MBZ Technology. All rights reserved.
+    `;
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: `"${organization.name}" <${process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: subject,
+      text: textContent,
+      html: htmlContent
+    });
+
+    // ✅ AUDIT LOG: Password Reset Code Email Sent
+    try {
+      await createAuditLog({
+        userId: user._id,
+        action: 'PASSWORD_RESET_CODE_EMAIL_SENT',
+        resourceType: 'PASSWORD_RESET',
+        resourceId: user._id,
+        details: {
+          recipientEmail: user.email,
+          organizationId: organization._id,
+          codeLength: code.length,
+          messageId: info.messageId
+        },
+        ipAddress: 'system',
+        userAgent: 'email-service'
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for password reset code email:', auditError);
+    }
+
+    console.log(`✅ Password reset code email sent to ${user.email} - Message ID: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+
+  } catch (error) {
+    console.error(`❌ Failed to send password reset code email to ${user.email}:`, error.message);
+    
+    // ✅ AUDIT LOG: Password Reset Code Email Failed
+    try {
+      await createAuditLog({
+        userId: user?._id || 'system',
+        action: 'PASSWORD_RESET_CODE_EMAIL_FAILED',
+        resourceType: 'PASSWORD_RESET',
+        resourceId: user?._id,
+        details: {
+          recipientEmail: user?.email,
+          organizationId: organization?._id,
+          error: error.message,
+          stack: error.stack
+        },
+        ipAddress: 'system',
+        userAgent: 'email-service'
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for password reset code email failure:', auditError);
+    }
+
+    return { success: false, error: error.message };
+  }
+};
+
 // Send password reset success email
 exports.sendPasswordResetSuccessEmail = async (user, organization) => {
   try {
