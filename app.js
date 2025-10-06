@@ -165,9 +165,24 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     persistAuthorization: true,
     displayRequestDuration: true,
     filter: true,
-    deepLinking: true
-  }
+    deepLinking: true,
+    // Vercel-compatible options
+    url: '/api-docs/swagger.json',
+    validatorUrl: null
+  },
+  // Serve Swagger UI assets from CDN for better compatibility
+  customJs: [
+    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js',
+    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js'
+  ],
+  customCssUrl: 'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css'
 }));
+
+// Serve Swagger JSON
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(specs);
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

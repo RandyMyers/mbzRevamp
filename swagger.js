@@ -1,5 +1,6 @@
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const path = require('path');
 
 const options = {
   definition: {
@@ -20,7 +21,11 @@ const options = {
     servers: [
       {
         url: 'https://mbzrevamp.onrender.com',
-        description: 'Production server'
+        description: 'Production server (Render)'
+      },
+      {
+        url: 'https://your-vercel-app.vercel.app',
+        description: 'Production server (Vercel)'
       },
       {
         url: 'http://localhost:8800',
