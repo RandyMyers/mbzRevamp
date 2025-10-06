@@ -185,3 +185,4 @@ If you continue to have issues, check:
 4. Database connectivity
 
 The Swagger UI should now work perfectly on Vercel! 🎉
+
