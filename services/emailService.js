@@ -404,6 +404,290 @@ exports.sendPasswordResetEmail = async (user, resetToken, organization) => {
   }
 };
 
+// Send email verification code (5-digit code)
+exports.sendEmailVerificationCode = async (user, code, organization) => {
+  try {
+    // ✅ VALIDATE EMAIL CONFIGURATION
+    if (!this.validateEmailConfig()) {
+      throw new Error('Email configuration is incomplete');
+    }
+
+    // Create email content
+    const subject = `Email Verification Code - ${organization.name}`;
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Email Verification Code - ${organization.name}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f8f9fa;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #800020 0%, #a0002a 100%); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+            border-radius: 8px 8px 0 0;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+          }
+          .content { 
+            padding: 30px; 
+            background: #ffffff; 
+          }
+          .footer { 
+            text-align: center; 
+            padding: 20px; 
+            color: #666; 
+            font-size: 12px; 
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            border-radius: 0 0 8px 8px;
+          }
+          .details { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #800020;
+          }
+          .code-container {
+            background: #ffffff;
+            border: 2px solid #800020;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
+          }
+          .code { 
+            font-size: 36px; 
+            font-weight: bold; 
+            color: #800020; 
+            letter-spacing: 12px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+          }
+          .warning { 
+            background: #fff3cd; 
+            border: 1px solid #ffeaa7; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            color: #856404;
+            border-left: 4px solid #ffc107;
+          }
+          .info-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+          }
+          .success-section {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+          }
+          .logo {
+            height: 40px;
+            margin-bottom: 15px;
+          }
+          .verification-icon {
+            font-size: 24px;
+            margin-right: 10px;
+          }
+          .info-list {
+            list-style: none;
+            padding: 0;
+          }
+          .info-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .info-list li:last-child {
+            border-bottom: none;
+          }
+        </style>
+      </head>
+      <body>
+        <div style="padding: 20px;">
+          <div class="container">
+            <div class="header">
+              <div class="verification-icon">📧</div>
+              <h1>Email Verification</h1>
+              <p style="margin: 10px 0 0; opacity: 0.9;">Verify your email address</p>
+            </div>
+            
+            <div class="content">
+              <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName}!</h2>
+              <p>Thank you for signing up with <strong>${organization.name}</strong>. To complete your registration and secure your account, please verify your email address.</p>
+              
+              <div class="code-container">
+                <h3 style="margin: 0 0 15px; color: #333;">Your Verification Code:</h3>
+                <div class="code">${code}</div>
+                <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Please enter this 5-digit code to verify your email address.</strong></p>
+              </div>
+              
+              <div class="success-section">
+                <h4 style="margin: 0 0 15px; color: #155724;">✅ What happens next?</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #155724;">
+                  <li>Enter the verification code in your account</li>
+                  <li>Your email will be verified and secured</li>
+                  <li>You'll have full access to all features</li>
+                  <li>You can start using your account immediately</li>
+                </ul>
+              </div>
+              
+              <div class="warning">
+                <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Security Information:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li>This code will expire in <strong>10 minutes</strong></li>
+                  <li>Never share this code with anyone</li>
+                  <li>If you didn't create this account, please ignore this email</li>
+                  <li>For security, this code can only be used once</li>
+                </ul>
+              </div>
+              
+              <div class="info-section">
+                <h3 style="margin: 0 0 15px; color: #0066cc;">Verification Details:</h3>
+                <ul class="info-list">
+                  <li><strong>Organization:</strong> ${organization.name}</li>
+                  <li><strong>Email:</strong> ${user.email}</li>
+                  <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
+                  <li><strong>Expires:</strong> ${new Date(Date.now() + 10 * 60 * 1000).toLocaleString()}</li>
+                </ul>
+              </div>
+              
+              <p style="margin-top: 30px;">If you need help with verification or didn't create this account, please contact our support team immediately.</p>
+            </div>
+            
+            <div class="footer">
+              <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
+              <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
+              <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
+              <p style="margin: 5px 0;">© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+      Email Verification Code - ${organization.name}
+      
+      Hello ${user.fullName}!
+      
+      Thank you for signing up with ${organization.name}. To complete your registration and secure your account, please verify your email address.
+      
+      Your Verification Code: ${code}
+      
+      Please enter this 5-digit code to verify your email address.
+      
+      What happens next:
+      - Enter the verification code in your account
+      - Your email will be verified and secured
+      - You'll have full access to all features
+      - You can start using your account immediately
+      
+      Security Information:
+      - This code will expire in 10 minutes
+      - Never share this code with anyone
+      - If you didn't create this account, please ignore this email
+      - For security, this code can only be used once
+      
+      Verification Details:
+      - Organization: ${organization.name}
+      - Email: ${user.email}
+      - Requested: ${new Date().toLocaleString()}
+      - Expires: ${new Date(Date.now() + 10 * 60 * 1000).toLocaleString()}
+      
+      If you need help with verification or didn't create this account, please contact our support team immediately.
+      
+      © ${new Date().getFullYear()} MBZ Technology. All rights reserved.
+    `;
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: `"${organization.name}" <${process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: subject,
+      text: textContent,
+      html: htmlContent
+    });
+
+    // ✅ AUDIT LOG: Email Verification Code Sent
+    try {
+      await createAuditLog({
+        userId: user._id,
+        action: 'EMAIL_VERIFICATION_CODE_SENT',
+        resourceType: 'EMAIL_VERIFICATION',
+        resourceId: user._id,
+        details: {
+          recipientEmail: user.email,
+          organizationId: organization._id,
+          codeLength: code.length,
+          messageId: info.messageId
+        },
+        ipAddress: 'system',
+        userAgent: 'email-service'
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for email verification code:', auditError);
+    }
+
+    console.log(`✅ Email verification code sent to ${user.email} - Message ID: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+
+  } catch (error) {
+    console.error(`❌ Failed to send email verification code to ${user.email}:`, error.message);
+
+    // ✅ AUDIT LOG: Email Verification Code Failed
+    try {
+      await createAuditLog({
+        userId: user?._id || 'system',
+        action: 'EMAIL_VERIFICATION_CODE_FAILED',
+        resourceType: 'EMAIL_VERIFICATION',
+        resourceId: user?._id,
+        details: {
+          recipientEmail: user?.email,
+          organizationId: organization?._id,
+          error: error.message,
+          stack: error.stack
+        },
+        ipAddress: 'system',
+        userAgent: 'email-service'
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for email verification code failure:', auditError);
+    }
+
+    return { success: false, error: error.message };
+  }
+};
+
 // Send system email (for email verification, notifications, etc.)
 exports.sendSystemEmail = async (to, subject, htmlContent, textContent = null) => {
   try {
@@ -488,58 +772,165 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
         <meta charset="utf-8">
         <title>Password Reset Code - ${organization.name}</title>
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #000F89; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
-          .code { background: #f8f9fa; border: 2px solid #000F89; padding: 20px; margin: 20px 0; border-radius: 5px; text-align: center; font-size: 24px; font-weight: bold; color: #000F89; }
-          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 5px; color: #856404; }
+          body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f8f9fa;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #800020 0%, #a0002a 100%); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+            border-radius: 8px 8px 0 0;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+          }
+          .content { 
+            padding: 30px; 
+            background: #ffffff; 
+          }
+          .footer { 
+            text-align: center; 
+            padding: 20px; 
+            color: #666; 
+            font-size: 12px; 
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            border-radius: 0 0 8px 8px;
+          }
+          .details { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #800020;
+          }
+          .code-container {
+            background: #ffffff;
+            border: 2px solid #800020;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
+          }
+          .code { 
+            font-size: 32px; 
+            font-weight: bold; 
+            color: #800020; 
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+          }
+          .warning { 
+            background: #fff3cd; 
+            border: 1px solid #ffeaa7; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            color: #856404;
+            border-left: 4px solid #ffc107;
+          }
+          .info-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+          }
+          .logo {
+            height: 40px;
+            margin-bottom: 15px;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #800020;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin: 10px 0;
+          }
+          .security-icon {
+            font-size: 24px;
+            margin-right: 10px;
+          }
+          .info-list {
+            list-style: none;
+            padding: 0;
+          }
+          .info-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .info-list li:last-child {
+            border-bottom: none;
+          }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="header">
-            <h1>🔐 Password Reset Code</h1>
-          </div>
-          
-          <div class="content">
-            <h2>Hello ${user.fullName}!</h2>
-            <p>You requested to reset your password for <strong>${organization.name}</strong>.</p>
-            
-            <div class="details">
-              <h3>Your Reset Code:</h3>
-              <div class="code">${code}</div>
-              <p><strong>Please enter this 6-digit code to reset your password.</strong></p>
+        <div style="padding: 20px;">
+          <div class="container">
+            <div class="header">
+              <div class="security-icon">🔐</div>
+              <h1>Password Reset Code</h1>
+              <p style="margin: 10px 0 0; opacity: 0.9;">Secure access to your account</p>
             </div>
             
-            <div class="warning">
-              <h4>⚠️ Important Security Information:</h4>
-              <ul>
-                <li>This code will expire in <strong>15 minutes</strong></li>
-                <li>Never share this code with anyone</li>
-                <li>If you didn't request this reset, please ignore this email</li>
-                <li>For security, this code can only be used once</li>
-              </ul>
+            <div class="content">
+              <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName}!</h2>
+              <p>You requested to reset your password for <strong>${organization.name}</strong>. Use the verification code below to complete the process.</p>
+              
+              <div class="code-container">
+                <h3 style="margin: 0 0 15px; color: #333;">Your Reset Code:</h3>
+                <div class="code">${code}</div>
+                <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Please enter this 6-digit code to reset your password.</strong></p>
+              </div>
+              
+              <div class="warning">
+                <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Important Security Information:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li>This code will expire in <strong>15 minutes</strong></li>
+                  <li>Never share this code with anyone</li>
+                  <li>If you didn't request this reset, please ignore this email</li>
+                  <li>For security, this code can only be used once</li>
+                </ul>
+              </div>
+              
+              <div class="info-section">
+                <h3 style="margin: 0 0 15px; color: #0066cc;">Reset Details:</h3>
+                <ul class="info-list">
+                  <li><strong>Organization:</strong> ${organization.name}</li>
+                  <li><strong>Email:</strong> ${user.email}</li>
+                  <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
+                  <li><strong>Expires:</strong> ${new Date(Date.now() + 15 * 60 * 1000).toLocaleString()}</li>
+                </ul>
+              </div>
+              
+              <p style="margin-top: 30px;">If you need help or didn't request this password reset, please contact our support team immediately.</p>
             </div>
             
-            <div class="details">
-              <h3>Reset Details:</h3>
-              <ul>
-                <li><strong>Organization:</strong> ${organization.name}</li>
-                <li><strong>Email:</strong> ${user.email}</li>
-                <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
-                <li><strong>Expires:</strong> ${new Date(Date.now() + 15 * 60 * 1000).toLocaleString()}</li>
-              </ul>
+            <div class="footer">
+              <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
+              <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
+              <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
+              <p style="margin: 5px 0;">© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
             </div>
-            
-            <p>If you need help or didn't request this password reset, please contact our support team.</p>
-          </div>
-          
-          <div class="footer">
-            <p>This email was sent by ${organization.name}</p>
-            <p>© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
           </div>
         </div>
       </body>
