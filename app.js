@@ -157,33 +157,33 @@ app.use(
 // Serve local uploads for hybrid attachment system
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Swagger API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'MBZ Tech Platform API Documentation',
-  customfavIcon: '/favicon.ico',
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    filter: true,
-    deepLinking: true,
-    // Vercel-compatible options
-    url: '/api-docs/swagger.json',
-    validatorUrl: null
-  },
-  // Serve Swagger UI assets from CDN for better compatibility
-  customJs: [
-    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js',
-    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js'
-  ],
-  customCssUrl: 'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css'
-}));
+// Swagger API Documentation - Temporarily disabled for debugging
+// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+//   customCss: '.swagger-ui .topbar { display: none }',
+//   customSiteTitle: 'MBZ Tech Platform API Documentation',
+//   customfavIcon: '/favicon.ico',
+//   swaggerOptions: {
+//     persistAuthorization: true,
+//     displayRequestDuration: true,
+//     filter: true,
+//     deepLinking: true,
+//     // Vercel-compatible options
+//     url: '/api-docs/swagger.json',
+//     validatorUrl: null
+//   },
+//   // Serve Swagger UI assets from CDN for better compatibility
+//   customJs: [
+//     'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js',
+//     'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js'
+//   ],
+//   customCssUrl: 'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css'
+// }));
 
-// Serve Swagger JSON
-app.get('/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(specs);
-});
+// Serve Swagger JSON - Temporarily disabled for debugging
+// app.get('/api-docs/swagger.json', (req, res) => {
+//   res.setHeader('Content-Type', 'application/json');
+//   res.send(specs);
+// });
 
 // Health check endpoint with explicit CORS headers
 app.get('/api/health', (req, res) => {
