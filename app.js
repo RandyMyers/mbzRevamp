@@ -135,11 +135,71 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
   });
 
 // Middleware
+// More permissive CORS configuration for development and production
 app.use(cors({
-  origin: '*',  // Allow requests from the frontend
-  methods: ['GET', 'POST', 'PUT', 'PATCH','DELETE'],  // Adjust allowed methods as needed
-  allowedHeaders: ['Content-Type', 'Authorization'],  // Allow specific headers if needed
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',  // Local development
+      'http://localhost:3001',  // Alternative local port
+      'https://mbz-revamp-gy4pciksz-randymyers-projects.vercel.app',  // Vercel deployment
+      'https://mbzrevamp.onrender.com',  // Render deployment
+      'https://mbz-tech-platform.vercel.app',  // Alternative Vercel URL
+      'https://mbztech-revamp.vercel.app'  // Another possible Vercel URL
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // For development, allow any localhost origin
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Log blocked origins for debugging
+    console.log(`🚫 Blocked CORS request from origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  credentials: true,  // Allow credentials
+  optionsSuccessStatus: 200  // Support legacy browsers
 }));
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// Custom CORS middleware for additional error handling
+app.use((req, res, next) => {
+  // Log CORS requests for debugging
+  console.log(`🌐 CORS Request: ${req.method} ${req.path} from origin: ${req.headers.origin}`);
+  
+  // Set CORS headers for all responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log(`✅ Handling preflight request for ${req.path}`);
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
 app.use(bodyParser.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true })); 
 app.use(morgan('dev')); 
@@ -191,6 +251,16 @@ app.get('/api/health', (req, res) => {
     message: 'MBZ Tech Platform API is running',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
+  });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS is working correctly',
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString()
   });
 });
 
