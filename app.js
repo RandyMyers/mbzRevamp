@@ -185,13 +185,20 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(specs);
 });
 
-// Health check endpoint
+// Health check endpoint with explicit CORS headers
 app.get('/api/health', (req, res) => {
+  // Set explicit CORS headers
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   res.status(200).json({ 
     success: true, 
     message: 'MBZ Tech Platform API is running',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    cors: 'enabled'
   });
 });
 
