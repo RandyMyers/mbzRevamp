@@ -56,11 +56,11 @@ const receiverRoutes = require('./routes/receiverRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 //const workflowRoutes = require('./routes/workflowRoutes');
 //const siteRoutes = require('./routes/siteRoutes');
-//const subscriptionRoutes = require('./routes/subscriptionRoutes');  // New Subscription Routes
 //const discountRoutes = require('./routes/discountRoutes');  // New Discount Usage Routes
 //const discountUsageRoutes = require('./routes/discountUsageRoutes');  // New Discount Usage Routes
 const paymentRoutes = require('./routes/paymentRoutes');
-//const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');  // New Subscription Plan Routes
+const subscriptionsRoutes = require('./routes/subscriptionsRoutes');
+const subscriptionPlansRoutes = require('./routes/subscriptionPlansRoutes');
 //const paymentLinkRoutes = require('./routes/paymentLinkRoutes');  // New Payment Link Routes
 const websiteRoutes = require('./routes/websiteRoutes');
 const templateRoutes = require('./routes/templateRoutes');
@@ -255,8 +255,8 @@ app.use('/api/tasks', taskRoutes);
 //app.use('/api/workflows', workflowRoutes);
 //app.use('/api/cart', cartRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/plans', require('./routes/subscriptionPlansRoutes'));
-app.use('/api/subscriptions', require('./routes/subscriptionsRoutes'));
+app.use('/api/plans', subscriptionPlansRoutes);
+app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/advanced-analytics', advancedAnalyticsRoutes);
 app.use('/api/calls', callSchedulerRoutes);
 app.use('/api/support', supportRoutes);
