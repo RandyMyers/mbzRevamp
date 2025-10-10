@@ -20,15 +20,11 @@ const options = {
     },
     servers: [
       {
-        url: 'https://mbzrevamp.onrender.com',
-        description: 'Production server (Render)'
+        url: 'https://api.elapix.store',
+        description: 'Production server (Digital Ocean)'
       },
       {
-        url: 'https://your-vercel-app.vercel.app',
-        description: 'Production server (Vercel)'
-      },
-      {
-        url: 'http://localhost:8800',
+        url: 'http://localhost:3000',
         description: 'Development server'
       }
     ],
