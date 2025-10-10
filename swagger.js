@@ -2109,6 +2109,16 @@ const options = {
           },
           needLogoDesign: { type: 'boolean', default: false, description: 'Whether logo design is needed' },
           logoDesignNotes: { type: 'string', maxLength: 500, description: 'Logo design notes' },
+          logoDesignPreferences: {
+            type: 'object',
+            properties: {
+              style: { type: 'string', enum: ['Minimal', 'Vintage', 'Modern', 'Handwritten', '3D', 'Flat', 'Illustrative', 'Other'], default: 'Modern' },
+              colorScheme: { type: 'array', items: { type: 'string', pattern: '^#([0-9A-F]{3}){1,2}$' } },
+              includeIcon: { type: 'boolean', default: false },
+              includeText: { type: 'boolean', default: true },
+              inspirationLinks: { type: 'array', items: { type: 'string', format: 'uri' } }
+            }
+          },
           template: { type: 'string', format: 'ObjectId', description: 'Selected template ID' },
           primaryColor: { type: 'string', default: '#800020', description: 'Primary color' },
           secondaryColor: { type: 'string', default: '#0A2472', description: 'Secondary color' },
@@ -2116,9 +2126,87 @@ const options = {
           businessAddress: { type: 'string', maxLength: 500, description: 'Business address' },
           businessContactInfo: { type: 'string', maxLength: 500, description: 'Contact information' },
           supportEmail: { type: 'string', format: 'email', description: 'Support email' },
-          status: { type: 'string', enum: ['draft', 'in_progress', 'completed', 'published'], default: 'draft', description: 'Website status' },
+          termsConditions: { type: 'string', description: 'Terms and conditions text' },
+          privacyPolicy: { type: 'string', description: 'Privacy policy text' },
+          customEmails: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                email: { type: 'string', description: 'Email name (without domain)', pattern: '^[a-z0-9._-]+$' },
+                purpose: { type: 'string', maxLength: 100, description: 'Email purpose' }
+              }
+            }
+          },
+          paymentGateways: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Payment gateway name' },
+                isEnabled: { type: 'boolean', description: 'Whether enabled' },
+                credentials: { type: 'object', description: 'Gateway credentials' },
+                createdAt: { type: 'string', format: 'date-time' }
+              }
+            }
+          },
+          shippingOptions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Shipping option name' },
+                description: { type: 'string', description: 'Shipping description' },
+                price: { type: 'number', description: 'Shipping price' },
+                deliveryTime: { type: 'string', description: 'Estimated delivery time' },
+                isEnabled: { type: 'boolean', description: 'Whether enabled' }
+              }
+            }
+          },
+          taxSettings: {
+            type: 'object',
+            properties: {
+              rate: { type: 'number', description: 'Tax rate' },
+              isIncludedInPrice: { type: 'boolean', description: 'Whether tax is included in price' },
+              taxId: { type: 'string', description: 'Tax ID number' }
+            }
+          },
+          seo: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', maxLength: 60, description: 'SEO title' },
+              description: { type: 'string', maxLength: 160, description: 'SEO description' },
+              metaTags: { type: 'array', items: { type: 'string' }, description: 'Meta tags' }
+            }
+          },
+          socialMedia: {
+            type: 'object',
+            properties: {
+              facebook: { type: 'string', description: 'Facebook URL' },
+              instagram: { type: 'string', description: 'Instagram URL' },
+              twitter: { type: 'string', description: 'Twitter URL' },
+              linkedin: { type: 'string', description: 'LinkedIn URL' }
+            }
+          },
+          specialInstructions: { type: 'string', maxLength: 1000, description: 'Special instructions for website development' },
+          owner: { type: 'string', format: 'ObjectId', description: 'Website owner user ID' },
+          status: { type: 'string', enum: ['draft', 'development', 'live', 'inactive'], default: 'draft', description: 'Website status' },
+          hasSSL: { type: 'boolean', default: false, description: 'Whether SSL is enabled' },
+          lastUpdated: { type: 'string', format: 'date-time', description: 'Last update timestamp' },
           createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
-          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' }
+          fullDomain: { type: 'string', description: 'Complete domain with .storepilot.com', readOnly: true },
+          emailAddresses: {
+            type: 'array',
+            description: 'Generated email addresses',
+            readOnly: true,
+            items: {
+              type: 'object',
+              properties: {
+                fullAddress: { type: 'string', description: 'Complete email address' },
+                purpose: { type: 'string', description: 'Email purpose' }
+              }
+            }
+          }
         }
       },
       // Currency Conversion Response Schema

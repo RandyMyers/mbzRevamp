@@ -152,8 +152,15 @@
  *         name: organizationId
  *         required: true
  *         schema: { type: string }
+ *         description: Organization ID
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema: { type: string }
+ *         description: User ID for authorization check
  *     responses:
  *       200: { description: Websites list }
+ *       400: { description: Missing userId parameter }
  *       403: { description: Unauthorized }
  *
  * /api/websites/{id}:
@@ -331,8 +338,13 @@ exports.createWebsite = async (req, res) => {
     
     console.log(req.body);
     
-
-    
+    // Validate required fields
+    if (!organizationId || !userId || !businessName || !businessType || !domain || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: organizationId, userId, businessName, businessType, domain, and description are required'
+      });
+    }
 
     // Verify organization access
     const organization = await verifyOrganizationAccess(organizationId, userId);
@@ -925,15 +937,22 @@ exports.updateEmails = async (req, res) => {
 exports.getOrganizationWebsites = async (req, res) => {
   try {
     const { organizationId } = req.params;
+    const { userId } = req.query; // Get userId from query params
     
-    
+    // Validate required parameters
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId query parameter is required'
+      });
+    }
 
     // Verify organization access
-    const hasAccess = await verifyOrganizationAccess(organizationId);
+    const hasAccess = await verifyOrganizationAccess(organizationId, userId);
     if (!hasAccess) {
       return res.status(403).json({
         success: false,
-        message: 'Unauthorized access'
+        message: 'Unauthorized access to this organization'
       });
     }
 
