@@ -85,32 +85,49 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 console.log('Loaded adminRoutes type:', typeof adminRoutes);
 const notificationRoutes = require('./routes/notificationRoutes');
+console.log('Loaded notificationRoutes type:', typeof notificationRoutes);
 const notificationTemplateRoutes = require('./routes/notificationTemplateRoutes');
+console.log('Loaded notificationTemplateRoutes type:', typeof notificationTemplateRoutes);
 const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes');
+console.log('Loaded notificationSettingsRoutes type:', typeof notificationSettingsRoutes);
 // Add missing route imports
 const roleRoutes = require('./routes/roleRoutes');
+console.log('Loaded roleRoutes type:', typeof roleRoutes);
 const groupRoutes = require('./routes/groupRoutes');
+console.log('Loaded groupRoutes type:', typeof groupRoutes);
 const invitationRoutes = require('./routes/invitationRoutes');
+console.log('Loaded invitationRoutes type:', typeof invitationRoutes);
 
 // New InvoicesAndReceipts & Feedback routes
 const invoiceRoutes = require('./routes/invoiceRoutes');
+console.log('Loaded invoiceRoutes type:', typeof invoiceRoutes);
 const receiptRoutes = require('./routes/receiptRoutes');
+console.log('Loaded receiptRoutes type:', typeof receiptRoutes);
 const feedbackRoutes = require('./routes/feedbackRoutes');
+console.log('Loaded feedbackRoutes type:', typeof feedbackRoutes);
 const surveyRoutes = require('./routes/surveyRoutes');
+console.log('Loaded surveyRoutes type:', typeof surveyRoutes);
 const suggestionRoutes = require('./routes/suggestionRoutes');
+console.log('Loaded suggestionRoutes type:', typeof suggestionRoutes);
 
 // Onboarding routes
 const onboardingRoutes = require('./routes/onboardingRoutes');
+console.log('Loaded onboardingRoutes type:', typeof onboardingRoutes);
 
 // New Self-Service and Content Management routes
 const selfServiceRoutes = require('./routes/selfServiceRoutes');
+console.log('Loaded selfServiceRoutes type:', typeof selfServiceRoutes);
 const contentManagementRoutes = require('./routes/contentManagementRoutes');
+console.log('Loaded contentManagementRoutes type:', typeof contentManagementRoutes);
 const jobPostingRoutes = require('./routes/jobPostingRoutes');
+console.log('Loaded jobPostingRoutes type:', typeof jobPostingRoutes);
 
 const invoiceTemplateRoutes = require('./routes/invoiceTemplateRoutes');
+console.log('Loaded invoiceTemplateRoutes type:', typeof invoiceTemplateRoutes);
 
 // New Shipping Label routes
 const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
+console.log('Loaded shippingLabelRoutes type:', typeof shippingLabelRoutes);
 
 dotenv.config();
 
@@ -135,22 +152,23 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
   });
 
 // Middleware
-app.use(cors({
-  origin: '*',  // Allow requests from any origin
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],  // Comprehensive headers
-  credentials: false  // Set to false when using origin: '*'
-}));
+console.log('About to set up middleware');
+// app.use(cors({
+//   origin: '*',  // Allow requests from any origin
+//   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
+//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],  // Comprehensive headers
+//   credentials: false  // Set to false when using origin: '*'
+// }));
 
 // Explicit OPTIONS handler for all routes
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Max-Age', '86400');
-  res.sendStatus(200);
-});
+// app.options('(.*)', (req, res) => {
+//   res.header('Access-Control-Allow-Origin', '*');
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+//   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+//   res.header('Access-Control-Allow-Credentials', 'false');
+//   res.header('Access-Control-Allow-Max-Age', '86400');
+//   res.sendStatus(200);
+// });
 
 app.use(bodyParser.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true })); 
@@ -215,7 +233,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // Using imported routes
+console.log('About to mount authRoutes');
 app.use('/api/auth', authRoutes);
+console.log('Mounted authRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/groups', groupRoutes);
@@ -232,7 +252,9 @@ app.use('/api/affiliates', affiliateRoutes);
 //app.use('/api/bank/accounts/gbp', bankAccountGBPRoutes);
 //app.use('/api/exchange-rates', exchangeRateRoutes);
 //app.use('/api/deals', dealRoutes);
+console.log('About to mount organizationRoutes');
 app.use('/api/organization', organizationRoutes);
+console.log('Mounted organizationRoutes');
 app.use('/api/stores', storeRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -271,8 +293,11 @@ app.use('/api/plans', subscriptionPlansRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/advanced-analytics', advancedAnalyticsRoutes);
 app.use('/api/calls', callSchedulerRoutes);
+console.log('Mounted callSchedulerRoutes');
 app.use('/api/support', supportRoutes);
+console.log('Mounted supportRoutes');
 app.use('/api/payment-gateways', paymentGatewayKeyRoutes);
+console.log('Mounted paymentGatewayKeyRoutes');
 app.use('/api/chat-integrations', chatIntegrationRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -284,9 +309,13 @@ app.use('/api/woocommerce', wooCommerceReportsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+console.log('Mounted notificationRoutes');
 app.use('/api/notification-templates', notificationTemplateRoutes);
+console.log('Mounted notificationTemplateRoutes');
 app.use('/api/notification-settings', notificationSettingsRoutes);
+console.log('Mounted notificationSettingsRoutes');
 app.use('/api/admin', adminRoutes);
+console.log('Mounted adminRoutes');
 
 // Onboarding routes
 app.use('/api/onboarding', onboardingRoutes);
