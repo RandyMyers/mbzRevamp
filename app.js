@@ -196,21 +196,17 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     displayRequestDuration: true,
     filter: true,
     deepLinking: true,
-    // Vercel-compatible options
     url: '/api-docs/swagger.json',
     validatorUrl: null
-  },
-  // Serve Swagger UI assets from CDN for better compatibility
-  customJs: [
-    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js',
-    'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js'
-  ],
-  customCssUrl: 'https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css'
+  }
 }));
 
 // Serve Swagger JSON
 app.get('/api-docs/swagger.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.send(specs);
 });
 
