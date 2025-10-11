@@ -153,22 +153,14 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
 
 // Middleware
 console.log('About to set up middleware');
-// app.use(cors({
-//   origin: '*',  // Allow requests from any origin
-//   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
-//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],  // Comprehensive headers
-//   credentials: false  // Set to false when using origin: '*'
-// }));
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'https://api.elapix.store'],  // Allow requests from localhost and production
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],  // Comprehensive headers
+  credentials: false  // Set to false when using multiple origins
+}));
 
-// Explicit OPTIONS handler for all routes
-// app.options('(.*)', (req, res) => {
-//   res.header('Access-Control-Allow-Origin', '*');
-//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-//   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-//   res.header('Access-Control-Allow-Credentials', 'false');
-//   res.header('Access-Control-Allow-Max-Age', '86400');
-//   res.sendStatus(200);
-// });
+// CORS middleware handles OPTIONS requests automatically
 
 app.use(bodyParser.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true })); 
