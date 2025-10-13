@@ -246,6 +246,27 @@ console.log('Setting up Swagger documentation...');
 console.log('Swagger specs loaded:', specs ? 'Yes' : 'No');
 console.log('Swagger UI available:', swaggerUi ? 'Yes' : 'No');
 
+// Test endpoint to verify Swagger setup (must be before swaggerUi.serve)
+app.get('/api-docs/test', (req, res) => {
+  res.json({
+    message: 'Swagger test endpoint working',
+    specsLoaded: !!specs,
+    swaggerUiLoaded: !!swaggerUi,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Serve Swagger JSON (must be before swaggerUi.serve)
+app.get('/api-docs/swagger.json', (req, res) => {
+  console.log('Swagger JSON endpoint accessed');
+  console.log('Specs available:', specs ? 'Yes' : 'No');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.send(specs);
+});
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'MBZ Tech Platform API Documentation',
@@ -261,27 +282,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 }));
 
 console.log('Swagger documentation setup complete');
-
-// Test endpoint to verify Swagger setup
-app.get('/api-docs/test', (req, res) => {
-  res.json({
-    message: 'Swagger test endpoint working',
-    specsLoaded: !!specs,
-    swaggerUiLoaded: !!swaggerUi,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Serve Swagger JSON
-app.get('/api-docs/swagger.json', (req, res) => {
-  console.log('Swagger JSON endpoint accessed');
-  console.log('Specs available:', specs ? 'Yes' : 'No');
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.send(specs);
-});
 
 // Health check endpoint with explicit CORS headers
 app.get('/api/health', (req, res) => {
