@@ -165,7 +165,8 @@ app.use(cors({
       'http://localhost:8081',
       'https://api.elapix.store',
       'https://crm.mbztechnology.com',
-      'https://app.mbztechnology.com'
+      'https://app.mbztechnology.com',
+      'https://elapix.mbztechnology.com'
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -200,7 +201,8 @@ app.use((req, res, next) => {
     'http://localhost:8081',
     'https://api.elapix.store',
     'https://crm.mbztechnology.com',
-    'https://app.mbztechnology.com'
+    'https://app.mbztechnology.com',
+    'https://elapix.mbztechnology.com'
   ];
   
   if (allowedOrigins.includes(origin)) {
