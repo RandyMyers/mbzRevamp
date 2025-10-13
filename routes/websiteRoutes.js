@@ -7,23 +7,27 @@ const websiteController = require('../controllers/websiteControllers');
 router.post('/create',  websiteController.createWebsite);
 router.get('/check-domain', websiteController.checkDomain);
 
-// Website CRUD operations
-router.get('/organization/:organizationId', websiteController.getOrganizationWebsites);
-router.get('/:id', websiteController.getWebsiteById);
-router.delete('/delete/:id', websiteController.deleteWebsite);
+// Super admin routes (must come before /:id to avoid conflicts)
+router.get('/all/:userId', websiteController.getAllWebsites);
+router.get('/analytics/:userId', websiteController.getWebsiteAnalytics);
 
-// Step-by-step website configuration
+// Organization analytics (must come before /:id to avoid conflicts)
+router.get('/analytics/organization/:organizationId', websiteController.getOrganizationWebsiteAnalytics);
+
+// Organization websites (must come before /:id to avoid conflicts)
+router.get('/organization/:organizationId', websiteController.getOrganizationWebsites);
+
+// Step-by-step website configuration (must come before /:id to avoid conflicts)
 router.patch('/basic-info/:id', websiteController.updateBasicInfo);
 router.patch('/business-info/:id', websiteController.updateBusinessInfo);
 router.patch('/colors/:id', websiteController.updateColors);
 router.patch('/emails/:id', websiteController.updateEmails);
 
-// Super admin routes
-router.get('/all/:userId', websiteController.getAllWebsites);
-router.get('/analytics/:userId', websiteController.getWebsiteAnalytics);
+// Delete website (must come before /:id to avoid conflicts)
+router.delete('/delete/:id', websiteController.deleteWebsite);
 
-// Organization analytics
-router.get('/analytics/organization/:organizationId', websiteController.getOrganizationWebsiteAnalytics);
+// Generic website CRUD operations (MUST be last due to /:id catching all)
+router.get('/:id', websiteController.getWebsiteById);
 
 
 module.exports = router;
