@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Groups
+ *     description: groups operations
+ */
+
 const groupController = require('../controllers/groupController');
 
 router.post('/', groupController.createGroup);

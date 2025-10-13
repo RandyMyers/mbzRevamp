@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Exchange Rates
+ *     description: exchange rates operations
+ */
+
 const exchangeRateController = require('../controllers/exchangeRateController');
 const { protect } = require('../middleware/authMiddleware');
 

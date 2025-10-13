@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Audit Logs
+ *     description: audit logs operations
+ */
+
 const auditLogController = require('../controllers/auditLogController');
 
 router.post('/', auditLogController.createLog);

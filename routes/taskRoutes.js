@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Tasks
+ *     description: tasks operations
+ */
+
 const taskController = require("../controllers/taskControllers");
 const { protect } = require("../middleware/authMiddleware");
 

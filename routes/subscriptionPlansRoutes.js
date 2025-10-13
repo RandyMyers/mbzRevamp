@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Subscription Plans
+ *     description: subscription plans operations
+ */
+
 const planController = require('../controllers/subscriptionPlanController');
 
 // Create a new plan

@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Inbox
+ *     description: inbox operations
+ */
+
 const inboxController = require("../controllers/inboxControllers");
 
 router.post("/create", inboxController.createInboxEmail);

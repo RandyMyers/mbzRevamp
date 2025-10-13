@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Support
+ *     description: support operations
+ */
+
 const supportControllers = require('../controllers/supportControllers');
 const { protect } = require('../middleware/authMiddleware');
 

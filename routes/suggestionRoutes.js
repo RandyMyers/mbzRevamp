@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Suggestions
+ *     description: suggestions operations
+ */
+
 const suggestionControllers = require('../controllers/suggestionControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

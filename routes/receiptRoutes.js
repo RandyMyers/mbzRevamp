@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Receipts
+ *     description: receipts operations
+ */
+
 const receiptControllers = require('../controllers/receiptControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

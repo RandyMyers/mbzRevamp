@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Affiliates
+ *     description: affiliates operations
+ */
+
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 const { isAffiliate, hasAffiliatePermission } = require('../middleware/affiliateAuth');
 const affiliateController = require('../controllers/affiliateController');

@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Payment Gateway Keys
+ *     description: payment gateway keys operations
+ */
+
 const paymentGatewayKeyController = require('../controllers/paymentGatewayKeyController');
 
 // CRUD endpoints

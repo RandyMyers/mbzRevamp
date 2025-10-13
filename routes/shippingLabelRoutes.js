@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Shipping Labels
+ *     description: shipping labels operations
+ */
+
 const shippingLabelController = require('../controllers/shippingLabelController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

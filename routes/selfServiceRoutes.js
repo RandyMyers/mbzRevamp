@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Self Service
+ *     description: self service operations
+ */
+
 const selfServiceControllers = require('../controllers/selfServiceControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

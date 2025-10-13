@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Receivers
+ *     description: receivers operations
+ */
+
 const receiverController = require("../controllers/receiverControllers"); // Adjust the path as necessary
 const { protect } = require("../middleware/authMiddleware");
 

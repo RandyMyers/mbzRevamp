@@ -2,7 +2,83 @@ const express = require("express");
 const router = express.Router();
 const orderController = require("../controllers/orderControllers");
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Orders
+ *     description: Order management operations
+ */
+
 // CREATE a new order
+/**
+ * @swagger
+ * /api/orders/create:
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customer
+ *               - items
+ *               - organization
+ *             properties:
+ *               customer:
+ *                 type: string
+ *                 format: ObjectId
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     product:
+ *                       type: string
+ *                       format: ObjectId
+ *                       example: "60f7b3b3b3b3b3b3b3b3b3b4"
+ *                     quantity:
+ *                       type: number
+ *                       example: 2
+ *                     price:
+ *                       type: number
+ *                       example: 99.99
+ *               organization:
+ *                 type: string
+ *                 format: ObjectId
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b5"
+ *               store:
+ *                 type: string
+ *                 format: ObjectId
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b6"
+ *     responses:
+ *       201:
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Order created successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 router.post("/create", orderController.createOrder);
 
 // GET all orders for a specific organization

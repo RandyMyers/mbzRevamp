@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Payments
+ *     description: payments operations
+ */
+
 const paymentController = require('../controllers/paymentController');
 
 // Endpoint to initiate a payment

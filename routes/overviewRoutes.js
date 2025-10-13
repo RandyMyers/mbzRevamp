@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Overview
+ *     description: overview operations
+ */
+
 const overviewController = require('../controllers/overviewController');
 
 // Get overview statistics

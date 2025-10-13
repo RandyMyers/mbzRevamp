@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Templates
+ *     description: templates operations
+ */
+
 const templateController = require('../controllers/templateController');
 
 

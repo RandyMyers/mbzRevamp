@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Organizations
+ *     description: organizations operations
+ */
+
 const organizationController = require("../controllers/organizationControllers");
 
 // CREATE a new organization

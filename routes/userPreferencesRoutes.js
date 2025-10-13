@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: User Preferences
+ *     description: user preferences operations
+ */
+
 const userPreferencesController = require('../controllers/userPreferencesController');
 const { protect } = require('../middleware/authMiddleware');
 

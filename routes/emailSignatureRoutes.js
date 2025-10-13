@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Email Signatures
+ *     description: email signatures operations
+ */
+
 const emailSignatureControllers = require('../controllers/emailSignatureControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

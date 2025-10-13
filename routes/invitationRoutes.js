@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Invitations
+ *     description: invitations operations
+ */
+
 const { protect } = require('../middleware/authMiddleware');
 const {
   createInvitation,

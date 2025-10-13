@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Subscriptions
+ *     description: subscriptions operations
+ */
+
 const subscriptionController = require('../controllers/subscriptionController');
 
 // CRUD

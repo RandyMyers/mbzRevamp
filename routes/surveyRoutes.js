@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Surveys
+ *     description: surveys operations
+ */
+
 const surveyControllers = require('../controllers/surveyControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

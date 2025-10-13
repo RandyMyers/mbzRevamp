@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Emails
+ *     description: emails operations
+ */
+
 const emailController = require("../controllers/emailControllers");
 const emailLogsController = require("../controllers/emailLogsController");
 const { protect } = require('../middleware/authMiddleware');

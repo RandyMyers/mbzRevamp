@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Dashboard
+ *     description: dashboard operations
+ */
+
 const dashboardOverviewController = require('../controllers/dashboardOverviewController');
 const dashboardController = require('../controllers/dashboardController');
 const orderController = require('../controllers/orderControllers');

@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Sent
+ *     description: sent operations
+ */
+
 const { protect } = require("../middleware/authMiddleware");
 const {
   getSentEmails,

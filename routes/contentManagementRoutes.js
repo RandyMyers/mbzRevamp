@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Content Management
+ *     description: content management operations
+ */
+
 const contentManagementControllers = require('../controllers/contentManagementControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Invoice Templates
+ *     description: invoice templates operations
+ */
+
 const templateControllers = require('../controllers/invoiceTemplateControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

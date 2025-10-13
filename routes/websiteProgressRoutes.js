@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: website Progress
+ *     description: website progress operations
+ */
+
 const progressController = require('../controllers/websiteProgressControllers');
 
 

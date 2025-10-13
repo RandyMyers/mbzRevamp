@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Categories
+ *     description: categories operations
+ */
+
 const categoryController = require('../controllers/categoryController');
 
 

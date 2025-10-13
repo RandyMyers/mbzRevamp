@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Job Postings
+ *     description: job postings operations
+ */
+
 const jobPostingControllers = require('../controllers/jobPostingControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: WooCommerce Reports
+ *     description: woocommerce reports operations
+ */
+
 const wooCommerceReportsController = require('../controllers/wooCommerceReportsController');
 
 // Sales report (totals, grouped)

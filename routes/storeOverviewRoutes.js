@@ -10,6 +10,14 @@
 
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: store Overview
+ *     description: store overview operations
+ */
+
 const storeOverviewController = require('../controllers/storeOverviewController');
 
 // 1. Store Stats - Basic store metrics

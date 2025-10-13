@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Feedback
+ *     description: feedback operations
+ */
+
 const feedbackControllers = require('../controllers/feedbackControllers');
 const { authenticateToken } = require('../middleware/authMiddleware');
 

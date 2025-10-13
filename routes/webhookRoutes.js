@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Webhooks
+ *     description: webhooks operations
+ */
+
 const webhookController = require('../controllers/webhookController');
 
 // Dynamic WooCommerce webhook endpoints with store identification

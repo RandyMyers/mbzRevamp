@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Inventory
+ *     description: inventory operations
+ */
+
 const inventoryController = require("../controllers/inventoryControllers");
 const { protect } = require("../middleware/authMiddleware");
 

@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Call Scheduler
+ *     description: call scheduler operations
+ */
+
 const callSchedulerController = require('../controllers/callSchedulerController');
 
 // All endpoints require organizationId (and userId for create)

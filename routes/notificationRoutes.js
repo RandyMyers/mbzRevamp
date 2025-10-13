@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Notifications
+ *     description: notifications operations
+ */
+
 const notificationController = require('../controllers/notificationControllers');
 const { protect } = require('../middleware/authMiddleware');
 

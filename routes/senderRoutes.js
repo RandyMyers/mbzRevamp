@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Senders
+ *     description: senders operations
+ */
+
 const senderController = require("../controllers/senderControllers");
 const { protect } = require("../middleware/authMiddleware");
 

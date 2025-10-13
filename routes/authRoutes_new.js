@@ -1,5 +1,13 @@
 const express = require("express");
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: auth Routes_new.js
+ *     description: auth routes_new.js operations
+ */
+
 const authController = require("../controllers/authControllers");
 
 // ========================================

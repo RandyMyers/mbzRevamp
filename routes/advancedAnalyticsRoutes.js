@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Advanced Analytics
+ *     description: advanced analytics operations
+ */
+
 const analytics = require('../controllers/advancedAnalyticsController');
 
 // Sales Analytics
