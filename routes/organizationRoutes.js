@@ -17,6 +17,6 @@ router.patch("/update/:organizationId", organizationController.updateOrganizatio
 // DELETE an organization by ID
 router.delete("/delete/:organizationId", organizationController.deleteOrganization);
 
-router.patch('/logo/:organizationId/', organizationController.updateOrganizationLogo);
+router.patch('/logo/:organizationId', organizationController.updateOrganizationLogo);
 
 module.exports = router;

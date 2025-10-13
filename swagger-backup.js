@@ -1,5 +1,6 @@
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const path = require('path');
 
 const options = {
   definition: {
@@ -11,6 +12,10 @@ const options = {
       contact: {
         name: 'MBZ Tech Support',
         email: 'support@mbztech.com'
+      },
+      license: {
+        name: 'MIT',
+        url: 'https://opensource.org/licenses/MIT'
       }
     },
     servers: [
@@ -3123,7 +3128,9 @@ const options = {
     ]
   },
   apis: [
-    './routes/*.js'
+    './routes/*.js',
+    './controllers/*.js',
+    './models/*.js'
   ]
 };
 
