@@ -166,7 +166,8 @@ app.use(cors({
       'https://api.elapix.store',
       'https://crm.mbztechnology.com',
       'https://app.mbztechnology.com',
-      'https://elapix.mbztechnology.com'
+      'https://elapix.mbztechnology.com',
+      'https://elapix.store'
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -202,7 +203,8 @@ app.use((req, res, next) => {
     'https://api.elapix.store',
     'https://crm.mbztechnology.com',
     'https://app.mbztechnology.com',
-    'https://elapix.mbztechnology.com'
+    'https://elapix.mbztechnology.com',
+    'https://elapix.store'
   ];
   
   if (allowedOrigins.includes(origin)) {
