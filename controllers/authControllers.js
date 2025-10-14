@@ -1741,16 +1741,20 @@ exports.registerUser = async (req, res) => {
     // Save the organization
     await newOrganization.save();
 
-    // Find or create the admin role
-    let adminRole = await Role.findOne({ name: 'admin' });
-    if (!adminRole) {
-      adminRole = new Role({
-        name: 'admin',
-        description: 'Organization administrator',
-        permissions: {}
-      });
-      await adminRole.save();
-    }
+    // Create the admin role for this organization
+    const adminRole = new Role({
+      name: 'admin',
+      description: 'Organization administrator',
+      permissions: {
+        user_management: true,
+        organization_settings: true,
+        data_access: true,
+        system_configuration: true
+      },
+      organization: newOrganization._id,
+      userId: null // Will be set after user creation
+    });
+    await adminRole.save();
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1769,6 +1773,10 @@ exports.registerUser = async (req, res) => {
 
     // Save the user
     await newUser.save();
+
+    // Update the admin role with the user ID
+    adminRole.userId = newUser._id;
+    await adminRole.save();
 
     // Send email verification code
     console.log(`📧 [REGISTRATION] Attempting to send verification email to: ${newUser.email}`);

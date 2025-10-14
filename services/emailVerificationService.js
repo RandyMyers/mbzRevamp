@@ -7,6 +7,7 @@
 const EmailVerification = require('../models/EmailVerification');
 const User = require('../models/users');
 const { sendSystemEmail } = require('./emailService');
+const SendGridService = require('./sendGridService');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
 class EmailVerificationService {
@@ -329,7 +330,8 @@ class EmailVerificationService {
         © ${new Date().getFullYear()} MBZ Technology. All rights reserved.
       `;
       
-      const emailResult = await sendSystemEmail(user.email, subject, htmlContent);
+      // Use SendGrid instead of SMTP
+      const emailResult = await SendGridService.sendVerificationEmail(user, verificationCode);
       
       if (emailResult.success) {
         console.log(`✅ Email verification code sent to ${user.email} - Message ID: ${emailResult.messageId}`);
