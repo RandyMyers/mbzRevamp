@@ -19,8 +19,8 @@ const options = {
         description: 'Production server (Digital Ocean)'
       },
       {
-        url: 'http://localhost:3000',
-        description: 'Development server'
+        url: 'http://localhost:8800',
+        description: 'Local development server'
       }
     ],
     components: {
@@ -3123,7 +3123,8 @@ const options = {
     ]
   },
   apis: [
-    './routes/*.js'
+    './routes/*.js',
+    './controllers/*.js'
   ]
 };
 

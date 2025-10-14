@@ -9,8 +9,8 @@ const notificationSchema = new mongoose.Schema(
     },
     template: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'NotificationTemplate', // Reference to the NotificationTemplate that was used for this notification
-      required: true,
+      ref: 'NotificationTemplate', // Optional: Only required when sending from a template
+      required: false,
     },
     subject: {
       type: String,

@@ -8,7 +8,7 @@ const router = express.Router();
  *     description: invitations operations
  */
 
-const { protect } = require('../middleware/authMiddleware');
+const { authenticateUser } = require('../middlewares/authMiddleware');
 const {
   createInvitation,
   getInvitations,
@@ -49,7 +49,7 @@ const {
  *       500:
  *         description: Server error
  */
-router.get('/test-email-config', protect, testEmailConfig);
+router.get('/test-email-config', authenticateUser, testEmailConfig);
 
 // Public route for accepting invitations (no authenticateToken needed)
 
@@ -83,7 +83,7 @@ router.get('/test-email-config', protect, testEmailConfig);
 router.post('/accept', acceptInvitation);
 
 // Protected routes
-router.use(protect);
+router.use(authenticateUser);
 
 /**
  * @swagger
