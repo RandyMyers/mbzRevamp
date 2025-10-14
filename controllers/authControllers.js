@@ -2143,8 +2143,7 @@ exports.forgotPassword = async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Max-Age', '86400');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   try {
     // Validate required fields

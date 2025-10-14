@@ -139,19 +139,8 @@ app.use(cors({
   origin: '*',  // Allow requests from any origin
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],  // Comprehensive headers
-  credentials: false  // Set to false when using origin: '*'
+  credentials: true  // Allow credentials if needed
 }));
-
-// Explicit OPTIONS handler for all routes
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Max-Age', '86400');
-  res.sendStatus(200);
-});
-
 app.use(bodyParser.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true })); 
 app.use(morgan('dev')); 
@@ -163,7 +152,7 @@ app.use(
     tempFileDir: '/tmp/',
     limits: { fileSize: 10 * 1024 * 1024 }
   })
-);
+); 
 
 // Serve local uploads for hybrid attachment system
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -202,8 +191,7 @@ app.get('/api/health', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Max-Age', '86400');
+  res.header('Access-Control-Allow-Credentials', 'true');
   
   res.status(200).json({ 
     success: true, 
