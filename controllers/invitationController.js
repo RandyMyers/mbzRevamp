@@ -10,7 +10,9 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { createAuditLog } = require('../helpers/auditLogHelper');
-const { sendInvitationEmail } = require('../services/emailService');
+// Using SendGrid instead of SMTP (most hosting providers block SMTP ports)
+const SendGridService = require('../services/sendGridService');
+// const { sendInvitationEmail } = require('../services/emailService');
 
 /**
  * @swagger
@@ -934,7 +936,7 @@ exports.createInvitation = async (req, res) => {
         throw new Error('Missing required invitation data');
       }
 
-      const emailResult = await sendInvitationEmail(invitation);
+      const emailResult = await SendGridService.sendInvitationEmail(invitation);
       if (!emailResult.success) {
         console.error('❌ Email sending failed:', emailResult.error);
         throw new Error(`Failed to send invitation email: ${emailResult.error}`);
@@ -1482,54 +1484,30 @@ exports.updateInvitation = async (req, res) => {
   }
 };
 
-// Test email configuration
+// Test email configuration (using SendGrid instead of SMTP)
 exports.testEmailConfig = async (req, res) => {
   try {
-    const { validateEmailConfig, testSMTPConnection } = require('../services/emailService');
-    
-    const isValid = validateEmailConfig();
-    
-    if (!isValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email configuration is incomplete',
-        details: {
-          SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
-          SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
-          SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
-          SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
-          SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER'
-        }
-      });
-    }
-
-    // Test actual SMTP connection
-    const connectionTest = await testSMTPConnection();
+    // Test SendGrid connection instead of SMTP
+    const connectionTest = await SendGridService.testConnection();
     
     if (!connectionTest.success) {
       return res.status(500).json({
         success: false,
-        message: 'Email configuration is valid but SMTP connection failed',
+        message: 'SendGrid API connection failed',
         error: connectionTest.error,
         details: {
-          SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
-          SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
-          SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
-          SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
-          SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER'
+          SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'Set' : 'Missing',
+          SMTP_USER: process.env.SMTP_USER ? 'Set' : 'Missing (used as "from" email)'
         }
       });
     }
 
     res.json({
       success: true,
-      message: 'Email configuration is valid and SMTP connection successful',
+      message: 'SendGrid API connection successful',
       details: {
-        SMTP_HOST: process.env.SMTP_HOST || 'mbztechnology.com (fallback)',
-        SMTP_PORT: process.env.SMTP_PORT || '465 (fallback)',
-        SMTP_USER: process.env.SMTP_USER ? 'Set from env' : 'info@mbztechnology.com (fallback)',
-        SMTP_PASS: process.env.SMTP_PASS ? 'Set from env' : 'Using fallback',
-        SMTP_FROM: process.env.SMTP_FROM || 'Using fallback with SMTP_USER',
+        SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'Set' : 'Missing',
+        SMTP_USER: process.env.SMTP_USER ? process.env.SMTP_USER : 'noreply@mbztechnology.com (default)',
         connectionTest: connectionTest.message
       }
     });
