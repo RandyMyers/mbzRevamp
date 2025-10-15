@@ -81,9 +81,14 @@ exports.createAndSendNotification = async (notificationData) => {
       return { success: false, error: 'No notification settings' };
     }
 
-    // Check if user has enabled notifications for this type
+    // Check if user has enabled notifications for this type (email channel only)
     const category = getNotificationCategory(type);
-    if (category && settings.email?.enabled && !settings.email?.categories?.[category]) {
+    if (
+      type === 'email' &&
+      category &&
+      settings.email?.enabled &&
+      !settings.email?.categories?.[category]
+    ) {
       console.log(`⚠️ Email notifications disabled for category ${category} for user ${userId}`);
       return { success: false, error: 'Email notifications disabled for this category' };
     }
@@ -91,7 +96,7 @@ exports.createAndSendNotification = async (notificationData) => {
     // Create notification record
     const notification = new Notification({
       user: userId,
-      template: templateId,
+      template: templateId || undefined,
       subject,
       body,
       type,

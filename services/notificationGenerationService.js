@@ -116,7 +116,7 @@ class NotificationGenerationService {
    * @param {Object} params - Notification parameters
    * @returns {Promise<Object>} Result of sending
    */
-  async sendNotification({ template, subject, body, variables, recipientEmail, recipientName, priority = 'medium' }) {
+  async sendNotification({ template, subject, body, variables, recipientEmail, recipientName, priority = 'medium', userId, organization }) {
     try {
       const notificationData = {
         subject,
@@ -139,10 +139,10 @@ class NotificationGenerationService {
       // Send based on template type
       switch (template.type) {
         case 'email':
-          return await this.sendEmailNotification(notificationData);
+          return await this.sendEmailNotification({ ...notificationData, userId, organization });
         
         case 'system':
-          return await this.sendSystemNotification(notificationData);
+          return await this.sendSystemNotification({ ...notificationData, userId, organization });
         
         case 'sms':
           return await this.sendSMSNotification(notificationData);

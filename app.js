@@ -159,6 +159,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
+      'http://localhost:8800',
       'http://localhost:3000',
       'http://localhost:3001', 
       'http://localhost:8080',
@@ -196,6 +197,7 @@ app.use(cors({
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
+    'http://localhost:8800',
     'http://localhost:3000',
     'http://localhost:3001', 
     'http://localhost:8080',

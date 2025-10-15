@@ -7,6 +7,7 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 const StoreErrorHandler = require('../services/storeErrorHandler');
 const { createAuditLog } = require('../helpers/auditLogHelper');
+const { createAndSendNotification } = require('../services/notificationService');
 
 // Store error notifications for user feedback
 const storeErrorNotification = async (storeId, operation, errorMessage, organizationId, userId) => {
@@ -73,6 +74,14 @@ const syncProducts = async (storeId, organizationId, userId) => {
     worker.on('message', (message) => {
       if (message.status === 'success') {
         console.log(`✅ Product sync completed: ${message.message}`);
+        // Notify success for product sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Product Sync Succeeded - ${store.name}`,
+          body: `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+        }).catch(() => {});
       } else if (message.status === 'error') {
         console.error(`❌ Product sync error: ${message.message}`);
         console.error(`📋 Error Type: ${message.errorType}`);
@@ -80,6 +89,14 @@ const syncProducts = async (storeId, organizationId, userId) => {
         
         // Store error information in the database for user notification
         storeErrorNotification(storeId, 'product_sync', message, organizationId, userId);
+        // Notify failure for product sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Product Sync Failed - ${store.name}`,
+          body: `Product sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+        }).catch(() => {});
       }
     });
 
@@ -130,6 +147,14 @@ const syncCustomers = async (storeId, organizationId, userId) => {
     worker.on('message', (message) => {
       if (message.status === 'success') {
         console.log(`✅ Customer sync completed: ${message.message}`);
+        // Notify success for customer sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Customer Sync Succeeded - ${store.name}`,
+          body: `Customer sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+        }).catch(() => {});
       } else if (message.status === 'error') {
         console.error(`❌ Customer sync error: ${message.message}`);
         console.error(`📋 Error Type: ${message.errorType}`);
@@ -137,6 +162,14 @@ const syncCustomers = async (storeId, organizationId, userId) => {
         
         // Store error information in the database for user notification
         storeErrorNotification(storeId, 'customer_sync', message, organizationId, userId);
+        // Notify failure for customer sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Customer Sync Failed - ${store.name}`,
+          body: `Customer sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+        }).catch(() => {});
       }
     });
 
@@ -187,6 +220,14 @@ const syncOrders = async (storeId, organizationId, userId) => {
     worker.on('message', (message) => {
       if (message.status === 'success') {
         console.log(`✅ Order sync completed: ${message.message}`);
+        // Notify success for order sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Order Sync Succeeded - ${store.name}`,
+          body: `Order sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+        }).catch(() => {});
       } else if (message.status === 'error') {
         console.error(`❌ Order sync error: ${message.message}`);
         console.error(`📋 Error Type: ${message.errorType}`);
@@ -194,6 +235,14 @@ const syncOrders = async (storeId, organizationId, userId) => {
         
         // Store error information in the database for user notification
         storeErrorNotification(storeId, 'order_sync', message, organizationId, userId);
+        // Notify failure for order sync
+        createAndSendNotification({
+          userId,
+          organization: organizationId,
+          type: 'system',
+          subject: `WooCommerce Order Sync Failed - ${store.name}`,
+          body: `Order sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+        }).catch(() => {});
       }
     });
 
@@ -224,10 +273,36 @@ const syncCategoriesWithWooCommerce = async (storeId, organizationId, userId) =>
     const { syncCategories } = require('../helper/wooCommerceCategoryHelper');
     
     const syncResult = await syncCategories(storeId, userId, organizationId);
-    console.log(`✅ Category sync completed:`, syncResult);
+    if (syncResult && syncResult.success) {
+      console.log(`✅ Category sync completed:`, syncResult);
+      createAndSendNotification({
+        userId,
+        organization: organizationId,
+        type: 'system',
+        subject: `WooCommerce Category Sync Succeeded - ${store.name}`,
+        body: `Category sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+      }).catch(() => {});
+    } else {
+      const errorMsg = (syncResult && syncResult.error) || 'Unknown error';
+      console.error('❌ Category sync failed:', errorMsg);
+      createAndSendNotification({
+        userId,
+        organization: organizationId,
+        type: 'system',
+        subject: `WooCommerce Category Sync Failed - ${store.name}`,
+        body: `Category sync failed for ${store.name}. Error: ${errorMsg}`
+      }).catch(() => {});
+    }
 
   } catch (error) {
     console.error('❌ Error in syncCategoriesWithWooCommerce:', error.message);
+    createAndSendNotification({
+      userId,
+      organization: organizationId,
+      type: 'system',
+      subject: `WooCommerce Category Sync Failed - ${storeId}`,
+      body: `Category sync failed for store ${storeId}. Error: ${error.message}`
+    }).catch(() => {});
   }
 };
 
@@ -894,7 +969,7 @@ exports.getStoresByUser = async (req, res) => {
  *                   type: string
  *                   example: "Failed to sync store with WooCommerce"
  */
-// Sync store with WooCommerce (dummy example)
+// Sync store with WooCommerce (triggers categories, products, customers, orders)
 exports.syncStoreWithWooCommerce = async (req, res) => {
   const { storeId } = req.params;
   try {
@@ -903,14 +978,64 @@ exports.syncStoreWithWooCommerce = async (req, res) => {
       return res.status(404).json({ success: false, message: "Store not found" });
     }
 
-    // Simulating WooCommerce sync process
+    // Map IDs from authenticated user document
+    const userId = req.user?._id?.toString();
+    const organizationId = (req.user?.organization?._id || req.user?.organization)?.toString();
+    console.log('req.user', req.user);
+    console.log('user and organization id', userId, organizationId);
+    if (!organizationId || !userId) {
+      return res.status(400).json({ success: false, message: 'Missing organization or user context for sync' });
+    }
+
+    if (
+      store.platformType !== 'woocommerce' ||
+      !store.url ||
+      !store.apiKey ||
+      !store.secretKey
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Store is not configured for WooCommerce sync (platform/credentials missing)'
+      });
+    }
+
+    // Notify sync started
+    createAndSendNotification({
+      userId,
+      organization: organizationId,
+      type: 'system',
+      subject: `WooCommerce Sync Started - ${store.name}`,
+      body: `Sync started for ${store.name} at ${new Date().toISOString()}.`
+    }).catch(() => {});
+
+    // Kick off syncs asynchronously (do not block response)
+    setImmediate(async () => {
+      try {
+        await syncCategoriesWithWooCommerce(storeId, organizationId, userId);
+        await syncProducts(storeId, organizationId, userId);
+        await syncCustomers(storeId, organizationId, userId);
+        await syncOrders(storeId, organizationId, userId);
+      } catch (e) {
+        console.error('❌ Error starting store sync pipeline:', e);
+      }
+    });
+
     store.lastSyncDate = new Date();
     await store.save();
 
-    res.status(200).json({ success: true, message: "Store synced with WooCommerce", store });
+    return res.status(200).json({
+      success: true,
+      message: 'Store sync started (categories, products, customers, orders)',
+      store: {
+        _id: store._id,
+        name: store.name,
+        platformType: store.platformType,
+        lastSyncDate: store.lastSyncDate
+      }
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: "Failed to sync store with WooCommerce" });
+    return res.status(500).json({ success: false, message: "Failed to start store sync" });
   }
 };
 

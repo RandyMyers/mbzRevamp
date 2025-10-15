@@ -589,6 +589,22 @@ const notificationTemplates = [
     isActive: true
   },
   {
+    templateName: "woocommerce_sync_started",
+    subject: "WooCommerce Sync Started - {{storeName}}",
+    body: "WooCommerce sync started for {{storeName}} at {{currentTime}}",
+    type: "system",
+    triggerEvent: "woocommerce_sync_started",
+    templateCategory: "system_maintenance",
+    priority: "medium",
+    tags: ["woocommerce", "sync", "started"],
+    variables: {
+      storeName: "Store name",
+      currentTime: "Current timestamp"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
     templateName: "woocommerce_sync_success",
     subject: "WooCommerce Sync Success - {{storeName}}",
     body: "WooCommerce sync completed successfully for {{storeName}} at {{currentTime}}",
