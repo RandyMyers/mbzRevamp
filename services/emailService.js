@@ -1,3 +1,9 @@
+// ⚠️ DEPRECATED: SMTP/Nodemailer is no longer used for sending emails
+// Most hosting providers block SMTP ports (25, 465, 587) to prevent spam
+// All email functionality has been migrated to SendGrid (see sendGridService.js)
+// This file is kept for reference only and may be removed in a future update
+
+/*
 const nodemailer = require('nodemailer');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
@@ -11,6 +17,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS
   }
 });
+*/
 
 // Add this function to validate email configuration
 exports.validateEmailConfig = () => {
