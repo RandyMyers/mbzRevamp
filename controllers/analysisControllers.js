@@ -313,30 +313,32 @@ exports.totalOrders = async (req, res) => {
 
 // New Customers
 exports.newCustomers = async (req, res) => {
-    try {
+  try {
     const { timeRange, organizationId } = req.query;
-    
+
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'Organization ID is required' });
+    }
+
     const startDate = getDateRange(timeRange);
 
-    const query = {
-      organizationId,
-      date_created: { $gte: startDate }
-    };
+    // Cast organizationId and support either date_created (Woo) or createdAt
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
 
-    const newCustomers = await Customer.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: { newCustomers }
+    const newCustomers = await Customer.countDocuments({
+      organizationId: orgObjectId,
+      $or: [
+        { date_created: { $gte: startDate } },
+        { createdAt: { $gte: startDate } }
+      ]
     });
-    } catch (error) {
+
+    res.json({ success: true, data: { newCustomers } });
+  } catch (error) {
     console.error('New Customers Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-    }
-  };
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
 
 // Average Order Value
 exports.averageOrderValue = async (req, res) => {
@@ -385,31 +387,34 @@ exports.averageOrderValue = async (req, res) => {
 exports.returnRate = async (req, res) => {
   try {
     const { timeRange, organizationId } = req.query;
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'Organization ID is required' });
+    }
     const startDate = getDateRange(timeRange);
 
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+
     const totalOrders = await Order.countDocuments({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
+      organizationId: orgObjectId,
       date_created: { $gte: startDate }
     });
 
+    // Consider an order as returned if status indicates refund/return/cancel OR refunds array has entries
     const returnedOrders = await Order.countDocuments({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
+      organizationId: orgObjectId,
       date_created: { $gte: startDate },
-      status: 'returned'
+      $or: [
+        { status: { $in: ['returned', 'refunded'] } },
+        { refunds: { $exists: true, $ne: [], $not: { $size: 0 } } }
+      ]
     });
 
     const returnRate = totalOrders > 0 ? (returnedOrders / totalOrders) * 100 : 0;
 
-    res.json({
-      success: true,
-      data: { returnRate }
-    });
+    res.json({ success: true, data: { returnRate } });
   } catch (error) {
     console.error('Return Rate Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -570,7 +575,8 @@ exports.productPerformance = async (req, res) => {
       {
         $group: {
           _id: "$line_items.inventoryId",
-          sales: { $sum: { $multiply: [{ $toDouble: "$line_items.subtotal" }, "$line_items.quantity"] } },
+          // Use line_items.total when available to avoid double-counting
+          sales: { $sum: { $toDouble: "$line_items.total" } },
           quantity: { $sum: "$line_items.quantity" },
           currency: { $first: "$currency" }
         }
@@ -726,20 +732,23 @@ exports.funnelData = async (req, res) => {
 exports.retentionData = async (req, res) => {
   try {
     const { organizationId } = req.query;
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'Organization ID is required' });
+    }
 
     const pipeline = [
       {
         $match: {
-          organizationId,
-          status: 'completed'
+          organizationId: new mongoose.Types.ObjectId(organizationId),
+          status: { $nin: ['cancelled', 'refunded'] }
         }
       },
       {
         $group: {
           _id: '$customerId',
           orderCount: { $sum: 1 },
-          firstOrder: { $min: '$createdAt' },
-          lastOrder: { $max: '$createdAt' }
+          firstOrder: { $min: '$date_created' },
+          lastOrder: { $max: '$date_created' }
         }
       },
       {

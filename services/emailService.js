@@ -533,14 +533,14 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
       </head>
       <body>
         <div style="padding: 20px;">
-          <div class="container">
-            <div class="header">
+        <div class="container">
+          <div class="header">
               <div class="verification-icon">📧</div>
               <h1>Email Verification</h1>
               <p style="margin: 10px 0 0; opacity: 0.9;">Verify your email address</p>
-            </div>
-            
-            <div class="content">
+          </div>
+          
+          <div class="content">
               <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName}!</h2>
               <p>Thank you for signing up with <strong>${organization.name}</strong>. To complete your registration and secure your account, please verify your email address.</p>
               
@@ -557,9 +557,9 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
                   <li>Your email will be verified and secured</li>
                   <li>You'll have full access to all features</li>
                   <li>You can start using your account immediately</li>
-                </ul>
-              </div>
-              
+              </ul>
+            </div>
+            
               <div class="warning">
                 <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Security Information:</h4>
                 <ul style="margin: 0; padding-left: 20px;">
@@ -568,8 +568,8 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
                   <li>If you didn't create this account, please ignore this email</li>
                   <li>For security, this code can only be used once</li>
                 </ul>
-              </div>
-              
+            </div>
+            
               <div class="info-section">
                 <h3 style="margin: 0 0 15px; color: #0066cc;">Verification Details:</h3>
                 <ul class="info-list">
@@ -577,13 +577,13 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
                   <li><strong>Email:</strong> ${user.email}</li>
                   <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
                   <li><strong>Expires:</strong> ${new Date(Date.now() + 10 * 60 * 1000).toLocaleString()}</li>
-                </ul>
+            </ul>
               </div>
               
               <p style="margin-top: 30px;">If you need help with verification or didn't create this account, please contact our support team immediately.</p>
-            </div>
-            
-            <div class="footer">
+          </div>
+          
+          <div class="footer">
               <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
               <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
               <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
@@ -640,12 +640,12 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
 
     // ✅ AUDIT LOG: Email Verification Code Sent
     try {
-      await createAuditLog({
+    await createAuditLog({
         userId: user._id,
         action: 'EMAIL_VERIFICATION_CODE_SENT',
         resourceType: 'EMAIL_VERIFICATION',
-        resourceId: user._id,
-        details: {
+      resourceId: user._id,
+      details: {
           recipientEmail: user.email,
           organizationId: organization._id,
           codeLength: code.length,
@@ -663,7 +663,7 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
 
   } catch (error) {
     console.error(`❌ Failed to send email verification code to ${user.email}:`, error.message);
-
+    
     // ✅ AUDIT LOG: Email Verification Code Failed
     try {
       await createAuditLog({
@@ -885,14 +885,14 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
       </head>
       <body>
         <div style="padding: 20px;">
-          <div class="container">
-            <div class="header">
+        <div class="container">
+          <div class="header">
               <div class="security-icon">🔐</div>
               <h1>Password Reset Code</h1>
               <p style="margin: 10px 0 0; opacity: 0.9;">Secure access to your account</p>
-            </div>
-            
-            <div class="content">
+          </div>
+          
+          <div class="content">
               <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName}!</h2>
               <p>You requested to reset your password for <strong>${organization.name}</strong>. Use the verification code below to complete the process.</p>
               
@@ -900,18 +900,18 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
                 <h3 style="margin: 0 0 15px; color: #333;">Your Reset Code:</h3>
                 <div class="code">${code}</div>
                 <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Please enter this 6-digit code to reset your password.</strong></p>
-              </div>
-              
-              <div class="warning">
+            </div>
+            
+            <div class="warning">
                 <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Important Security Information:</h4>
                 <ul style="margin: 0; padding-left: 20px;">
-                  <li>This code will expire in <strong>15 minutes</strong></li>
+                <li>This code will expire in <strong>15 minutes</strong></li>
                   <li>Never share this code with anyone</li>
-                  <li>If you didn't request this reset, please ignore this email</li>
-                  <li>For security, this code can only be used once</li>
-                </ul>
-              </div>
-              
+                <li>If you didn't request this reset, please ignore this email</li>
+                <li>For security, this code can only be used once</li>
+              </ul>
+            </div>
+            
               <div class="info-section">
                 <h3 style="margin: 0 0 15px; color: #0066cc;">Reset Details:</h3>
                 <ul class="info-list">
@@ -923,9 +923,9 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
               </div>
               
               <p style="margin-top: 30px;">If you need help or didn't request this password reset, please contact our support team immediately.</p>
-            </div>
-            
-            <div class="footer">
+          </div>
+          
+          <div class="footer">
               <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
               <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
               <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
@@ -976,17 +976,17 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
 
     // ✅ AUDIT LOG: Password Reset Code Email Sent
     try {
-      await createAuditLog({
+    await createAuditLog({
         userId: user._id,
         action: 'PASSWORD_RESET_CODE_EMAIL_SENT',
         resourceType: 'PASSWORD_RESET',
         resourceId: user._id,
-        details: {
+      details: {
           recipientEmail: user.email,
-          organizationId: organization._id,
+        organizationId: organization._id,
           codeLength: code.length,
-          messageId: info.messageId
-        },
+        messageId: info.messageId
+      },
         ipAddress: 'system',
         userAgent: 'email-service'
       });
@@ -999,7 +999,7 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
 
   } catch (error) {
     console.error(`❌ Failed to send password reset code email to ${user.email}:`, error.message);
-    
+
     // ✅ AUDIT LOG: Password Reset Code Email Failed
     try {
       await createAuditLog({
@@ -1085,7 +1085,7 @@ exports.sendPasswordResetSuccessEmail = async (user, organization) => {
               <li>Enabling two-factor authentication if available</li>
               <li>Regularly updating your password</li>
               <li>Not sharing your password with anyone</li>
-            </ul>
+              </ul>
           </div>
           
           <div class="footer">

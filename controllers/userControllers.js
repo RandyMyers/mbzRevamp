@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const cloudinary = require('cloudinary').v2;
 const Role = require('../models/role');
 const Group = require('../models/group');
+const notificationGenerationService = require('../services/notificationGenerationService');
 
 const AuditLog = require('../models/auditLog');
 const logEvent = require('../helper/logEvent');
@@ -211,6 +212,35 @@ exports.createUser = async (req, res) => {
       details: { email },
       organization: organization._id
     });
+
+    // Send invitation email notification to the newly created user (non-blocking)
+    try {
+      let roleName = 'member';
+      if (roleId) {
+        try {
+          const roleDoc = await Role.findById(roleId).lean();
+          if (roleDoc && (roleDoc.name || roleDoc.roleName)) {
+            roleName = roleDoc.name || roleDoc.roleName;
+          }
+        } catch {}
+      }
+
+      await notificationGenerationService.generateFromTemplate(
+        'invitation_sent',
+        {
+          fullName: newUser.name || newUser.fullName || '',
+          username: newUser.username || newUser.email,
+          role: roleName,
+          companyName: organization.name || 'MBZ Tech'
+        },
+        {
+          userId: newUser._id,
+          organization: organization._id
+        }
+      );
+    } catch (notifyErr) {
+      console.error('User invitation notification failed:', notifyErr);
+    }
 
     res.status(201).json({ success: true, message: "User created", user: newUser });
   } catch (error) {

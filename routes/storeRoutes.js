@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { authenticateUser } = require('../middlewares/authMiddleware');
 const storeController = require("../controllers/storeControllers");
 
 /**
@@ -68,28 +69,28 @@ const storeController = require("../controllers/storeControllers");
  *       500:
  *         description: Server error
  */
-router.post("/create", storeController.createStore);
+router.post("/create", authenticateUser, storeController.createStore);
 
 // GET all stores by organization
-router.get("/organization/:organizationId", storeController.getStoresByOrganization);
+router.get("/organization/:organizationId", authenticateUser, storeController.getStoresByOrganization);
 
 // GET a specific store by ID
-router.get("/get/:storeId", storeController.getStoreById);
+router.get("/get/:storeId", authenticateUser, storeController.getStoreById);
 
 // UPDATE a store by ID
-router.patch("/update/:storeId", storeController.updateStore);
+router.patch("/update/:storeId", authenticateUser, storeController.updateStore);
 
 // DELETE a store by ID
-router.delete("/delete/:storeId", storeController.deleteStore);
+router.delete("/delete/:storeId", authenticateUser, storeController.deleteStore);
 
 // Sync store with WooCommerce
-router.patch("/sync/:storeId", storeController.syncStoreWithWooCommerce);
+router.patch("/sync/:storeId", authenticateUser, storeController.syncStoreWithWooCommerce);
 
 // Webhook management for stores
-router.post("/:storeId/webhooks", storeController.createStoreWebhooks);
-router.get("/:storeId/webhooks/status", storeController.getStoreWebhookStatus);
+router.post("/:storeId/webhooks", authenticateUser, storeController.createStoreWebhooks);
+router.get("/:storeId/webhooks/status", authenticateUser, storeController.getStoreWebhookStatus);
 
 // Store error notifications
-router.get("/:storeId/error-notifications", storeController.getStoreErrorNotifications);
+router.get("/:storeId/error-notifications", authenticateUser, storeController.getStoreErrorNotifications);
 
 module.exports = router; 
