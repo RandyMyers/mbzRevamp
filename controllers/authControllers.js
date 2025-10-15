@@ -476,20 +476,60 @@ exports.registerOrganizationUser = async (req, res) => {
 
     // ✅ PHASE 1: Create default admin role for the organization
     const Role = require('../models/role');
-    const defaultAdminRole = new Role({
-      name: 'admin',
-      description: 'Organization Administrator with full privileges',
-      permissions: {
-        user_management: true,
-        organization_settings: true,
-        data_access: true,
-        system_configuration: true
-      },
-      organization: newOrganization._id,
-      userId: null // Will be set after user creation
+    
+    // Check if admin role already exists for this organization (handle duplicate key gracefully)
+    let defaultAdminRole = await Role.findOne({ 
+      name: 'admin', 
+      organization: newOrganization._id 
     });
+    
+    if (!defaultAdminRole) {
+      defaultAdminRole = new Role({
+        name: 'admin',
+        description: 'Organization Administrator with full privileges',
+        permissions: {
+          user_management: true,
+          organization_settings: true,
+          data_access: true,
+          system_configuration: true
+        },
+        organization: newOrganization._id,
+        userId: null // Will be set after user creation
+      });
 
-    await defaultAdminRole.save();
+      try {
+        await defaultAdminRole.save();
+      } catch (roleError) {
+        // If duplicate key error occurs, try to find existing role
+        if (roleError.code === 11000) {
+          console.log('⚠️ Admin role already exists, fetching existing role...');
+          defaultAdminRole = await Role.findOne({ 
+            name: 'admin', 
+            organization: newOrganization._id 
+          });
+          
+          if (!defaultAdminRole) {
+            // If still not found, there's a global index issue - use fallback
+            console.error('❌ Role index issue detected. Creating role with unique name.');
+            defaultAdminRole = new Role({
+              name: `admin-${Date.now()}`,
+              description: 'Organization Administrator with full privileges',
+              permissions: {
+                user_management: true,
+                organization_settings: true,
+                data_access: true,
+                system_configuration: true
+              },
+              organization: newOrganization._id,
+              userId: null
+            });
+            await defaultAdminRole.save();
+          }
+        } else {
+          throw roleError;
+        }
+      }
+    }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1742,19 +1782,59 @@ exports.registerUser = async (req, res) => {
     await newOrganization.save();
 
     // Create the admin role for this organization
-    const adminRole = new Role({
-      name: 'admin',
-      description: 'Organization administrator',
-      permissions: {
-        user_management: true,
-        organization_settings: true,
-        data_access: true,
-        system_configuration: true
-      },
-      organization: newOrganization._id,
-      userId: null // Will be set after user creation
+    // Check if admin role already exists for this organization (handle duplicate key gracefully)
+    let adminRole = await Role.findOne({ 
+      name: 'admin', 
+      organization: newOrganization._id 
     });
-    await adminRole.save();
+    
+    if (!adminRole) {
+      adminRole = new Role({
+        name: 'admin',
+        description: 'Organization administrator',
+        permissions: {
+          user_management: true,
+          organization_settings: true,
+          data_access: true,
+          system_configuration: true
+        },
+        organization: newOrganization._id,
+        userId: null // Will be set after user creation
+      });
+      
+      try {
+        await adminRole.save();
+      } catch (roleError) {
+        // If duplicate key error occurs, try to find existing role
+        if (roleError.code === 11000) {
+          console.log('⚠️ Admin role already exists, fetching existing role...');
+          adminRole = await Role.findOne({ 
+            name: 'admin', 
+            organization: newOrganization._id 
+          });
+          
+          if (!adminRole) {
+            // If still not found, there's a global index issue - use fallback
+            console.error('❌ Role index issue detected. Creating role with unique name.');
+            adminRole = new Role({
+              name: `admin-${Date.now()}`,
+              description: 'Organization administrator',
+              permissions: {
+                user_management: true,
+                organization_settings: true,
+                data_access: true,
+                system_configuration: true
+              },
+              organization: newOrganization._id,
+              userId: null
+            });
+            await adminRole.save();
+          }
+        } else {
+          throw roleError;
+        }
+      }
+    }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -2092,7 +2172,9 @@ exports.getOTPSettings = async (req, res) => {
 const crypto = require('crypto');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const PasswordResetCode = require('../models/passwordResetCode');
-const { sendPasswordResetEmail, sendPasswordResetSuccessEmail, sendPasswordResetCodeEmail } = require('../services/emailService');
+// Using SendGrid instead of SMTP (most hosting providers block SMTP ports)
+const SendGridService = require('../services/sendGridService');
+// const { sendPasswordResetEmail, sendPasswordResetSuccessEmail, sendPasswordResetCodeEmail } = require('../services/emailService');
 
 /**
  * @swagger
@@ -2151,8 +2233,7 @@ exports.forgotPassword = async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'false');
-  res.header('Access-Control-Max-Age', '86400');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   try {
     // Validate required fields
@@ -2209,8 +2290,8 @@ exports.forgotPassword = async (req, res) => {
     // Get organization details
     const organization = await Organization.findById(user.organization);
 
-    // Send password reset code email
-    const emailResult = await sendPasswordResetCodeEmail(user, code, organization);
+    // Send password reset code email using SendGrid
+    const emailResult = await SendGridService.sendPasswordResetCodeEmail(user, code, organization);
 
     if (!emailResult.success) {
       console.error('Failed to send password reset code email:', emailResult.error);
@@ -2398,8 +2479,8 @@ exports.resetPassword = async (req, res) => {
     // Get organization details
     const organization = await Organization.findById(user.organization);
 
-    // Send password reset success email
-    await sendPasswordResetSuccessEmail(user, organization);
+    // Send password reset success email using SendGrid
+    await SendGridService.sendPasswordResetSuccessEmail(user, organization, req);
 
     // ✅ AUDIT LOG: Password Reset Success
     await createAuditLog({
