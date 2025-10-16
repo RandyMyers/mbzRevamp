@@ -360,7 +360,14 @@ exports.createUser = async (req, res) => {
       if (error.path === 'userId') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid user ID. Please ensure you are properly authenticated." 
+          message: "Invalid user ID. Please ensure you are properly authenticated and try logging in again." 
+        });
+      }
+      
+      if (error.path === '_id') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid user ID format. Please ensure you are properly authenticated and try logging in again." 
         });
       }
       
