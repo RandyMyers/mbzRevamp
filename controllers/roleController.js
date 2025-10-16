@@ -17,7 +17,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [name, organizationId, userId]
+ *             required: [name]
  *             properties:
  *               name:
  *                 type: string
@@ -38,16 +38,7 @@
  *                   "project_access": true,
  *                   "reports_view": false
  *                 }
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
- *                 example: "507f1f77bcf86cd799439011"
- *               userId:
- *                 type: string
- *                 format: ObjectId
- *                 description: User ID creating the role
- *                 example: "507f1f77bcf86cd799439012"
+ *               Note: organizationId and userId are automatically retrieved from the authenticated user
  *     responses:
  *       201:
  *         description: Role created successfully
@@ -153,7 +144,7 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 // Create a new role
 exports.createRole = async (req, res) => {
   try {
-    const { name, description, permissions, organizationId, userId } = req.body;
+    const { name, description, permissions } = req.body;
     
     // ✅ VALIDATE REQUIRED FIELDS
     if (!name) {
@@ -163,17 +154,30 @@ exports.createRole = async (req, res) => {
       });
     }
     
-    if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Organization ID is required' 
-      });
-    }
-    
+    // ✅ GET USER ID FROM AUTHENTICATED USER
+    const userId = req.user?._id || req.user?.id;
     if (!userId) {
       return res.status(400).json({ 
         success: false, 
-        message: 'User ID is required' 
+        message: 'User ID not found. Please ensure you are properly authenticated.' 
+      });
+    }
+    
+    // ✅ GET ORGANIZATION ID FROM AUTHENTICATED USER
+    let organizationId = req.user?.organization || req.user?.organizationId;
+    
+    // If organization is not directly available, fetch user from database
+    if (!organizationId) {
+      console.log('🔍 Organization ID not found in req.user, fetching from database...');
+      const User = require('../models/users');
+      const user = await User.findById(userId).select('organization organizationId');
+      organizationId = user?.organization || user?.organizationId;
+    }
+    
+    if (!organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User organization not found. Please ensure you are properly authenticated and belong to an organization.' 
       });
     }
     
@@ -260,13 +264,41 @@ exports.createRole = async (req, res) => {
   }
 };
 
-// Get all roles
+// Get all roles for the authenticated user's organization
 exports.getRoles = async (req, res) => {
   try {
-    const roles = await Role.find();
+    // ✅ GET USER ID FROM AUTHENTICATED USER
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID not found. Please ensure you are properly authenticated.' 
+      });
+    }
+    
+    // ✅ GET ORGANIZATION ID FROM AUTHENTICATED USER
+    let organizationId = req.user?.organization || req.user?.organizationId;
+    
+    // If organization is not directly available, fetch user from database
+    if (!organizationId) {
+      console.log('🔍 Organization ID not found in req.user, fetching from database...');
+      const User = require('../models/users');
+      const user = await User.findById(userId).select('organization organizationId');
+      organizationId = user?.organization || user?.organizationId;
+    }
+    
+    if (!organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User organization not found. Please ensure you are properly authenticated and belong to an organization.' 
+      });
+    }
+    
+    // ✅ GET ROLES FOR THE USER'S ORGANIZATION ONLY
+    const roles = await Role.find({ organization: organizationId }).sort({ name: 1 });
     res.status(200).json({ success: true, roles });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching roles:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch roles' });
   }
 };
