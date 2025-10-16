@@ -3,10 +3,12 @@ const { parentPort, workerData } = require('worker_threads');
 const Inventory = require('../models/inventory');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
+const User = require('../models/users');
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 const https = require('https');
 const connectDB = require('./connectDB');
 const StoreErrorHandler = require('../services/storeErrorHandler');
+const currencyUtils = require('../utils/currencyUtils');
 
 const syncProductJob = async (jobData) => {
   try {
@@ -16,6 +18,14 @@ const syncProductJob = async (jobData) => {
 
     // Connect to MongoDB
     connectDB();
+
+    // Get user and organization currency preferences
+    console.log('🔍 Getting currency preferences for user:', userId);
+    const user = await User.findById(userId).select('displayCurrency');
+    const organization = await Organization.findById(organizationId).select('analyticsCurrency defaultCurrency');
+    
+    const targetCurrency = user?.displayCurrency || organization?.analyticsCurrency || organization?.defaultCurrency || 'USD';
+    console.log(`💰 Target currency for conversion: ${targetCurrency}`);
 
     // Create HTTPS agent configuration for SSL bypass (if needed)
     let httpsAgent = null;
@@ -106,6 +116,39 @@ const syncProductJob = async (jobData) => {
           });
         }
 
+        // Get original prices and currency from WooCommerce
+        const originalPrice = parseFloat(product.price) || 0;
+        const originalSalePrice = parseFloat(product.sale_price) || 0;
+        const originalRegularPrice = parseFloat(product.regular_price) || 0;
+        const originalCurrency = product.currency || 'USD'; // WooCommerce currency
+        
+        // Convert prices to user's base currency
+        let convertedPrice = originalPrice;
+        let convertedSalePrice = originalSalePrice;
+        let convertedRegularPrice = originalRegularPrice;
+        
+        if (originalCurrency !== targetCurrency && originalPrice > 0) {
+          try {
+            console.log(`🔄 Converting ${originalPrice} ${originalCurrency} to ${targetCurrency}`);
+            convertedPrice = await currencyUtils.convertCurrency(originalPrice, originalCurrency, targetCurrency);
+            console.log(`✅ Converted price: ${convertedPrice} ${targetCurrency}`);
+            
+            if (originalSalePrice > 0) {
+              convertedSalePrice = await currencyUtils.convertCurrency(originalSalePrice, originalCurrency, targetCurrency);
+            }
+            
+            if (originalRegularPrice > 0) {
+              convertedRegularPrice = await currencyUtils.convertCurrency(originalRegularPrice, originalCurrency, targetCurrency);
+            }
+          } catch (conversionError) {
+            console.error(`❌ Currency conversion failed for product ${product.name}:`, conversionError.message);
+            // Fallback to original prices if conversion fails
+            convertedPrice = originalPrice;
+            convertedSalePrice = originalSalePrice;
+            convertedRegularPrice = originalRegularPrice;
+          }
+        }
+
         const productData = {
           storeId,
           organizationId,
@@ -116,9 +159,17 @@ const syncProductJob = async (jobData) => {
           sku: product.sku || 'N/A',
           description: product.description || 'N/A',
           short_description: product.short_description || 'N/A',
-          price: parseFloat(product.price) || 0,
-          sale_price: parseFloat(product.sale_price) || 0,
-          regular_price: parseFloat(product.regular_price) || 0,
+          // Converted prices (display currency)
+          price: convertedPrice,
+          sale_price: convertedSalePrice,
+          regular_price: convertedRegularPrice,
+          // Original prices and currency (for reference)
+          originalPrice: originalPrice,
+          originalSalePrice: originalSalePrice,
+          originalRegularPrice: originalRegularPrice,
+          originalCurrency: originalCurrency,
+          displayCurrency: targetCurrency,
+          currency: targetCurrency,
           date_on_sale_from: product.date_on_sale_from ? new Date(product.date_on_sale_from) : null,
           date_on_sale_to: product.date_on_sale_to ? new Date(product.date_on_sale_to) : null,
           on_sale: product.on_sale || false,

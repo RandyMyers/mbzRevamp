@@ -5,6 +5,7 @@ const cloudinary = require('cloudinary').v2;
 const Role = require('../models/role');
 const Group = require('../models/group');
 const notificationGenerationService = require('../services/notificationGenerationService');
+const mongoose = require('mongoose');
 
 const AuditLog = require('../models/auditLog');
 const logEvent = require('../helper/logEvent');
@@ -192,17 +193,80 @@ exports.createUser = async (req, res) => {
       profilePictureUrl = result.secure_url;
     }
 
+    // ✅ NEW: Role validation and assignment
+    let validatedRoleId = null;
+    let roleName = 'member';
+    
+    if (roleId) {
+      // Validate roleId format
+      if (!mongoose.Types.ObjectId.isValid(roleId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid role ID format. Please select a valid role from the dropdown." 
+        });
+      }
+      
+      // Check if role exists
+      const role = await Role.findById(roleId);
+      if (!role) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Selected role not found. Please refresh the page and try again." 
+        });
+      }
+      
+      // Check if role belongs to organization
+      if (role.organization.toString() !== organization._id.toString()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Selected role does not belong to this organization. Please select a role from your organization." 
+        });
+      }
+      
+      validatedRoleId = roleId;
+      roleName = role.name;
+    } else {
+      // ✅ NEW: Default role assignment with clear guidance
+      const defaultRole = await Role.findOne({ 
+        name: 'member', 
+        organization: organization._id 
+      });
+      
+      if (defaultRole) {
+        validatedRoleId = defaultRole._id;
+        roleName = defaultRole.name;
+      } else {
+        // Create default member role if it doesn't exist
+        const newMemberRole = new Role({
+          name: 'member',
+          organization: organization._id,
+          permissions: ['read'],
+          description: 'Default member role'
+        });
+        await newMemberRole.save();
+        validatedRoleId = newMemberRole._id;
+        roleName = newMemberRole.name;
+      }
+    }
+
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      roleId,
+      roleId: validatedRoleId, // ✅ Validated roleId
+      role: roleName, // ✅ Set role name for backward compatibility
       department,
       organization: organization._id,
       profilePicture: profilePictureUrl,
+      status: 'active'
     });
 
     await newUser.save();
+
+    // ✅ NEW: Update role with user ID
+    if (validatedRoleId) {
+      await Role.findByIdAndUpdate(validatedRoleId, { userId: newUser._id });
+    }
 
     await logEvent({
       action: 'create_user',
@@ -242,11 +306,49 @@ exports.createUser = async (req, res) => {
       console.error('User invitation notification failed:', notifyErr);
     }
 
-    res.status(201).json({ success: true, message: "User created", user: newUser });
+    res.status(201).json({ 
+      success: true, 
+      message: `User created successfully with ${roleName} role`, 
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: roleName,
+        roleId: validatedRoleId,
+        department: newUser.department,
+        organization: newUser.organization
+      }
+    });
   } catch (error) {
-    console.error(error);
-    console.log(error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error('User creation error:', error);
+    
+    // ✅ NEW: Better error handling with clear messages
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "User validation failed. Please check all required fields are filled correctly.",
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid data format. Please ensure all fields are in the correct format." 
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email already exists. Please use a different email address." 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error during user creation. Please try again or contact support if the issue persists." 
+    });
   }
 };
 

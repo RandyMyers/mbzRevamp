@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 */
-
+ 
 // Add this function to validate email configuration
 exports.validateEmailConfig = () => {
   const required = ['SMTP_USER', 'SMTP_PASS'];

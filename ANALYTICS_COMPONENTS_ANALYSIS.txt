@@ -1,0 +1,349 @@
+# ELAPIX ANALYTICS & STATS COMPONENTS - ANALYSIS CHECKLIST
+# ================================================================
+# This file lists all analytics and stats components in the Elapix frontend
+# that need to be analyzed one by one for functionality and integration.
+
+## MAIN ANALYTICS DASHBOARD (/analytics)
+==========================================
+
+### 1. OVERVIEW TAB COMPONENTS
+- [ ] OverviewCharts.tsx - Product performance and regional sales charts
+- [ ] MetricsGrid.tsx - Key metrics display grid
+- [ ] MetricCard.tsx - Individual metric card component
+- [ ] Analytics.tsx - Main analytics page with overview tab
+- [ ] useAnalytics.ts - Analytics data hook
+
+### 2. CUSTOMER INSIGHTS TAB
+- [ ] CustomerAnalytics.tsx - Customer analytics component
+- [ ] CustomersTab.tsx - Customer insights tab content
+- [ ] Customer acquisition channels (Pie Chart)
+- [ ] Customer acquisition funnel (Horizontal Bar Chart)
+- [ ] Acquisition channels breakdown table
+
+### 3. SALES PERFORMANCE TAB
+- [ ] SalesTab.tsx - Sales performance tab content
+- [ ] Monthly revenue chart (Line Chart)
+- [ ] Average order value chart (Bar Chart)
+- [ ] Orders & returns chart (Line Chart)
+- [ ] Sales performance chart (Bar Chart)
+
+### 4. PRODUCT ANALYTICS TAB
+- [ ] ProductsTab.tsx - Product analytics tab content
+- [ ] Product sales distribution (Pie Chart)
+- [ ] Product performance (Horizontal Bar Chart)
+- [ ] Product analytics table (Top 10 products)
+
+### 5. MARKETING EFFECTIVENESS TAB
+- [ ] MarketingTab.tsx - Marketing effectiveness tab content
+- [ ] Email engagement metrics
+- [ ] Campaign performance chart (Bar Chart)
+- [ ] Email engagement rates (Pie Chart)
+- [ ] Campaign performance table
+
+### 6. CUSTOMER LIFETIME TAB
+- [ ] LifetimeTab.tsx - Customer lifetime value tab content
+- [ ] Customer lifetime value by segment (Bar Chart)
+- [ ] Customer retention curve (Line Chart)
+- [ ] Customer acquisition channels table
+- [ ] Geographic distribution (Horizontal Bar Chart)
+- [ ] Cohort retention analysis
+
+### 7. CONVERSION FUNNEL TAB
+- [ ] Conversion funnel visualization
+- [ ] Customer journey tracking
+- [ ] Funnel stage analysis
+
+### 8. REGIONAL SALES TAB
+- [ ] Regional sales distribution (Pie Chart)
+- [ ] Regional breakdown table
+- [ ] Geographic performance metrics
+
+## DASHBOARD OVERVIEW (/dashboard)
+==================================
+
+### 9. DASHBOARD STATS COMPONENTS
+- [ ] DashboardHeader.tsx - Dashboard header component
+- [ ] StatCard.tsx - Individual stat card component
+- [ ] SalesChart.tsx - Main sales chart component
+- [ ] DataCards.tsx - Data visualization cards
+- [ ] TrafficSourcesCard.tsx - Traffic sources pie chart
+- [ ] TopProductsCard.tsx - Top products display
+- [ ] NotificationsCard.tsx - Notifications display
+- [ ] RecentOrders.tsx - Recent orders component
+- [ ] QuickActionCards.tsx - Quick action buttons
+
+### 10. DASHBOARD DATA HOOKS
+- [ ] useDashboardData.ts - Main dashboard data hook
+- [ ] Dashboard data fetching and state management
+- [ ] Real-time data updates
+- [ ] Error handling and loading states
+
+## INVENTORY ANALYTICS (/inventory)
+====================================
+
+### 11. INVENTORY STATS COMPONENTS
+- [ ] InventoryStats.tsx - Main inventory statistics
+- [ ] InventoryMetrics.tsx - Inventory metrics display
+- [ ] InventoryDistribution.tsx - Inventory distribution charts
+- [ ] InventoryHeader.tsx - Inventory page header
+- [ ] ProductFilters.tsx - Product filtering component
+- [ ] ProductsTable.tsx - Products data table
+- [ ] ProductValueCharts.tsx - Product value visualizations
+- [ ] useInventory.ts - Inventory data hook
+
+### 12. INVENTORY CHARTS
+- [ ] CategoryDistributionChart.tsx - Category distribution
+- [ ] CategoryValueChart.tsx - Category value analysis
+- [ ] PopularTagsChart.tsx - Popular tags visualization
+- [ ] PriceRangeChart.tsx - Price range analysis
+- [ ] ProductRatingsChart.tsx - Product ratings display
+- [ ] StockLevelChart.tsx - Stock level visualization
+- [ ] StoreDistributionChart.tsx - Store distribution
+
+### 13. INVENTORY METRICS
+- [ ] Stock utilization percentage
+- [ ] Total capacity vs current stock
+- [ ] Stock-to-minimum ratio
+- [ ] Replenishment recommendations
+- [ ] Fast-moving products
+- [ ] Slow-moving products
+- [ ] Stock turnover rate
+
+## ORDERS ANALYTICS (/orders)
+==============================
+
+### 14. ORDER STATS COMPONENTS
+- [ ] DashboardStats.tsx - Order dashboard statistics
+- [ ] OrdersOverview.tsx - Orders overview component
+- [ ] OrdersHeader.tsx - Orders page header
+- [ ] OrdersTab.tsx - Orders tab content
+- [ ] OrdersTable.tsx - Orders data table
+- [ ] CustomersTab.tsx - Customers tab content
+- [ ] CustomersTable.tsx - Customers data table
+- [ ] useOrdersAndCustomers.ts - Orders and customers data hook
+
+### 15. ORDER CHARTS
+- [ ] OrderStatusChart.tsx - Order status pie chart
+- [ ] OrderStatusReportChart.tsx - Order status report
+- [ ] PayingCustomersChart.tsx - Paying customers visualization
+- [ ] RecentOrdersTimeline.tsx - Recent orders timeline
+- [ ] StorePerformanceChart.tsx - Store performance chart
+- [ ] TopCustomersChart.tsx - Top customers chart
+
+### 16. ORDER UTILITIES
+- [ ] OrderFilters.tsx - Order filtering component
+- [ ] OrderUtils.tsx - Order utility functions
+- [ ] CreateOrderDialog.tsx - Create order dialog
+- [ ] UpdateOrderDialog.tsx - Update order dialog
+- [ ] GenerateInvoiceDialog.tsx - Invoice generation
+- [ ] GenerateReceiptDialog.tsx - Receipt generation
+- [ ] ShippingLabelDialog.tsx - Shipping label dialog
+
+## CUSTOMER ANALYTICS
+=====================
+
+### 17. CUSTOMER COMPONENTS
+- [ ] CustomerAnalytics.tsx - Main customer analytics
+- [ ] Customer acquisition metrics
+- [ ] Customer retention metrics
+- [ ] Customer lifetime value calculations
+- [ ] Customer segmentation
+- [ ] Customer behavior analysis
+
+## WEBSITE ANALYTICS (/website)
+================================
+
+### 18. WEBSITE COMPONENTS
+- [ ] WebsiteHeader.tsx - Website analytics header
+- [ ] WebsiteOverview.tsx - Website overview component
+- [ ] WebsiteStats.tsx - Website statistics
+- [ ] WebsiteTabsView.tsx - Website tabs view
+- [ ] CreateWebsiteDialog.tsx - Create website dialog
+
+### 19. WEBSITE METRICS
+- [ ] Page views tracking
+- [ ] Unique visitors
+- [ ] Bounce rate
+- [ ] Conversion rate
+- [ ] Traffic sources
+- [ ] Geographic distribution
+- [ ] Device analytics
+
+## MARKETING ANALYTICS
+======================
+
+### 20. MARKETING COMPONENTS
+- [ ] Email marketing metrics
+- [ ] Campaign performance tracking
+- [ ] ROI calculations
+- [ ] Customer acquisition cost
+- [ ] Social media analytics
+- [ ] Engagement rates
+- [ ] Reach metrics
+
+## TECHNICAL ANALYTICS
+======================
+
+### 21. SYSTEM METRICS
+- [ ] Performance monitoring
+- [ ] API response times
+- [ ] Error rates
+- [ ] Feature usage analytics
+- [ ] User behavior tracking
+- [ ] Session analytics
+
+## DATA EXPORT & REPORTING
+===========================
+
+### 22. EXPORT COMPONENTS
+- [ ] CSV export functionality
+- [ ] Excel export functionality
+- [ ] PDF report generation
+- [ ] Custom date range selection
+- [ ] Real-time data refresh
+- [ ] Auto-refresh capabilities
+
+## CHART COMPONENTS
+===================
+
+### 23. CHART LIBRARIES
+- [ ] Recharts integration
+- [ ] Chart.js integration
+- [ ] Custom chart components
+- [ ] Responsive chart design
+- [ ] Interactive chart features
+- [ ] Color scheme consistency
+
+### 24. CHART TYPES
+- [ ] Line Charts - Trends over time
+- [ ] Bar Charts - Comparative data
+- [ ] Pie Charts - Distribution data
+- [ ] Area Charts - Cumulative data
+- [ ] Horizontal Bar Charts - Ranking data
+- [ ] Tables - Detailed data breakdowns
+
+## MOBILE ANALYTICS
+===================
+
+### 25. MOBILE COMPONENTS
+- [ ] Mobile-optimized charts
+- [ ] Touch-friendly interactions
+- [ ] Simplified mobile views
+- [ ] Progressive loading
+- [ ] Responsive design implementation
+
+## API INTEGRATION
+==================
+
+### 26. API SERVICES
+- [ ] apiService.ts - Main API service
+- [ ] Analytics API endpoints
+- [ ] Data fetching hooks
+- [ ] Error handling
+- [ ] Loading states
+- [ ] Caching mechanisms
+
+### 27. DATA HOOKS
+- [ ] useAnalytics.ts - Analytics data hook
+- [ ] useDashboardData.ts - Dashboard data hook
+- [ ] useInventory.ts - Inventory data hook
+- [ ] useOrdersAndCustomers.ts - Orders data hook
+- [ ] Custom data fetching hooks
+
+## NOTIFICATION SYSTEM
+======================
+
+### 28. NOTIFICATION COMPONENTS
+- [ ] NotificationBanner.tsx - Notification banner
+- [ ] NotificationsCard.tsx - Notifications display
+- [ ] Real-time notifications
+- [ ] Alert system for metrics
+- [ ] Notification preferences
+
+## TESTING & QUALITY ASSURANCE
+===============================
+
+### 29. TESTING COMPONENTS
+- [ ] Unit tests for analytics components
+- [ ] Integration tests for data flows
+- [ ] Performance tests for charts
+- [ ] Mobile responsiveness tests
+- [ ] Cross-browser compatibility tests
+
+## DOCUMENTATION
+================
+
+### 30. DOCUMENTATION NEEDED
+- [ ] Component documentation
+- [ ] API documentation
+- [ ] Usage examples
+- [ ] Configuration guides
+- [ ] Troubleshooting guides
+
+## PRIORITY ANALYSIS ORDER
+===========================
+
+### HIGH PRIORITY (Core Analytics)
+1. Analytics.tsx - Main analytics page
+2. useAnalytics.ts - Analytics data hook
+3. Dashboard overview components
+4. Sales and revenue analytics
+5. Customer analytics
+
+### MEDIUM PRIORITY (Feature Analytics)
+6. Inventory analytics
+7. Order analytics
+8. Product analytics
+9. Marketing analytics
+10. Regional analytics
+
+### LOW PRIORITY (Advanced Analytics)
+11. Website analytics
+12. Technical analytics
+13. Advanced reporting
+14. Mobile analytics
+15. Export functionality
+
+## ANALYSIS CHECKLIST FOR EACH COMPONENT
+=========================================
+
+For each component, analyze:
+- [ ] Functionality and features
+- [ ] Data integration
+- [ ] Performance optimization
+- [ ] Error handling
+- [ ] Loading states
+- [ ] Responsive design
+- [ ] Accessibility
+- [ ] Code quality
+- [ ] Documentation
+- [ ] Testing coverage
+- [ ] API integration
+- [ ] Real-time updates
+- [ ] Data accuracy
+- [ ] User experience
+- [ ] Mobile compatibility
+
+## NOTES
+========
+
+- Each component should be analyzed individually
+- Focus on functionality, integration, and user experience
+- Check for proper error handling and loading states
+- Verify responsive design and mobile compatibility
+- Ensure proper data flow and API integration
+- Test performance and optimization opportunities
+- Review code quality and maintainability
+- Check for proper documentation and comments
+- Verify testing coverage and quality assurance
+- Ensure accessibility compliance
+- Check for security considerations
+- Verify real-time data updates
+- Test export and reporting functionality
+- Review notification and alert systems
+- Check for proper error boundaries and fallbacks
+
+## TOTAL COMPONENTS TO ANALYZE: 150+
+=====================================
+
+This comprehensive list covers all analytics and stats components in the Elapix frontend that need individual analysis for functionality, integration, performance, and user experience.

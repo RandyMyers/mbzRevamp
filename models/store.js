@@ -120,6 +120,30 @@ const StoreSchema = new Schema({
       type: Boolean,
       default: true
     }
+  },
+  
+  // Sync status tracking
+  syncStatus: {
+    categories: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'not_started'],
+      default: 'not_started'
+    },
+    products: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'not_started'],
+      default: 'not_started'
+    },
+    customers: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'not_started'],
+      default: 'not_started'
+    },
+    orders: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'not_started'],
+      default: 'not_started'
+    }
   }
 
 },{ timestamps: true });

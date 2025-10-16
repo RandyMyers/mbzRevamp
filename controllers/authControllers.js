@@ -2607,3 +2607,347 @@ exports.verifyResetToken = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/auth/verify-token:
+ *   post:
+ *     summary: Verify if JWT token is valid and not expired
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: JWT token to verify
+ *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: Token verification result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 valid:
+ *                   type: boolean
+ *                   description: Whether the token is valid and not expired
+ *                   example: true
+ *                 expired:
+ *                   type: boolean
+ *                   description: Whether the token has expired
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token is valid"
+ *                 user:
+ *                   type: object
+ *                   description: User information if token is valid
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     role:
+ *                       type: string
+ *                       example: "user"
+ *                     organizationId:
+ *                       type: string
+ *                       example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *       400:
+ *         description: Bad request - missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token is required"
+ *       401:
+ *         description: Unauthorized - invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 expired:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token has expired"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
+/**
+ * @swagger
+ * /api/auth/verify-token:
+ *   post:
+ *     summary: Verify JWT token validity and expiration
+ *     description: Check if a JWT token is valid, not expired, and belongs to an active user. Used by frontend to determine if user needs to login again.
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: JWT token to verify
+ *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0ZjFhMmIzYzRkNWU2ZjdnOGg5aTBqMyIsImVtYWlsIjoidGVzdEB1c2VyLmNvbSIsImlhdCI6MTY5MzQ1NjAwMCwiZXhwIjoxNjk0MDYwODAwfQ.example_signature"
+ *     responses:
+ *       200:
+ *         description: Token is valid and user is authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 valid:
+ *                   type: boolean
+ *                   example: true
+ *                 expired:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token is valid"
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: ObjectId
+ *                       example: "64f1a2b3c4d5e6f7g8h9i0j3"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: "test@user.com"
+ *                     role:
+ *                       type: string
+ *                       example: "admin"
+ *                     organizationId:
+ *                       type: string
+ *                       format: ObjectId
+ *                       example: "67f504af91eae487185de080"
+ *                     fullName:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     username:
+ *                       type: string
+ *                       example: "johndoe"
+ *       400:
+ *         description: Token is missing from request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token is required"
+ *       401:
+ *         description: Token is invalid, expired, or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 expired:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token has expired"
+ *       500:
+ *         description: Server error during token verification
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 valid:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error during token verification"
+ */
+exports.verifyToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    // Check if token is provided
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        valid: false,
+        message: 'Token is required'
+      });
+    }
+
+    console.log('🔍 Token verification request received');
+    console.log('🔍 Token length:', token.length);
+    console.log('🔍 Token starts with:', token.substring(0, 20) + '...');
+
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ Token is valid');
+    console.log('🔍 Decoded payload:', {
+      id: decoded.id,
+      email: decoded.email,
+      iat: decoded.iat,
+      exp: decoded.exp
+    });
+
+    // Check if token is expired (additional check)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const isExpired = decoded.exp < currentTime;
+    
+    if (isExpired) {
+      console.log('❌ Token has expired');
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        expired: true,
+        message: 'Token has expired'
+      });
+    }
+
+    // Get user information
+    const user = await User.findById(decoded.id).select('_id email role organizationId fullName username');
+    
+    if (!user) {
+      console.log('❌ User not found');
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if user changed password after token was issued
+    if (user.changedPasswordAfter && user.changedPasswordAfter(decoded.iat)) {
+      console.log('❌ User changed password after token was issued');
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        message: 'Token is no longer valid - password was changed'
+      });
+    }
+
+    console.log('✅ Token verification successful');
+    
+    // Return success response with user info
+    res.status(200).json({
+      success: true,
+      valid: true,
+      expired: false,
+      message: 'Token is valid',
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        organizationId: user.organizationId,
+        fullName: user.fullName,
+        username: user.username
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Token verification error:', error.message);
+    
+    // Handle different types of JWT errors
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        expired: true,
+        message: 'Token has expired'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        message: 'Invalid token'
+      });
+    }
+    
+    if (error.name === 'NotBeforeError') {
+      return res.status(401).json({
+        success: false,
+        valid: false,
+        message: 'Token not active'
+      });
+    }
+
+    // Generic server error
+    res.status(500).json({
+      success: false,
+      valid: false,
+      message: 'Server error during token verification'
+    });
+  }
+};
+

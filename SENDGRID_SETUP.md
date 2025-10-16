@@ -126,3 +126,10 @@ If you must use SMTP instead of SendGrid HTTP API, uncomment the Nodemailer code
 
 **Need help?** Contact the development team or check the [SendGrid Documentation](https://docs.sendgrid.com/)
 
+
+
+
+
+
+
+

@@ -63,6 +63,12 @@ const orderSchema = new mongoose.Schema({
   total: {
     type: String,
   },
+  
+  // Currency Information
+  originalTotal: { type: String, default: null }, // Original total from WooCommerce
+  originalCurrency: { type: String, default: null }, // Original currency from WooCommerce
+  displayCurrency: { type: String, default: null }, // User's base currency
+  convertedTotal: { type: Number, default: null }, // Converted total to user's base currency
   total_tax: {
     type: String,
   },

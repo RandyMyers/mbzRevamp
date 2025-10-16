@@ -77,3 +77,9 @@ async function fixRoleIndex() {
 // Run the script
 fixRoleIndex();
 
+
+
+
+
+
+

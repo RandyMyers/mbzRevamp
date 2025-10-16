@@ -12,6 +12,8 @@ const { createAndSendNotification } = require('../services/notificationService')
 // Store error notifications for user feedback
 const storeErrorNotification = async (storeId, operation, errorMessage, organizationId, userId) => {
   try {
+    console.log(`🔔 Creating error notification for ${operation} - Store: ${storeId}, User: ${userId}`);
+    
     // Create audit log for store sync error
     await createAuditLog({
       action: `Store ${operation} Error`,
@@ -31,9 +33,55 @@ const storeErrorNotification = async (storeId, operation, errorMessage, organiza
       severity: errorMessage.severity || 'error'
     });
 
+    // Create detailed error notification for user
+    const errorSubject = `Store Sync Error - ${operation.replace('_', ' ').toUpperCase()}`;
+    const errorBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc3545;">⚠️ Store Sync Error</h2>
+        <p><strong>Store Operation:</strong> ${operation.replace('_', ' ').toUpperCase()}</p>
+        <p><strong>Error Message:</strong> ${errorMessage.message}</p>
+        <p><strong>Error Type:</strong> ${errorMessage.errorType || 'Unknown'}</p>
+        ${errorMessage.suggestions ? `<p><strong>Suggestions:</strong></p><ul>${errorMessage.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>` : ''}
+        <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+        <hr>
+        <p style="color: #6c757d; font-size: 12px;">
+          This is an automated notification from your MBZ Tech Platform. 
+          Please check your store settings and try syncing again.
+        </p>
+      </div>
+    `;
+
+    // Send notification to user
+    const notificationResult = await createAndSendNotification({
+      userId,
+      organization: organizationId,
+      type: 'system',
+      subject: errorSubject,
+      body: errorBody
+    });
+
+    if (notificationResult.success) {
+      console.log(`✅ Error notification sent successfully for ${operation}`);
+    } else {
+      console.error(`❌ Failed to send error notification for ${operation}:`, notificationResult.error);
+    }
+
     console.log(`📝 Store ${operation} error logged for user notification`);
   } catch (auditError) {
     console.error('Failed to create audit log for store error:', auditError);
+    
+    // Try to send a basic error notification even if audit logging fails
+    try {
+      await createAndSendNotification({
+        userId,
+        organization: organizationId,
+        type: 'system',
+        subject: `Store Sync Error - ${operation}`,
+        body: `An error occurred during ${operation}. Please check your store configuration.`
+      });
+    } catch (notificationError) {
+      console.error('Failed to send basic error notification:', notificationError);
+    }
   }
 };
 
@@ -175,10 +223,31 @@ const syncCustomers = async (storeId, organizationId, userId) => {
 
     worker.on('error', (error) => {
       console.error(`❌ Customer sync worker error: ${error.message}`);
+      console.error(`❌ Customer sync worker stack: ${error.stack}`);
+      
+      // Store error notification for user feedback
+      storeErrorNotification(storeId, 'customer_sync_worker_error', {
+        message: error.message,
+        errorType: 'worker_thread_error',
+        suggestions: ['Check worker thread implementation', 'Verify database connections'],
+        technicalDetails: error.stack,
+        severity: 'error'
+      }, organizationId, userId);
     });
 
     worker.on('exit', (code) => {
-      if (code !== 0) console.error(`❌ Customer sync worker stopped with exit code ${code}`);
+      if (code !== 0) {
+        console.error(`❌ Customer sync worker stopped with exit code ${code}`);
+        
+        // Store error notification for user feedback
+        storeErrorNotification(storeId, 'customer_sync_worker_exit', {
+          message: `Worker exited with code ${code}`,
+          errorType: 'worker_thread_exit',
+          suggestions: ['Check worker thread logs', 'Verify API credentials'],
+          technicalDetails: `Exit code: ${code}`,
+          severity: 'error'
+        }, organizationId, userId);
+      }
     });
 
   } catch (error) {
@@ -248,10 +317,31 @@ const syncOrders = async (storeId, organizationId, userId) => {
 
     worker.on('error', (error) => {
       console.error(`❌ Order sync worker error: ${error.message}`);
+      console.error(`❌ Order sync worker stack: ${error.stack}`);
+      
+      // Store error notification for user feedback
+      storeErrorNotification(storeId, 'order_sync_worker_error', {
+        message: error.message,
+        errorType: 'worker_thread_error',
+        suggestions: ['Check worker thread implementation', 'Verify database connections'],
+        technicalDetails: error.stack,
+        severity: 'error'
+      }, organizationId, userId);
     });
 
     worker.on('exit', (code) => {
-      if (code !== 0) console.error(`❌ Order sync worker stopped with exit code ${code}`);
+      if (code !== 0) {
+        console.error(`❌ Order sync worker stopped with exit code ${code}`);
+        
+        // Store error notification for user feedback
+        storeErrorNotification(storeId, 'order_sync_worker_exit', {
+          message: `Worker exited with code ${code}`,
+          errorType: 'worker_thread_exit',
+          suggestions: ['Check worker thread logs', 'Verify API credentials'],
+          technicalDetails: `Exit code: ${code}`,
+          severity: 'error'
+        }, organizationId, userId);
+      }
     });
 
   } catch (error) {
@@ -1011,12 +1101,60 @@ exports.syncStoreWithWooCommerce = async (req, res) => {
     // Kick off syncs asynchronously (do not block response)
     setImmediate(async () => {
       try {
+        console.log('🔄 Starting sync pipeline for store:', storeId);
+        
+        // Track sync status
+        const syncStatus = {
+          categories: 'pending',
+          products: 'pending', 
+          customers: 'pending',
+          orders: 'pending'
+        };
+        
+        // Update store with sync status
+        await Store.findByIdAndUpdate(storeId, { 
+          syncStatus,
+          lastSyncDate: new Date()
+        });
+        
+        console.log('🔄 Starting category sync...');
         await syncCategoriesWithWooCommerce(storeId, organizationId, userId);
+        syncStatus.categories = 'completed';
+        await Store.findByIdAndUpdate(storeId, { syncStatus });
+        console.log('✅ Category sync completed');
+        
+        console.log('🔄 Starting product sync...');
         await syncProducts(storeId, organizationId, userId);
+        syncStatus.products = 'completed';
+        await Store.findByIdAndUpdate(storeId, { syncStatus });
+        console.log('✅ Product sync completed');
+        
+        console.log('🔄 Starting customer sync...');
         await syncCustomers(storeId, organizationId, userId);
+        syncStatus.customers = 'completed';
+        await Store.findByIdAndUpdate(storeId, { syncStatus });
+        console.log('✅ Customer sync completed');
+        
+        console.log('🔄 Starting order sync...');
         await syncOrders(storeId, organizationId, userId);
+        syncStatus.orders = 'completed';
+        await Store.findByIdAndUpdate(storeId, { syncStatus });
+        console.log('✅ Order sync completed');
+        
+        console.log('✅ All syncs completed for store:', storeId);
+        
       } catch (e) {
         console.error('❌ Error starting store sync pipeline:', e);
+        
+        // Update sync status to failed
+        await Store.findByIdAndUpdate(storeId, { 
+          syncStatus: {
+            categories: 'failed',
+            products: 'failed',
+            customers: 'failed', 
+            orders: 'failed'
+          }
+        });
       }
     });
 
@@ -1353,5 +1491,284 @@ exports.getStoreErrorNotifications = async (req, res) => {
       success: false,
       message: 'Failed to fetch store error notifications'
     });
+  }
+};
+
+/**
+ * @swagger
+ * /api/stores/{storeId}/sync-status:
+ *   get:
+ *     summary: Get sync status for a store
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store ID
+ *     responses:
+ *       200:
+ *         description: Sync status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 syncStatus:
+ *                   type: object
+ *                   properties:
+ *                     categories:
+ *                       type: string
+ *                       example: "completed"
+ *                     products:
+ *                       type: string
+ *                       example: "completed"
+ *                     customers:
+ *                       type: string
+ *                       example: "failed"
+ *                     orders:
+ *                       type: string
+ *                       example: "pending"
+ *       404:
+ *         description: Store not found
+ */
+exports.getSyncStatus = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    
+    const store = await Store.findById(storeId).select('syncStatus lastSyncDate name');
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Store not found" });
+    }
+    
+    res.status(200).json({
+      success: true,
+      syncStatus: store.syncStatus,
+      lastSyncDate: store.lastSyncDate,
+      storeName: store.name
+    });
+  } catch (error) {
+    console.error('Error getting sync status:', error);
+    res.status(500).json({ success: false, message: "Failed to get sync status" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/stores/{storeId}/notifications:
+ *   get:
+ *     summary: Get all notifications for a store (including sync errors)
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store ID
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [system, email, sms, push]
+ *         description: Filter by notification type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, sent, failed, read]
+ *         description: Filter by notification status
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Number of notifications to return
+ *     responses:
+ *       200:
+ *         description: Notifications retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 notifications:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       subject:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                       sentAt:
+ *                         type: string
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *       404:
+ *         description: Store not found
+ */
+exports.getStoreNotifications = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { type, status, limit = 50 } = req.query;
+    
+    // Verify store exists
+    const store = await Store.findById(storeId);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Store not found" });
+    }
+    
+    // Get user ID from request
+    const userId = req.user?._id?.toString();
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User not authenticated" });
+    }
+    
+    // Build query for notifications
+    const query = { user: userId };
+    if (type) query.type = type;
+    if (status) query.status = status;
+    
+    // Get notifications
+    const notifications = await require('../models/notification').find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .select('_id subject body type status createdAt sentAt deliveryStatus errorMessage');
+    
+    // Format notifications for response
+    const formattedNotifications = notifications.map(notification => ({
+      _id: notification._id,
+      subject: notification.subject,
+      body: notification.body,
+      type: notification.type,
+      status: notification.status,
+      createdAt: notification.createdAt,
+      sentAt: notification.sentAt,
+      deliveryStatus: notification.deliveryStatus,
+      errorMessage: notification.errorMessage
+    }));
+    
+    res.status(200).json({
+      success: true,
+      notifications: formattedNotifications,
+      count: formattedNotifications.length,
+      storeId: storeId,
+      storeName: store.name
+    });
+    
+  } catch (error) {
+    console.error('Error getting store notifications:', error);
+    res.status(500).json({ success: false, message: "Failed to get store notifications" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/stores/{storeId}/test-notification:
+ *   post:
+ *     summary: Send a test notification to verify notification system
+ *     tags: [Stores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 example: "Test notification from store sync system"
+ *     responses:
+ *       200:
+ *         description: Test notification sent successfully
+ *       404:
+ *         description: Store not found
+ */
+exports.sendTestNotification = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { message = "Test notification from store sync system" } = req.body;
+    
+    // Verify store exists
+    const store = await Store.findById(storeId);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Store not found" });
+    }
+    
+    // Get user ID from request
+    const userId = req.user?._id?.toString();
+    const organizationId = (req.user?.organization?._id || req.user?.organization)?.toString();
+    
+    if (!userId || !organizationId) {
+      return res.status(400).json({ success: false, message: "User context missing" });
+    }
+    
+    // Send test notification
+    const notificationResult = await createAndSendNotification({
+      userId,
+      organization: organizationId,
+      type: 'system',
+      subject: `Test Notification - ${store.name}`,
+      body: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">✅ Test Notification</h2>
+          <p><strong>Store:</strong> ${store.name}</p>
+          <p><strong>Message:</strong> ${message}</p>
+          <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+          <hr>
+          <p style="color: #6c757d; font-size: 12px;">
+            This is a test notification to verify the notification system is working correctly.
+          </p>
+        </div>
+      `
+    });
+    
+    if (notificationResult.success) {
+      res.status(200).json({
+        success: true,
+        message: "Test notification sent successfully",
+        notificationId: notificationResult.notificationId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to send test notification",
+        error: notificationResult.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({ success: false, message: "Failed to send test notification" });
   }
 };

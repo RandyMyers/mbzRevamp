@@ -27,6 +27,14 @@ const InventorySchema = new Schema({
   price: { type: Number, default: null },
   sale_price: { type: Number, default: null },
   regular_price: { type: Number, default: null },
+  
+  // Currency Information
+  originalPrice: { type: Number, default: null }, // Original price from WooCommerce
+  originalSalePrice: { type: Number, default: null }, // Original sale price from WooCommerce
+  originalRegularPrice: { type: Number, default: null }, // Original regular price from WooCommerce
+  originalCurrency: { type: String, default: null }, // Original currency from WooCommerce
+  displayCurrency: { type: String, default: null }, // User's base currency
+  currency: { type: String, default: 'USD' }, // Current display currency
   date_on_sale_from: { type: Date, default: null },
   date_on_sale_to: { type: Date, default: null },
   on_sale: { type: Boolean, default: false },

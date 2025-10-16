@@ -211,4 +211,7 @@ router.post('/disable-otp', protect, authController.disableOTP);
 // Get user OTP settings (requires authentication)
 router.get('/otp-settings', protect, authController.getOTPSettings);
 
+// Verify JWT token validity (no authentication required)
+router.post('/verify-token', authController.verifyToken);
+
 module.exports = router;

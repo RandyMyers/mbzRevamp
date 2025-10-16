@@ -2,6 +2,7 @@ const User = require('../models/users');
 const Organization = require('../models/organization');
 const currencyUtils = require('../utils/currencyUtils');
 const currencyList = require('../utils/currencyList');
+const CurrencyMigrationService = require('../services/currencyMigrationService');
 const mongoose = require('mongoose');
 
 /**
@@ -432,23 +433,51 @@ exports.updateDisplayCurrency = async (req, res) => {
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { displayCurrency },
-      { new: true, runValidators: true }
-    ).select('displayCurrency');
-
-    if (!user) {
+    // Get current user to check if currency is actually changing
+    const currentUser = await User.findById(userId).select('displayCurrency organizationId');
+    if (!currentUser) {
       return res.status(404).json({
         success: false,
         error: "User not found"
       });
     }
 
+    // Check if currency is actually changing
+    const isCurrencyChanging = currentUser.displayCurrency !== displayCurrency;
+    
+    // Update user's display currency
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { displayCurrency },
+      { new: true, runValidators: true }
+    ).select('displayCurrency');
+
+    let migrationResults = null;
+    
+    // If currency is changing, migrate existing data
+    if (isCurrencyChanging) {
+      try {
+        console.log(`🔄 Currency changed from ${currentUser.displayCurrency} to ${displayCurrency}, starting data migration...`);
+        migrationResults = await CurrencyMigrationService.convertUserData(userId, displayCurrency);
+        console.log(`✅ Data migration completed: ${migrationResults.totalConverted} items converted`);
+      } catch (migrationError) {
+        console.error('❌ Data migration failed:', migrationError);
+        // Don't fail the request, just log the error
+        // User preference is still updated
+      }
+    }
+
     res.json({
       success: true,
       data: {
-        displayCurrency: user.displayCurrency
+        displayCurrency: user.displayCurrency,
+        migrationResults: migrationResults ? {
+          totalConverted: migrationResults.totalConverted,
+          totalFailed: migrationResults.totalFailed,
+          products: migrationResults.products,
+          orders: migrationResults.orders
+        } : null,
+        currencyChanged: isCurrencyChanging
       }
     });
   } catch (error) {
@@ -562,17 +591,38 @@ exports.updateAnalyticsCurrency = async (req, res) => {
       });
     }
 
+    // Get current organization to check if currency is actually changing
+    const currentOrganization = await Organization.findById(organizationId).select('analyticsCurrency defaultCurrency name');
+    if (!currentOrganization) {
+      return res.status(404).json({
+        success: false,
+        error: "Organization not found"
+      });
+    }
+
+    // Check if currency is actually changing
+    const isCurrencyChanging = currentOrganization.analyticsCurrency !== analyticsCurrency;
+    
+    // Update organization's analytics currency
     const organization = await Organization.findByIdAndUpdate(
       organizationId,
       { analyticsCurrency },
       { new: true, runValidators: true }
     ).select('analyticsCurrency defaultCurrency name');
 
-    if (!organization) {
-      return res.status(404).json({
-        success: false,
-        error: "Organization not found"
-      });
+    let migrationResults = null;
+    
+    // If currency is changing, migrate all organization data
+    if (isCurrencyChanging) {
+      try {
+        console.log(`🔄 Organization currency changed from ${currentOrganization.analyticsCurrency} to ${analyticsCurrency}, starting data migration...`);
+        migrationResults = await CurrencyMigrationService.convertOrganizationData(organizationId, analyticsCurrency);
+        console.log(`✅ Organization data migration completed: ${migrationResults.totalConverted} items converted`);
+      } catch (migrationError) {
+        console.error('❌ Organization data migration failed:', migrationError);
+        // Don't fail the request, just log the error
+        // Organization preference is still updated
+      }
     }
 
     res.json({
@@ -580,7 +630,13 @@ exports.updateAnalyticsCurrency = async (req, res) => {
       data: {
         analyticsCurrency: organization.analyticsCurrency,
         defaultCurrency: organization.defaultCurrency,
-        organizationName: organization.name
+        organizationName: organization.name,
+        migrationResults: migrationResults ? {
+          totalConverted: migrationResults.totalConverted,
+          totalFailed: migrationResults.totalFailed,
+          userResults: migrationResults.userResults
+        } : null,
+        currencyChanged: isCurrencyChanging
       }
     });
   } catch (error) {

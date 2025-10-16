@@ -93,4 +93,11 @@ router.get("/:storeId/webhooks/status", authenticateUser, storeController.getSto
 // Store error notifications
 router.get("/:storeId/error-notifications", authenticateUser, storeController.getStoreErrorNotifications);
 
+// Sync status endpoint
+router.get("/:storeId/sync-status", authenticateUser, storeController.getSyncStatus);
+
+// Store notifications endpoints
+router.get("/:storeId/notifications", authenticateUser, storeController.getStoreNotifications);
+router.post("/:storeId/test-notification", authenticateUser, storeController.sendTestNotification);
+
 module.exports = router; 

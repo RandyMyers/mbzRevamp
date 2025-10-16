@@ -209,6 +209,7 @@
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Product = require('../models/inventory');
+const Organization = require('../models/organization');
 const currencyUtils = require('../utils/currencyUtils');
 const mongoose = require('mongoose');
 
@@ -229,12 +230,26 @@ exports.totalRevenue = async (req, res) => {
     try {
     const { timeRange, organizationId, userId, displayCurrency } = req.query;
     
+    console.log('🔍 Total Revenue Analytics Request:');
+    console.log('   Organization ID:', organizationId);
+    console.log('   Time Range:', timeRange);
+    console.log('   User ID:', userId);
+    console.log('   Display Currency:', displayCurrency);
+    
     if (!organizationId) {
       return res.status(400).json({ 
         success: false, 
         error: "Organization ID is required" 
       });
     }
+
+    // Debug: Check data existence
+    const totalOrdersInDB = await Order.countDocuments();
+    const ordersForOrg = await Order.countDocuments({ 
+      organizationId: new mongoose.Types.ObjectId(organizationId) 
+    });
+    console.log('📊 Debug - Total orders in DB:', totalOrdersInDB);
+    console.log('📊 Debug - Orders for this org:', ordersForOrg);
 
     const startDate = getDateRange(timeRange);
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
@@ -258,6 +273,13 @@ exports.totalRevenue = async (req, res) => {
           start: startDate,
           end: new Date()
         }
+      },
+      debug: {
+        organizationId,
+        totalOrdersInDB,
+        ordersForOrg,
+        hasData: ordersForOrg > 0,
+        issue: ordersForOrg === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {
@@ -274,12 +296,24 @@ exports.totalOrders = async (req, res) => {
     try {
     const { timeRange, organizationId } = req.query;
     
+    console.log('🔍 Total Orders Analytics Request:');
+    console.log('   Organization ID:', organizationId);
+    console.log('   Time Range:', timeRange);
+    
     if (!organizationId) {
       return res.status(400).json({ 
         success: false, 
         error: "Organization ID is required" 
       });
     }
+
+    // Debug: Check data existence
+    const totalOrdersInDB = await Order.countDocuments();
+    const ordersForOrg = await Order.countDocuments({ 
+      organizationId: new mongoose.Types.ObjectId(organizationId) 
+    });
+    console.log('📊 Debug - Total orders in DB:', totalOrdersInDB);
+    console.log('📊 Debug - Orders for this org:', ordersForOrg);
 
     const startDate = getDateRange(timeRange);
 
@@ -300,6 +334,13 @@ exports.totalOrders = async (req, res) => {
           start: startDate,
           end: new Date() // Include end date for clarity
         }
+      },
+      debug: {
+        organizationId,
+        totalOrdersInDB,
+        ordersForOrg,
+        hasData: ordersForOrg > 0,
+        issue: ordersForOrg === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {
@@ -316,9 +357,21 @@ exports.newCustomers = async (req, res) => {
   try {
     const { timeRange, organizationId } = req.query;
 
+    console.log('🔍 New Customers Analytics Request:');
+    console.log('   Organization ID:', organizationId);
+    console.log('   Time Range:', timeRange);
+
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'Organization ID is required' });
     }
+
+    // Debug: Check data existence
+    const totalCustomersInDB = await Customer.countDocuments();
+    const customersForOrg = await Customer.countDocuments({ 
+      organizationId: new mongoose.Types.ObjectId(organizationId) 
+    });
+    console.log('📊 Debug - Total customers in DB:', totalCustomersInDB);
+    console.log('📊 Debug - Customers for this org:', customersForOrg);
 
     const startDate = getDateRange(timeRange);
 
@@ -333,7 +386,17 @@ exports.newCustomers = async (req, res) => {
       ]
     });
 
-    res.json({ success: true, data: { newCustomers } });
+    res.json({ 
+      success: true, 
+      data: { newCustomers },
+      debug: {
+        organizationId,
+        totalCustomersInDB,
+        customersForOrg,
+        hasData: customersForOrg > 0,
+        issue: customersForOrg === 0 ? "No customers found for this organization" : null
+      }
+    });
   } catch (error) {
     console.error('New Customers Error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -372,6 +435,13 @@ exports.averageOrderValue = async (req, res) => {
         averageOrderValue,
         currency: revenueSummary.targetCurrency,
         totalOrders
+      },
+      debug: {
+        organizationId,
+        totalOrdersInDB: await Order.countDocuments(),
+        ordersForOrg: totalOrders,
+        hasData: totalOrders > 0,
+        issue: totalOrders === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {

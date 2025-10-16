@@ -2,10 +2,13 @@ const { parentPort, workerData } = require('worker_threads');
 const Order = require('../models/order');
 const Customer = require('../models/customers');
 const Inventory = require('../models/inventory'); // Import Inventory model
+const User = require('../models/users');
+const Organization = require('../models/organization');
 const connectDB = require('./connectDB');
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 const https = require('https');
 const StoreErrorHandler = require('../services/storeErrorHandler');
+const currencyUtils = require('../utils/currencyUtils');
 
 // Get the customerId if customer exists, otherwise return null
 const getCustomerIdByWooCommerceId = async (woocommerceCustomerId, email, organizationId, storeId) => {
@@ -37,6 +40,14 @@ const syncOrderJob = async (jobData) => {
     connectDB();
 
     console.log('Starting order sync for store:', storeId);
+
+    // Get user and organization currency preferences
+    console.log('🔍 Getting currency preferences for user:', userId);
+    const user = await User.findById(userId).select('displayCurrency');
+    const organization = await Organization.findById(organizationId).select('analyticsCurrency defaultCurrency');
+    
+    const targetCurrency = user?.displayCurrency || organization?.analyticsCurrency || organization?.defaultCurrency || 'USD';
+    console.log(`💰 Target currency for conversion: ${targetCurrency}`);
 
     // Create HTTPS agent configuration for SSL bypass (if needed)
     let httpsAgent = null;
@@ -147,6 +158,25 @@ const syncOrderJob = async (jobData) => {
           })
         );
 
+        // Get original order amounts and currency from WooCommerce
+        const originalTotal = parseFloat(order.total) || 0;
+        const originalCurrency = order.currency || 'USD';
+        
+        // Convert order total to user's base currency
+        let convertedTotal = originalTotal;
+        
+        if (originalCurrency !== targetCurrency && originalTotal > 0) {
+          try {
+            console.log(`🔄 Converting order total ${originalTotal} ${originalCurrency} to ${targetCurrency}`);
+            convertedTotal = await currencyUtils.convertCurrency(originalTotal, originalCurrency, targetCurrency);
+            console.log(`✅ Converted order total: ${convertedTotal} ${targetCurrency}`);
+          } catch (conversionError) {
+            console.error(`❌ Currency conversion failed for order ${order.id}:`, conversionError.message);
+            // Fallback to original total if conversion fails
+            convertedTotal = originalTotal;
+          }
+        }
+
         const orderData = {
           storeId,
           organizationId,
@@ -159,7 +189,7 @@ const syncOrderJob = async (jobData) => {
           order_id: order.id.toString(),
           number: order.id.toString(), // Set number to WooCommerce order ID
           status: order.status,
-          currency: order.currency,
+          currency: targetCurrency, // Use converted currency
           version: order.version,
           prices_include_tax: order.prices_include_tax,
           date_created: new Date(order.date_created),
@@ -169,8 +199,13 @@ const syncOrderJob = async (jobData) => {
           shipping_total: order.shipping_total,
           shipping_tax: order.shipping_tax,
           cart_tax: order.cart_tax,
-          total: order.total,
+          total: convertedTotal.toString(), // Use converted total
           total_tax: order.total_tax,
+          // Currency conversion fields
+          originalTotal: originalTotal.toString(),
+          originalCurrency: originalCurrency,
+          displayCurrency: targetCurrency,
+          convertedTotal: convertedTotal,
           customer_note: order.customer_note,
           payment_method: order.payment_method,
           payment_method_title: order.payment_method_title,
