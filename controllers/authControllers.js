@@ -748,11 +748,11 @@ exports.loginOrganizationUser = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      userId: user._id,
+      userId: user._id.toString(), // ✅ Convert ObjectId to string
       username: user.fullName,
       email: user.email,
       role: user.role,
-      organizationId: organization._id,
+      organizationId: organization._id.toString(), // ✅ Convert ObjectId to string
       organization: organization.name,
       organizationCode: user.organizationCode,
       profilePicture: user.profilePicture,
@@ -1093,7 +1093,7 @@ exports.loginAffiliate = async (req, res) => {
       success: true,
       message: "Affiliate login successful",
       token,
-      userId: user._id,
+      userId: user._id.toString(), // ✅ Convert ObjectId to string
       username: user.fullName,
       email: user.email,
       role: user.role,
