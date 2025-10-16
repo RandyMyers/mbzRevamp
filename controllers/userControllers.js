@@ -167,7 +167,17 @@ exports.createUser = async (req, res) => {
   const { userId, name, email, password, roleId, department } = req.body;
 
   try {
-    const admin = await User.findById(userId);
+    // ✅ Get userId from request body OR authenticated user
+    const adminUserId = userId || req.user?._id || req.user?.id;
+    
+    if (!adminUserId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "User ID not found. Please ensure you are properly authenticated." 
+      });
+    }
+
+    const admin = await User.findById(adminUserId);
     console.log(admin);
     //if (!admin || admin.role !== 'admin') {
     //  return res.status(403).json({ success: false, message: "Unauthorized" });
