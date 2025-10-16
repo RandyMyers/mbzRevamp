@@ -193,39 +193,14 @@ exports.createUser = async (req, res) => {
       profilePictureUrl = result.secure_url;
     }
 
-    // ✅ NEW: Role validation and assignment
+    // ✅ IMPROVED: Role validation and assignment with better error handling
     let validatedRoleId = null;
     let roleName = 'member';
     
-    if (roleId) {
-      // Validate roleId format
-      if (!mongoose.Types.ObjectId.isValid(roleId)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Invalid role ID format. Please select a valid role from the dropdown." 
-        });
-      }
+    // ✅ Handle empty, null, or undefined roleId
+    if (!roleId || roleId.trim() === '') {
+      console.log('🔍 No roleId provided, using default role assignment');
       
-      // Check if role exists
-      const role = await Role.findById(roleId);
-      if (!role) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Selected role not found. Please refresh the page and try again." 
-        });
-      }
-      
-      // Check if role belongs to organization
-      if (role.organization.toString() !== organization._id.toString()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Selected role does not belong to this organization. Please select a role from your organization." 
-        });
-      }
-      
-      validatedRoleId = roleId;
-      roleName = role.name;
-    } else {
       // ✅ NEW: Default role assignment with clear guidance
       const defaultRole = await Role.findOne({ 
         name: 'member', 
@@ -235,6 +210,7 @@ exports.createUser = async (req, res) => {
       if (defaultRole) {
         validatedRoleId = defaultRole._id;
         roleName = defaultRole.name;
+        console.log(`✅ Using existing default role: ${roleName}`);
       } else {
         // Create default member role if it doesn't exist
         const newMemberRole = new Role({
@@ -246,7 +222,37 @@ exports.createUser = async (req, res) => {
         await newMemberRole.save();
         validatedRoleId = newMemberRole._id;
         roleName = newMemberRole.name;
+        console.log(`✅ Created new default role: ${roleName}`);
       }
+    } else {
+      // ✅ Validate roleId format
+      if (!mongoose.Types.ObjectId.isValid(roleId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role." 
+        });
+      }
+      
+      // Check if role exists
+      const role = await Role.findById(roleId);
+      if (!role) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Selected role not found. Please refresh the page and try again, or leave the role empty to use the default role." 
+        });
+      }
+      
+      // Check if role belongs to organization
+      if (role.organization.toString() !== organization._id.toString()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Selected role does not belong to this organization. Please select a role from your organization or leave it empty to use the default role." 
+        });
+      }
+      
+      validatedRoleId = roleId;
+      roleName = role.name;
+      console.log(`✅ Using selected role: ${roleName}`);
     }
 
     const newUser = new User({
@@ -322,7 +328,7 @@ exports.createUser = async (req, res) => {
   } catch (error) {
     console.error('User creation error:', error);
     
-    // ✅ NEW: Better error handling with clear messages
+    // ✅ IMPROVED: Better error handling with specific messages
     if (error.name === 'ValidationError') {
       return res.status(400).json({ 
         success: false, 
@@ -332,9 +338,36 @@ exports.createUser = async (req, res) => {
     }
     
     if (error.name === 'CastError') {
+      console.error('❌ CastError details:', error.message);
+      console.error('❌ CastError path:', error.path);
+      console.error('❌ CastError value:', error.value);
+      
+      // Provide specific error messages based on the field causing the error
+      if (error.path === 'roleId') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role." 
+        });
+      }
+      
+      if (error.path === 'organization') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid organization ID. Please ensure you are properly authenticated." 
+        });
+      }
+      
+      if (error.path === 'userId') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid user ID. Please ensure you are properly authenticated." 
+        });
+      }
+      
+      // Generic CastError message
       return res.status(400).json({ 
         success: false, 
-        message: "Invalid data format. Please ensure all fields are in the correct format." 
+        message: `Invalid data format for field '${error.path}'. Please ensure all fields are in the correct format.` 
       });
     }
     
