@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userControllers');
-const authMiddleware = require('../middlewares/authMiddleware');
+const authMiddleware = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -11,7 +11,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  */
 
 // Protect all routes with authentication
-//router.use(authMiddleware.protect);
+router.use(authMiddleware.protect);
 
 // Admin and super-admin routes
 /**
@@ -74,7 +74,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
-router.post('/create', userController.createUser);
+router.post('/create', authMiddleware.protect, userController.createUser);
 
 // Organization-wide routes (accessible to super-admin)
 /**
