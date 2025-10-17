@@ -171,10 +171,27 @@ exports.createUser = async (req, res) => {
     // ✅ Get userId from request body OR authenticated user
     const adminUserId = userId || req.user?._id || req.user?.id;
     
+    console.log('🔍 DEBUGGING CREATE USER:');
+    console.log('📥 Request Body userId:', userId, 'type:', typeof userId);
+    console.log('👤 Request User _id:', req.user?._id, 'type:', typeof req.user?._id);
+    console.log('👤 Request User id:', req.user?.id, 'type:', typeof req.user?.id);
+    console.log('🆔 Final adminUserId:', adminUserId, 'type:', typeof adminUserId);
+    console.log('🆔 adminUserId is ObjectId:', adminUserId instanceof mongoose.Types.ObjectId);
+    console.log('🆔 adminUserId is valid ObjectId string:', mongoose.Types.ObjectId.isValid(adminUserId));
+    
     if (!adminUserId) {
       return res.status(400).json({ 
         success: false, 
         message: "User ID not found. Please ensure you are properly authenticated." 
+      });
+    }
+    
+    // ✅ Ensure adminUserId is a valid ObjectId string
+    if (!mongoose.Types.ObjectId.isValid(adminUserId)) {
+      console.error('❌ Invalid adminUserId format:', adminUserId);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid user ID format. Please ensure you are properly authenticated and try logging in again." 
       });
     }
 
@@ -184,10 +201,21 @@ exports.createUser = async (req, res) => {
     //  return res.status(403).json({ success: false, message: "Unauthorized" });
    // }
 
+    // ✅ Validate organization ID
+    if (!mongoose.Types.ObjectId.isValid(admin.organization)) {
+      console.error('❌ Invalid organization ID format:', admin.organization);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid organization ID format. Please ensure you are properly authenticated." 
+      });
+    }
+    
     const organization = await Organization.findById(admin.organization);
     if (!organization) {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
+    
+    console.log('✅ Organization found:', organization.name, 'ID:', organization._id);
 
     if (await User.findOne({ email })) {
       return res.status(400).json({ success: false, message: "Email already exists" });
