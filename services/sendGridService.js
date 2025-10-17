@@ -641,23 +641,17 @@ class SendGridService {
         };
       }
       
-      // Test with a simple API call
-      const response = await fetch('https://api.sendgrid.com/v3/user/account', {
-        headers: {
-          'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
+      // Simple validation - just check if API key is set and has correct format
+      const apiKey = process.env.SENDGRID_API_KEY;
+      if (apiKey && apiKey.startsWith('SG.')) {
         return {
           success: true,
-          message: 'SendGrid API connection successful'
+          message: 'SendGrid API key format is valid'
         };
       } else {
         return {
           success: false,
-          error: `SendGrid API error: ${response.status} ${response.statusText}`
+          error: 'SendGrid API key format is invalid (should start with SG.)'
         };
       }
       

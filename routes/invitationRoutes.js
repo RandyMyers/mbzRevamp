@@ -8,7 +8,7 @@ const router = express.Router();
  *     description: invitations operations
  */
 
-const { authenticateUser } = require('../middleware/authMiddleware');
+const { protect: authenticateUser } = require('../middleware/authMiddleware');
 const {
   createInvitation,
   getInvitations,
@@ -16,7 +16,7 @@ const {
   updateInvitation,
   deleteInvitation,
   resendInvitation,
-  testEmailConfig,
+  // testEmailConfig,
   acceptInvitation
 } = require('../controllers/invitationController');
 
@@ -49,7 +49,7 @@ const {
  *       500:
  *         description: Server error
  */
-router.get('/test-email-config', authenticateUser, testEmailConfig);
+// router.get('/test-email-config', authenticateUser, testEmailConfig);
 
 // Public route for accepting invitations (no authenticateToken needed)
 
