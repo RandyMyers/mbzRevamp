@@ -174,15 +174,7 @@ exports.createUser = async (req, res) => {
     if (!adminUserId) {
       return res.status(400).json({ 
         success: false, 
-        message: "User ID not found. Please ensure you are properly authenticated.",
-        debug: {
-          requestBody: req.body,
-          requestUser: req.user,
-          adminUserId: adminUserId,
-          errorDetails: {
-            message: "No userId found in request body or req.user"
-          }
-        }
+        message: "User ID not found. Please ensure you are properly authenticated." 
       });
     }
 
@@ -274,13 +266,29 @@ exports.createUser = async (req, res) => {
       console.log(`✅ Using selected role: ${roleName}`);
     }
 
+    // ✅ Validate department and set default if invalid
+    const validDepartments = [
+      'Customer Support', 
+      'IT', 
+      'HR', 
+      'Sales', 
+      'Marketing', 
+      'Finance', 
+      'Billing', 
+      'Shipping'
+    ];
+    
+    const validatedDepartment = department && validDepartments.includes(department) 
+      ? department 
+      : 'IT'; // Default to 'IT' if invalid or not provided
+
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
       roleId: validatedRoleId, // ✅ Validated roleId
       role: roleName, // ✅ Set role name for backward compatibility
-      department,
+      department: validatedDepartment, // ✅ Validated department
       organization: organization._id,
       profilePicture: profilePictureUrl,
       status: 'active'
@@ -347,35 +355,12 @@ exports.createUser = async (req, res) => {
   } catch (error) {
     console.error('User creation error:', error);
     
-    // 🔍 DETAILED DEBUGGING INFORMATION
-    console.log('🔍 DEBUGGING INFORMATION:');
-    console.log('📥 Request Body:', JSON.stringify(req.body, null, 2));
-    console.log('👤 Request User:', JSON.stringify(req.user, null, 2));
-    console.log('🆔 Admin User ID:', adminUserId);
-    console.log('📧 Email:', email);
-    console.log('👤 Name:', name);
-    console.log('🔑 Role ID:', roleId);
-    console.log('🏢 Department:', department);
-    console.log('❌ Error Name:', error.name);
-    console.log('❌ Error Message:', error.message);
-    console.log('❌ Error Stack:', error.stack);
-    
     // ✅ IMPROVED: Better error handling with specific messages
     if (error.name === 'ValidationError') {
       return res.status(400).json({ 
         success: false, 
         message: "User validation failed. Please check all required fields are filled correctly.",
-        errors: Object.values(error.errors).map(err => err.message),
-        debug: {
-          requestBody: req.body,
-          requestUser: req.user,
-          adminUserId: adminUserId,
-          errorDetails: {
-            name: error.name,
-            message: error.message,
-            errors: Object.values(error.errors).map(err => ({ field: err.path, message: err.message }))
-          }
-        }
+        errors: Object.values(error.errors).map(err => err.message)
       });
     }
     
@@ -388,125 +373,48 @@ exports.createUser = async (req, res) => {
       if (error.path === 'roleId') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role.",
-          debug: {
-            requestBody: req.body,
-            requestUser: req.user,
-            adminUserId: adminUserId,
-            roleId: roleId,
-            errorDetails: {
-              name: error.name,
-              message: error.message,
-              path: error.path,
-              value: error.value
-            }
-          }
+          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role." 
         });
       }
       
       if (error.path === 'organization') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid organization ID. Please ensure you are properly authenticated.",
-          debug: {
-            requestBody: req.body,
-            requestUser: req.user,
-            adminUserId: adminUserId,
-            errorDetails: {
-              name: error.name,
-              message: error.message,
-              path: error.path,
-              value: error.value
-            }
-          }
+          message: "Invalid organization ID. Please ensure you are properly authenticated." 
         });
       }
       
       if (error.path === 'userId') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid user ID. Please ensure you are properly authenticated and try logging in again.",
-          debug: {
-            requestBody: req.body,
-            requestUser: req.user,
-            adminUserId: adminUserId,
-            errorDetails: {
-              name: error.name,
-              message: error.message,
-              path: error.path,
-              value: error.value
-            }
-          }
+          message: "Invalid userid from body. Please ensure you are properly authenticated and try logging in again." 
         });
       }
       
       if (error.path === '_id') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid user ID format. Please ensure you are properly authenticated and try logging in again.",
-          debug: {
-            requestBody: req.body,
-            requestUser: req.user,
-            adminUserId: adminUserId,
-            errorDetails: {
-              name: error.name,
-              message: error.message,
-              path: error.path,
-              value: error.value
-            }
-          }
+          message: "Invalid user _id format. Please ensure you are properly authenticated and try logging in again." 
         });
       }
       
       // Generic CastError message
       return res.status(400).json({ 
         success: false, 
-        message: `Invalid data format for field '${error.path}'. Please ensure all fields are in the correct format.`,
-        debug: {
-          requestBody: req.body,
-          requestUser: req.user,
-          adminUserId: adminUserId,
-          errorDetails: {
-            name: error.name,
-            message: error.message,
-            path: error.path,
-            value: error.value
-          }
-        }
+        message: `Invalid data format for field '${error.path}'. Please ensure all fields are in the correct format.` 
       });
     }
     
     if (error.code === 11000) {
       return res.status(400).json({ 
         success: false, 
-        message: "Email already exists. Please use a different email address.",
-        debug: {
-          requestBody: req.body,
-          requestUser: req.user,
-          adminUserId: adminUserId,
-          email: email,
-          errorDetails: {
-            name: error.name,
-            message: error.message,
-            code: error.code
-          }
-        }
+        message: "Email already exists. Please use a different email address." 
       });
     }
     
     res.status(500).json({ 
       success: false, 
-      message: "Server error during user creation. Please try again or contact support if the issue persists.",
-      debug: {
-        requestBody: req.body,
-        requestUser: req.user,
-        adminUserId: adminUserId,
-        errorDetails: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        }
-      }
+      message: "Server error during user creation. Please try again or contact support if the issue persists." 
     });
   }
 };

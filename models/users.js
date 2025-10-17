@@ -69,7 +69,7 @@ const UserSchema = new Schema({
         'Billing', 
         'Shipping'
       ],
-        
+      default: 'IT'
     },
     status: {
       type: String,
