@@ -819,6 +819,10 @@ const SendGridService = require('../services/sendGridService');
 // Create a new invitation
 exports.createInvitation = async (req, res) => {
   try {
+    console.log('🔍 DEBUG: Starting invitation creation...');
+    console.log('🔍 DEBUG: Request body:', req.body);
+    console.log('🔍 DEBUG: Request user:', req.user);
+    
     const { 
       email, 
       role, 
@@ -827,6 +831,14 @@ exports.createInvitation = async (req, res) => {
       expiresAt,
       organization
     } = req.body;
+    
+    // ✅ VALIDATE REQUIRED FIELDS
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email is required' 
+      });
+    }
     
     // ✅ Hardcoded baseUrl for invitation links
     const baseUrl = 'https://crm.mbztechnology.com';
@@ -1253,19 +1265,31 @@ exports.createInvitation = async (req, res) => {
     console.error('❌ Error details:', {
       name: error.name,
       message: error.message,
-      code: error.code
+      code: error.code,
+      stack: error.stack
     });
     
-    res.status(500).json({ 
+    // ✅ ENHANCED ERROR RESPONSE
+    const errorResponse = {
       success: false, 
       message: 'Failed to create invitation',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
       debug: process.env.NODE_ENV === 'development' ? {
         errorType: error.name,
         errorCode: error.code,
-        timestamp: new Date().toISOString()
+        errorMessage: error.message,
+        timestamp: new Date().toISOString(),
+        requestBody: req.body,
+        requestUser: req.user ? {
+          id: req.user._id,
+          email: req.user.email,
+          role: req.user.role
+        } : null
       } : undefined
-    });
+    };
+    
+    console.error('❌ Sending error response:', errorResponse);
+    res.status(500).json(errorResponse);
   }
 };
 
