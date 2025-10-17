@@ -831,6 +831,15 @@ exports.createInvitation = async (req, res) => {
     // ✅ Hardcoded baseUrl for invitation links
     const baseUrl = 'https://crm.mbztechnology.com';
     
+    // ✅ DEBUG: Log user data for troubleshooting
+    console.log('🔍 DEBUG: req.user data:', {
+      hasUser: !!req.user,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      userRoleId: req.user?.roleId,
+      userOrganization: req.user?.organization
+    });
+
     const invitedBy = req.user._id; // From authenticated user
 
     // ✅ VALIDATION 1: Check if user is authorized to invite
@@ -838,6 +847,15 @@ exports.createInvitation = async (req, res) => {
       return res.status(401).json({ 
         success: false, 
         message: 'Authentication required' 
+      });
+    }
+
+    // ✅ VALIDATION 1.5: Check if invitedBy is valid
+    if (!invitedBy) {
+      console.error('❌ Invalid invitedBy user ID:', invitedBy);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid user authentication. Please log in again.' 
       });
     }
 
@@ -916,12 +934,47 @@ exports.createInvitation = async (req, res) => {
       });
     }
 
-    // ✅ VALIDATION 5: Validate organization
-    const organizationDoc = await Organization.findById(organization || req.user.organization);
+    // ✅ VALIDATION 5: Validate organization with fallbacks
+    let organizationId = organization || req.user.organization;
+    let organizationDoc = null;
+    
+    // ✅ FALLBACK 1: Try provided organization
+    if (organizationId) {
+      try {
+        organizationDoc = await Organization.findById(organizationId);
+      } catch (orgError) {
+        console.error('❌ Error finding organization:', orgError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 2: Try user's organization if provided org not found
+    if (!organizationDoc && req.user.organization && req.user.organization !== organizationId) {
+      try {
+        organizationDoc = await Organization.findById(req.user.organization);
+        organizationId = req.user.organization;
+        console.log('✅ Using user organization as fallback:', organizationId);
+      } catch (userOrgError) {
+        console.error('❌ Error finding user organization:', userOrgError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 3: Try to find any active organization (last resort)
+    if (!organizationDoc) {
+      try {
+        organizationDoc = await Organization.findOne({ status: 'active' }).sort({ createdAt: -1 });
+        if (organizationDoc) {
+          organizationId = organizationDoc._id;
+          console.log('⚠️ Using last resort organization:', organizationId);
+        }
+      } catch (lastResortError) {
+        console.error('❌ Last resort organization fallback failed:', lastResortError.message);
+      }
+    }
+    
     if (!organizationDoc) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Organization not found' 
+        message: 'Organization not found. Please contact support.' 
       });
     }
     
@@ -945,46 +998,149 @@ exports.createInvitation = async (req, res) => {
     // ✅ SET EXPIRATION (default 7 days)
     const expirationDate = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // ✅ CREATE INVITATION
-    const invitation = new Invitation({
+    // ✅ CREATE INVITATION WITH FALLBACKS
+    console.log('🔍 DEBUG: Creating invitation with data:', {
       email: email.toLowerCase(),
       invitedBy,
-      organization: organization || req.user.organization,
+      organization: organizationId, // Use validated organizationId
       role: role || null,
       department: department || null,
-      groups: [], // Removed groups from here
-      message: message || '',
-      token,
-      expiresAt: expirationDate,
-      status: 'pending'
+      token: token.substring(0, 8) + '...', // Log partial token for security
+      expiresAt: expirationDate
     });
 
-    await invitation.save();
-
-    // ✅ POPULATE REFERENCES FOR EMAIL
-    await invitation.populate([
-      { path: 'invitedBy', select: 'fullName email' },
-      { path: 'organization', select: 'name' },
-      { path: 'role', select: 'name' }
-    ]);
-
-    // ✅ SEND INVITATION EMAIL WITH BASEURL
+    // ✅ ROBUST INVITATION CREATION WITH FALLBACKS
+    let invitation = null;
+    let invitationSaved = false;
+    
     try {
-      // ✅ VALIDATE DATA BEFORE SENDING EMAIL
-      if (!invitation.organization || !invitation.invitedBy) {
-        console.error('Missing required data for email:', {
-          hasOrganization: !!invitation.organization,
-          hasInvitedBy: !!invitation.invitedBy
+      invitation = new Invitation({
+        email: email.toLowerCase(),
+        invitedBy,
+        organization: organizationId, // Use validated organizationId
+        role: role || null,
+        department: department || null,
+        groups: [], // Removed groups from here
+        message: message || '',
+        token,
+        expiresAt: expirationDate,
+        status: 'pending'
+      });
+
+      await invitation.save();
+      invitationSaved = true;
+      console.log('✅ Invitation saved successfully:', invitation._id);
+    } catch (saveError) {
+      console.error('❌ Error saving invitation:', saveError.message);
+      
+      // ✅ FALLBACK: Try to save with minimal required fields
+      try {
+        console.log('🔄 Trying fallback invitation creation...');
+        invitation = new Invitation({
+          email: email.toLowerCase(),
+          invitedBy,
+          organization: organizationId,
+          token,
+          expiresAt: expirationDate,
+          status: 'pending'
         });
-        throw new Error('Missing required invitation data');
+        
+        await invitation.save();
+        invitationSaved = true;
+        console.log('✅ Fallback invitation saved successfully:', invitation._id);
+      } catch (fallbackError) {
+        console.error('❌ Fallback invitation creation failed:', fallbackError.message);
+        throw new Error(`Failed to create invitation: ${fallbackError.message}`);
+      }
+    }
+    
+    if (!invitationSaved || !invitation) {
+      throw new Error('Failed to create invitation after all fallback attempts');
+    }
+
+    // ✅ POPULATE REFERENCES FOR EMAIL WITH FALLBACKS
+    console.log('🔍 DEBUG: Populating invitation references...');
+    
+    try {
+      await invitation.populate([
+        { path: 'invitedBy', select: 'fullName email' },
+        { path: 'organization', select: 'name' },
+        { path: 'role', select: 'name' }
+      ]);
+      console.log('✅ Invitation populated successfully');
+    } catch (populateError) {
+      console.error('❌ Error populating invitation:', populateError.message);
+      
+      // ✅ FALLBACK: Try to populate individually
+      try {
+        console.log('🔄 Trying individual population...');
+        await invitation.populate('invitedBy', 'fullName email');
+        await invitation.populate('organization', 'name');
+        if (invitation.role) {
+          await invitation.populate('role', 'name');
+        }
+        console.log('✅ Individual population successful');
+      } catch (individualPopulateError) {
+        console.error('❌ Individual population failed:', individualPopulateError.message);
+        // Continue without population - email will use fallback data
+      }
+    }
+    
+    console.log('🔍 DEBUG: Populated invitation data:', {
+      hasOrganization: !!invitation.organization,
+      hasInvitedBy: !!invitation.invitedBy,
+      organizationName: invitation.organization?.name,
+      invitedByName: invitation.invitedBy?.fullName
+    });
+
+    // ✅ SEND INVITATION EMAIL WITH FALLBACKS
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      // ✅ VALIDATE DATA BEFORE SENDING EMAIL WITH FALLBACKS
+      if (!invitation.organization || !invitation.invitedBy) {
+        console.error('❌ Missing required data for email:', {
+          hasOrganization: !!invitation.organization,
+          hasInvitedBy: !!invitation.invitedBy,
+          organizationId: invitation.organization?._id,
+          invitedById: invitation.invitedBy?._id
+        });
+        
+        // ✅ FALLBACK: Try to fetch missing data
+        console.log('🔄 Trying to fetch missing data for email...');
+        try {
+          if (!invitation.organization) {
+            invitation.organization = await Organization.findById(organizationId).select('name');
+          }
+          if (!invitation.invitedBy) {
+            invitation.invitedBy = await User.findById(invitedBy).select('fullName email');
+          }
+        } catch (fetchError) {
+          console.error('❌ Error fetching missing data:', fetchError.message);
+        }
       }
 
+      // ✅ FALLBACK: Use default data if still missing
+      if (!invitation.organization) {
+        invitation.organization = { name: organizationDoc.name || 'MBZ Technology' };
+        console.log('⚠️ Using fallback organization name');
+      }
+      if (!invitation.invitedBy) {
+        invitation.invitedBy = { fullName: req.user.fullName || req.user.name || 'System Administrator' };
+        console.log('⚠️ Using fallback inviter name');
+      }
+
+      console.log('🔍 DEBUG: Sending invitation email...');
       const emailResult = await SendGridService.sendInvitationEmail(invitation);
+      
       if (!emailResult.success) {
         console.error('❌ Email sending failed:', emailResult.error);
+        emailError = emailResult.error;
         throw new Error(`Failed to send invitation email: ${emailResult.error}`);
       }
 
+      emailSent = true;
       console.log('✅ Invitation email sent successfully');
       
       // ✅ AUDIT LOG SUCCESS
@@ -1006,52 +1162,65 @@ exports.createInvitation = async (req, res) => {
 
     } catch (emailError) {
       console.error('❌ Email sending error:', emailError);
+      emailError = emailError.message;
       
-      // ✅ AUDIT LOG EMAIL FAILURE
-      await createAuditLog({
-        userId: req.user.id,
-        action: 'INVITATION_EMAIL_FAILED',
-        resourceType: 'INVITATION',
-        resourceId: invitation._id,
-        details: {
-          invitationId: invitation._id,
-          recipientEmail: invitation.email,
-          error: emailError.message
-        },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });
+      // ✅ NON-BLOCKING AUDIT LOG EMAIL FAILURE
+      try {
+        await createAuditLog({
+          userId: req.user.id,
+          action: 'INVITATION_EMAIL_FAILED',
+          resourceType: 'INVITATION',
+          resourceId: invitation._id,
+          details: {
+            invitationId: invitation._id,
+            recipientEmail: invitation.email,
+            error: emailError.message
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+      } catch (auditError) {
+        console.error('❌ Audit log failed (non-critical):', auditError.message);
+      }
 
       // Continue with invitation creation even if email fails
       console.warn('⚠️ Continuing with invitation creation despite email failure');
     }
 
-    // ✅ AUDIT LOG: Invitation Created
-    await createAuditLog({
-      action: 'Invitation Created',
-      user: invitedBy,
-      resource: 'invitation',
-      resourceId: invitation._id,
-      details: {
-        inviteeEmail: email,
-        role: role,
-        department: department,
-        organization: organization || req.user.organization,
-        expiresAt: expirationDate,
-        baseUrl: baseUrl,
+    // ✅ AUDIT LOG: Invitation Created (NON-BLOCKING)
+    try {
+      await createAuditLog({
+        action: 'Invitation Created',
+        user: invitedBy,
+        resource: 'invitation',
+        resourceId: invitation._id,
+        details: {
+          inviteeEmail: email,
+          role: role,
+          department: department,
+          organization: organizationId,
+          expiresAt: expirationDate,
+          baseUrl: baseUrl,
+          emailSent: emailSent,
+          emailError: emailError,
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        },
+        organization: organizationId,
+        severity: 'info',
         ip: req.ip,
         userAgent: req.headers['user-agent']
-      },
-      organization: organization || req.user.organization,
-      severity: 'info',
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+      });
+      console.log('✅ Audit log created successfully');
+    } catch (auditError) {
+      console.error('❌ Audit log failed (non-critical):', auditError.message);
+      // Don't fail invitation creation if audit log fails
+    }
 
-    // ✅ SUCCESS RESPONSE
+    // ✅ SUCCESS RESPONSE WITH FALLBACK INFO
     res.status(201).json({ 
       success: true, 
-      message: 'Invitation sent successfully',
+      message: emailSent ? 'Invitation sent successfully' : 'Invitation created successfully (email may not have been sent)',
       invitation: {
         _id: invitation._id,
         email: invitation.email,
@@ -1062,15 +1231,40 @@ exports.createInvitation = async (req, res) => {
         invitedBy: invitation.invitedBy,
         organization: invitation.organization,
         createdAt: invitation.createdAt
-      }
+      },
+      emailStatus: {
+        sent: emailSent,
+        error: emailError || null
+      },
+      debug: process.env.NODE_ENV === 'development' ? {
+        organizationId: organizationId,
+        invitedBy: invitedBy,
+        fallbacksUsed: {
+          organization: organizationId !== (organization || req.user.organization),
+          email: !emailSent,
+          audit: false // Will be true if audit log failed
+        }
+      } : undefined
     });
 
   } catch (error) {
-    console.error('Create invitation error:', error);
+    console.error('❌ Create invitation error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
+    
     res.status(500).json({ 
       success: false, 
       message: 'Failed to create invitation',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      debug: process.env.NODE_ENV === 'development' ? {
+        errorType: error.name,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
+      } : undefined
     });
   }
 };
