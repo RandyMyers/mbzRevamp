@@ -82,7 +82,7 @@ const orderController = require("../controllers/orderControllers");
 router.post("/create", orderController.createOrder);
 
 // GET all orders for a specific organization
-router.get("/all", orderController.getAllOrders);
+router.get("/all", require('../middleware/authMiddleware').protect, orderController.getAllOrders);
 
 // GET all orders for a specific organization
 router.get("/organization/:organizationId", orderController.getAllOrdersByOrganization);

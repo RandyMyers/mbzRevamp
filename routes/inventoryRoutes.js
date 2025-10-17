@@ -247,62 +247,64 @@ router.delete("/store/:storeId", protect, inventoryController.deleteAllProductsB
  */
 router.post("/woocommerce/sync-products/:storeId/:organizationId", protect, inventoryController.syncProducts);
 
-/**
- * @swagger
- * /api/inventory/woocommerce/sync/:productId:
- *   post:
- *     summary: Create Sync
- *     tags: [Inventory]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
+// HIDDEN FROM SWAGGER - Not used by frontend
+// /**
+//  * @swagger
+//  * /api/inventory/woocommerce/sync/:productId:
+//  *   post:
+//  *     summary: Create Sync
+//  *     tags: [Inventory]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     responses:
+//  *       200:
+//  *         description: Success
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                   example: true
+//  *                 message:
+//  *                   type: string
+//  *                   example: "Operation completed successfully"
+//  *       401:
+//  *         description: Unauthorized
+//  *       500:
+//  *         description: Server error
+//  */
 router.post("/woocommerce/sync/:productId", protect, inventoryController.syncProductToWooCommerce);
 
-/**
- * @swagger
- * /api/inventory/woocommerce/retry-sync/:productId:
- *   post:
- *     summary: Create Retry-sync
- *     tags: [Inventory]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
+// HIDDEN FROM SWAGGER - Not used by frontend
+// /**
+//  * @swagger
+//  * /api/inventory/woocommerce/retry-sync/:productId:
+//  *   post:
+//  *     summary: Create Retry-sync
+//  *     tags: [Inventory]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     responses:
+//  *       200:
+//  *         description: Success
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                   example: true
+//  *                 message:
+//  *                   type: string
+//  *                   example: "Operation completed successfully"
+//  *       401:
+//  *         description: Unauthorized
+//  *       500:
+//  *         description: Server error
+//  */
 router.post("/woocommerce/retry-sync/:productId", protect, inventoryController.retryProductWooCommerceSync);
 
 // Metrics routes

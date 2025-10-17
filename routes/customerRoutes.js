@@ -276,62 +276,64 @@ router.delete('/store/:storeId', customerController.deleteAllCustomersByStore);
  */
 router.post('/woocommerce/sync-customers/:storeId/:organizationId', customerController.syncCustomers);
 
-/**
- * @swagger
- * /api/customers/woocommerce/sync/:customerId:
- *   post:
- *     summary: Create Sync
- *     tags: [Customers]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
+// HIDDEN FROM SWAGGER - Not used by frontend
+// /**
+//  * @swagger
+//  * /api/customers/woocommerce/sync/:customerId:
+//  *   post:
+//  *     summary: Create Sync
+//  *     tags: [Customers]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     responses:
+//  *       200:
+//  *         description: Success
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                   example: true
+//  *                 message:
+//  *                   type: string
+//  *                   example: "Operation completed successfully"
+//  *       401:
+//  *         description: Unauthorized
+//  *       500:
+//  *         description: Server error
+//  */
 router.post('/woocommerce/sync/:customerId', customerController.syncCustomerToWooCommerce);
 
-/**
- * @swagger
- * /api/customers/woocommerce/retry-sync/:customerId:
- *   post:
- *     summary: Create Retry-sync
- *     tags: [Customers]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
+// HIDDEN FROM SWAGGER - Not used by frontend
+// /**
+//  * @swagger
+//  * /api/customers/woocommerce/retry-sync/:customerId:
+//  *   post:
+//  *     summary: Create Retry-sync
+//  *     tags: [Customers]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     responses:
+//  *       200:
+//  *         description: Success
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                   example: true
+//  *                 message:
+//  *                   type: string
+//  *                   example: "Operation completed successfully"
+//  *       401:
+//  *         description: Unauthorized
+//  *       500:
+//  *         description: Server error
+//  */
 router.post('/woocommerce/retry-sync/:customerId', customerController.retryCustomerWooCommerceSync);
 
 module.exports = router;

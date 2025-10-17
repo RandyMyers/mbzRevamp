@@ -736,14 +736,42 @@ exports.createOrder = async (req, res) => {
  */
 // GET all orders for a specific organization
 exports.getAllOrders = async (req, res) => {
-  
   try {
-    const orders = await Order.find()
-      .populate("storeId userId organizationId customer_id", "name email") // Populate relevant fields
-      .exec();
+    const { organizationId, limit, status } = req.query;
+    
+    // SECURITY: Validate organizationId is provided
+    if (!organizationId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Organization ID is required" 
+      });
+    }
+
+    // SECURITY: Build query with organization filter
+    const query = { 
+      organizationId: new mongoose.Types.ObjectId(organizationId) 
+    };
+    
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // Build query with limit
+    let ordersQuery = Order.find(query)
+      .populate("storeId userId organizationId customer_id", "name email")
+      .sort({ createdAt: -1 }); // Sort by newest first
+    
+    if (limit) {
+      ordersQuery = ordersQuery.limit(parseInt(limit));
+    }
+
+    const orders = await ordersQuery.exec();
+    
+    console.log(`📦 Found ${orders.length} orders for organization: ${organizationId}`);
     res.status(200).json({ success: true, orders });
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error in getAllOrders:', error);
     res.status(500).json({ success: false, message: "Failed to retrieve orders" });
   }
 };

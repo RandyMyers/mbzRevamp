@@ -86,7 +86,7 @@ const storeErrorNotification = async (storeId, operation, errorMessage, organiza
 };
 
 // Synchronize products with WooCommerce API
-const syncProducts = async (storeId, organizationId, userId) => {
+exports.syncProducts = async (storeId, organizationId, userId) => {
   return new Promise(async (resolve, reject) => {
     try {
       console.log(`🔄 Starting product sync for store: ${storeId}`);
@@ -175,7 +175,7 @@ const syncProducts = async (storeId, organizationId, userId) => {
   });
 };
 
-const syncCustomers = async (storeId, organizationId, userId) => {
+exports.syncCustomers = async (storeId, organizationId, userId) => {
   return new Promise(async (resolve, reject) => {
     try {
       console.log(`🔄 Starting customer sync for store: ${storeId}`);
@@ -281,7 +281,7 @@ const syncCustomers = async (storeId, organizationId, userId) => {
   });
 };
 
-const syncOrders = async (storeId, organizationId, userId) => {
+exports.syncOrders = async (storeId, organizationId, userId) => {
   return new Promise(async (resolve, reject) => {
     try {
       console.log(`🔄 Starting order sync for store: ${storeId}`);
@@ -388,7 +388,7 @@ const syncOrders = async (storeId, organizationId, userId) => {
 };
 
 // Category sync function (different pattern - uses helper function)
-const syncCategoriesWithWooCommerce = async (storeId, organizationId, userId) => {
+exports.syncCategoriesWithWooCommerce = async (storeId, organizationId, userId) => {
   try {
     console.log(`🔄 Starting category sync for store: ${storeId}`);
 
@@ -624,10 +624,10 @@ exports.createStore = async (req, res) => {
       setTimeout(async () => {
         try {
           // Trigger syncs in sequence to avoid overwhelming the API
-          await syncCategoriesWithWooCommerce(savedStore._id, organizationId, userId);
-          await syncProducts(savedStore._id, organizationId, userId);
-          await syncCustomers(savedStore._id, organizationId, userId);
-          await syncOrders(savedStore._id, organizationId, userId);
+          await exports.syncCategoriesWithWooCommerce(savedStore._id, organizationId, userId);
+          await exports.syncProducts(savedStore._id, organizationId, userId);
+          await exports.syncCustomers(savedStore._id, organizationId, userId);
+          await exports.syncOrders(savedStore._id, organizationId, userId);
           
           console.log(`✅ Auto-sync completed for store: ${savedStore.name}`);
         } catch (syncError) {
@@ -1156,25 +1156,25 @@ exports.syncStoreWithWooCommerce = async (req, res) => {
         });
         
         console.log('🔄 Starting category sync...');
-        await syncCategoriesWithWooCommerce(storeId, organizationId, userId);
+        await exports.syncCategoriesWithWooCommerce(storeId, organizationId, userId);
         syncStatus.categories = 'completed';
         await Store.findByIdAndUpdate(storeId, { syncStatus });
         console.log('✅ Category sync completed');
         
         console.log('🔄 Starting product sync...');
-        await syncProducts(storeId, organizationId, userId);
+        await exports.syncProducts(storeId, organizationId, userId);
         syncStatus.products = 'completed';
         await Store.findByIdAndUpdate(storeId, { syncStatus });
         console.log('✅ Product sync completed');
         
         console.log('🔄 Starting customer sync...');
-        await syncCustomers(storeId, organizationId, userId);
+        await exports.syncCustomers(storeId, organizationId, userId);
         syncStatus.customers = 'completed';
         await Store.findByIdAndUpdate(storeId, { syncStatus });
         console.log('✅ Customer sync completed');
         
         console.log('🔄 Starting order sync...');
-        await syncOrders(storeId, organizationId, userId);
+        await exports.syncOrders(storeId, organizationId, userId);
         syncStatus.orders = 'completed';
         await Store.findByIdAndUpdate(storeId, { syncStatus });
         console.log('✅ Order sync completed');
