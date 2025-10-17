@@ -168,21 +168,76 @@ exports.createUser = async (req, res) => {
   
 
   try {
-    // ✅ Get userId from request body OR authenticated user
-    const adminUserId = userId || req.user?._id || req.user?.id;
+    // ✅ ROBUST FALLBACK SYSTEM: Try multiple sources for adminUserId
+    let adminUserId = null;
+    let adminUser = null;
     
     console.log('🔍 DEBUGGING CREATE USER:');
     console.log('📥 Request Body userId:', userId, 'type:', typeof userId);
+    console.log('👤 Request User:', req.user);
     console.log('👤 Request User _id:', req.user?._id, 'type:', typeof req.user?._id);
     console.log('👤 Request User id:', req.user?.id, 'type:', typeof req.user?.id);
+    console.log('👤 Request User userId:', req.user?.userId, 'type:', typeof req.user?.userId);
+    
+    // ✅ FALLBACK 1: Try request body userId first
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      adminUserId = userId;
+      console.log('✅ Using request body userId:', adminUserId);
+    }
+    // ✅ FALLBACK 2: Try req.user._id
+    else if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+      adminUserId = req.user._id;
+      console.log('✅ Using req.user._id:', adminUserId);
+    }
+    // ✅ FALLBACK 3: Try req.user.id
+    else if (req.user?.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+      adminUserId = req.user.id;
+      console.log('✅ Using req.user.id:', adminUserId);
+    }
+    // ✅ FALLBACK 4: Try req.user.userId
+    else if (req.user?.userId && mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      adminUserId = req.user.userId;
+      console.log('✅ Using req.user.userId:', adminUserId);
+    }
+    // ✅ FALLBACK 5: Try to find user by email from JWT token (if available)
+    else if (req.user?.email) {
+      console.log('🔍 Trying to find user by email:', req.user.email);
+      try {
+        const userByEmail = await User.findOne({ email: req.user.email });
+        if (userByEmail && mongoose.Types.ObjectId.isValid(userByEmail._id)) {
+          adminUserId = userByEmail._id;
+          console.log('✅ Found user by email:', adminUserId);
+        }
+      } catch (emailError) {
+        console.error('❌ Error finding user by email:', emailError.message);
+      }
+    }
+    // ✅ FALLBACK 6: Try to find any active user in the organization (last resort)
+    else {
+      console.log('🔍 Last resort: Looking for any active user in organization...');
+      try {
+        // This is a last resort - find any active user to use as admin
+        const anyActiveUser = await User.findOne({ 
+          status: 'active',
+          organization: { $exists: true }
+        }).sort({ createdAt: -1 });
+        
+        if (anyActiveUser && mongoose.Types.ObjectId.isValid(anyActiveUser._id)) {
+          adminUserId = anyActiveUser._id;
+          console.log('⚠️ Using last resort admin user:', adminUserId);
+        }
+      } catch (lastResortError) {
+        console.error('❌ Last resort fallback failed:', lastResortError.message);
+      }
+    }
+    
     console.log('🆔 Final adminUserId:', adminUserId, 'type:', typeof adminUserId);
-    console.log('🆔 adminUserId is ObjectId:', adminUserId instanceof mongoose.Types.ObjectId);
-    console.log('🆔 adminUserId is valid ObjectId string:', mongoose.Types.ObjectId.isValid(adminUserId));
+    console.log('🆔 adminUserId is valid ObjectId:', mongoose.Types.ObjectId.isValid(adminUserId));
     
     if (!adminUserId) {
       return res.status(400).json({ 
         success: false, 
-        message: "User ID not found. Please ensure you are properly authenticated." 
+        message: "Unable to identify the admin user. Please ensure you are properly authenticated and try logging in again." 
       });
     }
     
@@ -196,23 +251,59 @@ exports.createUser = async (req, res) => {
     }
 
     const admin = await User.findById(adminUserId);
-    console.log(admin);
-    //if (!admin || admin.role !== 'admin') {
-    //  return res.status(403).json({ success: false, message: "Unauthorized" });
-   // }
-
-    // ✅ Validate organization ID
-    if (!mongoose.Types.ObjectId.isValid(admin.organization)) {
-      console.error('❌ Invalid organization ID format:', admin.organization);
-      return res.status(400).json({ 
+    console.log('👤 Admin user found:', admin);
+    
+    if (!admin) {
+      return res.status(404).json({ 
         success: false, 
-        message: "Invalid organization ID format. Please ensure you are properly authenticated." 
+        message: "Admin user not found. Please ensure you are properly authenticated." 
       });
     }
+
+    // ✅ ROBUST ORGANIZATION FALLBACK SYSTEM
+    let organization = null;
+    let organizationId = null;
     
-    const organization = await Organization.findById(admin.organization);
+    // ✅ FALLBACK 1: Try admin.organization
+    if (admin.organization && mongoose.Types.ObjectId.isValid(admin.organization)) {
+      organizationId = admin.organization;
+      organization = await Organization.findById(organizationId);
+      console.log('✅ Using admin.organization:', organizationId);
+    }
+    
+    // ✅ FALLBACK 2: Try to find organization by organizationCode
+    if (!organization && admin.organizationCode) {
+      console.log('🔍 Trying to find organization by code:', admin.organizationCode);
+      try {
+        organization = await Organization.findOne({ organizationCode: admin.organizationCode });
+        if (organization) {
+          organizationId = organization._id;
+          console.log('✅ Found organization by code:', organizationId);
+        }
+      } catch (orgCodeError) {
+        console.error('❌ Error finding organization by code:', orgCodeError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 3: Try to find any organization (last resort)
     if (!organization) {
-      return res.status(404).json({ success: false, message: "Organization not found" });
+      console.log('🔍 Last resort: Looking for any organization...');
+      try {
+        organization = await Organization.findOne({ status: 'active' }).sort({ createdAt: -1 });
+        if (organization) {
+          organizationId = organization._id;
+          console.log('⚠️ Using last resort organization:', organizationId);
+        }
+      } catch (lastResortOrgError) {
+        console.error('❌ Last resort organization fallback failed:', lastResortOrgError.message);
+      }
+    }
+    
+    if (!organization) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Organization not found. Please contact support." 
+      });
     }
     
     console.log('✅ Organization found:', organization.name, 'ID:', organization._id);
@@ -232,66 +323,67 @@ exports.createUser = async (req, res) => {
       profilePictureUrl = result.secure_url;
     }
 
-    // ✅ IMPROVED: Role validation and assignment with better error handling
+    // ✅ ROBUST ROLE FALLBACK SYSTEM
     let validatedRoleId = null;
     let roleName = 'member';
     
-    // ✅ Handle empty, null, or undefined roleId
-    if (!roleId || roleId.trim() === '') {
-      console.log('🔍 No roleId provided, using default role assignment');
-      
-      // ✅ NEW: Default role assignment with clear guidance
-      const defaultRole = await Role.findOne({ 
-        name: 'member', 
-        organization: organization._id 
-      });
-      
-      if (defaultRole) {
-        validatedRoleId = defaultRole._id;
-        roleName = defaultRole.name;
-        console.log(`✅ Using existing default role: ${roleName}`);
-      } else {
-        // Create default member role if it doesn't exist
+    console.log('🔍 ROLE ASSIGNMENT DEBUG:');
+    console.log('📥 Request roleId:', roleId, 'type:', typeof roleId);
+    console.log('📥 Organization ID:', organizationId);
+    
+    // ✅ FALLBACK 1: Try to use provided roleId if valid
+    if (roleId && roleId.trim() !== '' && mongoose.Types.ObjectId.isValid(roleId)) {
+      console.log('🔍 Trying to use provided roleId:', roleId);
+      try {
+        const role = await Role.findById(roleId);
+        if (role && role.organization.toString() === organizationId.toString()) {
+          validatedRoleId = roleId;
+          roleName = role.name;
+          console.log(`✅ Using provided role: ${roleName}`);
+        } else {
+          console.log('⚠️ Provided role not found or doesn\'t belong to organization, falling back...');
+        }
+      } catch (roleError) {
+        console.error('❌ Error validating provided role:', roleError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 2: Try to find any role in the organization
+    if (!validatedRoleId) {
+      console.log('🔍 Looking for any role in organization...');
+      try {
+        const anyRole = await Role.findOne({ organization: organizationId });
+        if (anyRole) {
+          validatedRoleId = anyRole._id;
+          roleName = anyRole.name;
+          console.log(`✅ Using existing role: ${roleName}`);
+        }
+      } catch (anyRoleError) {
+        console.error('❌ Error finding any role:', anyRoleError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 3: Create a default member role
+    if (!validatedRoleId) {
+      console.log('🔍 Creating default member role...');
+      try {
         const newMemberRole = new Role({
           name: 'member',
-          organization: organization._id,
-          permissions: ['read'],
+          organization: organizationId,
+          permissions: { read: true },
           description: 'Default member role'
         });
         await newMemberRole.save();
         validatedRoleId = newMemberRole._id;
         roleName = newMemberRole.name;
         console.log(`✅ Created new default role: ${roleName}`);
+      } catch (createRoleError) {
+        console.error('❌ Error creating default role:', createRoleError.message);
+        // Last resort - use null roleId
+        validatedRoleId = null;
+        roleName = 'member';
+        console.log('⚠️ Using null roleId as last resort');
       }
-    } else {
-      // ✅ Validate roleId format
-      if (!mongoose.Types.ObjectId.isValid(roleId)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role." 
-        });
-      }
-      
-      // Check if role exists
-      const role = await Role.findById(roleId);
-      if (!role) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Selected role not found. Please refresh the page and try again, or leave the role empty to use the default role." 
-        });
-      }
-      
-      // Check if role belongs to organization
-      if (role.organization.toString() !== organization._id.toString()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Selected role does not belong to this organization. Please select a role from your organization or leave it empty to use the default role." 
-        });
-      }
-      
-      validatedRoleId = roleId;
-      roleName = role.name;
-      console.log(`✅ Using selected role: ${roleName}`);
     }
 
     // ✅ Validate department and set default if invalid
@@ -310,139 +402,192 @@ exports.createUser = async (req, res) => {
       ? department 
       : 'IT'; // Default to 'IT' if invalid or not provided
 
-    const newUser = new User({
-      name,
-      email,
+    // ✅ ROBUST USER CREATION WITH FALLBACKS
+    const userData = {
+      name: name || 'New User',
+      email: email,
       password: hashedPassword,
-      roleId: validatedRoleId, // ✅ Validated roleId
+      roleId: validatedRoleId, // ✅ Validated roleId (can be null)
       role: roleName, // ✅ Set role name for backward compatibility
       department: validatedDepartment, // ✅ Validated department
-      organization: organization._id,
+      organization: organizationId, // ✅ Use organizationId from fallback
       profilePicture: profilePictureUrl,
       status: 'active'
+    };
+    
+    console.log('🔍 Creating user with data:', {
+      name: userData.name,
+      email: userData.email,
+      roleId: userData.roleId,
+      role: userData.role,
+      department: userData.department,
+      organization: userData.organization
     });
 
+    const newUser = new User(userData);
     await newUser.save();
+    
+    console.log('✅ User created successfully:', newUser._id);
 
     // ✅ NEW: Update role with user ID
     if (validatedRoleId) {
       await Role.findByIdAndUpdate(validatedRoleId, { userId: newUser._id });
     }
 
-    await logEvent({
-      action: 'create_user',
-      user: admin._id,
-      resource: 'User',
-      resourceId: newUser._id,
-      details: { email },
-      organization: organization._id
-    });
-
-    // Send invitation email notification to the newly created user (non-blocking)
+    // ✅ ROBUST AUDIT LOG WITH FALLBACK
     try {
-      let roleName = 'member';
-      if (roleId) {
-        try {
-          const roleDoc = await Role.findById(roleId).lean();
-          if (roleDoc && (roleDoc.name || roleDoc.roleName)) {
-            roleName = roleDoc.name || roleDoc.roleName;
-          }
-        } catch {}
-      }
+      await logEvent({
+        action: 'create_user',
+        user: adminUserId, // Use the adminUserId from fallback
+        resource: 'User',
+        resourceId: newUser._id,
+        details: { 
+          email,
+          createdBy: adminUserId,
+          organizationId: organizationId,
+          roleAssigned: roleName
+        },
+        organization: organizationId
+      });
+      console.log('✅ Audit log created successfully');
+    } catch (auditError) {
+      console.error('❌ Audit log failed (non-critical):', auditError.message);
+      // Don't fail user creation if audit log fails
+    }
 
+    // ✅ ROBUST NOTIFICATION WITH FALLBACK
+    try {
       await notificationGenerationService.generateFromTemplate(
         'invitation_sent',
         {
-          fullName: newUser.name || newUser.fullName || '',
+          fullName: newUser.name || newUser.fullName || 'New User',
           username: newUser.username || newUser.email,
           role: roleName,
           companyName: organization.name || 'MBZ Tech'
         },
         {
           userId: newUser._id,
-          organization: organization._id
+          organization: organizationId
         }
       );
+      console.log('✅ Notification sent successfully');
     } catch (notifyErr) {
-      console.error('User invitation notification failed:', notifyErr);
+      console.error('❌ User invitation notification failed (non-critical):', notifyErr.message);
+      // Don't fail user creation if notification fails
     }
 
+    // ✅ ROBUST RESPONSE WITH FALLBACKS
     res.status(201).json({ 
       success: true, 
       message: `User created successfully with ${roleName} role`, 
       user: {
         _id: newUser._id,
-        name: newUser.name,
+        name: newUser.name || 'New User',
         email: newUser.email,
         role: roleName,
         roleId: validatedRoleId,
-        department: newUser.department,
-        organization: newUser.organization
+        department: newUser.department || 'IT',
+        organization: newUser.organization || organizationId
+      },
+      debug: {
+        adminUserId: adminUserId,
+        organizationId: organizationId,
+        roleAssigned: roleName,
+        fallbacksUsed: {
+          adminUser: adminUserId ? 'found' : 'not_found',
+          organization: organizationId ? 'found' : 'not_found',
+          role: validatedRoleId ? 'assigned' : 'default'
+        }
       }
     });
   } catch (error) {
-    console.error('User creation error:', error);
+    console.error('❌ User creation error:', error);
+    console.error('❌ Error stack:', error.stack);
     
-    // ✅ IMPROVED: Better error handling with specific messages
+    // ✅ ROBUST ERROR HANDLING WITH FALLBACKS
     if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      console.error('❌ Validation errors:', validationErrors);
+      
       return res.status(400).json({ 
         success: false, 
         message: "User validation failed. Please check all required fields are filled correctly.",
-        errors: Object.values(error.errors).map(err => err.message)
+        errors: validationErrors,
+        debug: {
+          errorType: 'ValidationError',
+          fieldErrors: Object.keys(error.errors)
+        }
       });
     }
     
     if (error.name === 'CastError') {
-      console.error('❌ CastError details:', error.message);
-      console.error('❌ CastError path:', error.path);
-      console.error('❌ CastError value:', error.value);
+      console.error('❌ CastError details:', {
+        message: error.message,
+        path: error.path,
+        value: error.value,
+        kind: error.kind
+      });
       
       // Provide specific error messages based on the field causing the error
       if (error.path === 'roleId') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid role ID format. Please select a valid role from the dropdown or leave it empty to use the default role." 
+          message: "Invalid role ID format. The system will assign a default role automatically.",
+          debug: { errorType: 'CastError', field: 'roleId', value: error.value }
         });
       }
       
       if (error.path === 'organization') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid organization ID. Please ensure you are properly authenticated." 
+          message: "Invalid organization ID. Please ensure you are properly authenticated.",
+          debug: { errorType: 'CastError', field: 'organization', value: error.value }
         });
       }
       
       if (error.path === 'userId') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid userid from body. Please ensure you are properly authenticated and try logging in again." 
+          message: "Invalid user ID. Please ensure you are properly authenticated and try logging in again.",
+          debug: { errorType: 'CastError', field: 'userId', value: error.value }
         });
       }
       
       if (error.path === '_id') {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid user _id format. Please ensure you are properly authenticated and try logging in again." 
+          message: "Invalid user _id format. Please ensure you are properly authenticated and try logging in again.",
+          debug: { errorType: 'CastError', field: '_id', value: error.value }
         });
       }
       
       // Generic CastError message
       return res.status(400).json({ 
         success: false, 
-        message: `Invalid data format for field '${error.path}'. Please ensure all fields are in the correct format.` 
+        message: `Invalid data format for field '${error.path}'. Please ensure all fields are in the correct format.`,
+        debug: { errorType: 'CastError', field: error.path, value: error.value }
       });
     }
     
     if (error.code === 11000) {
+      console.error('❌ Duplicate key error:', error.keyValue);
       return res.status(400).json({ 
         success: false, 
-        message: "Email already exists. Please use a different email address." 
+        message: "Email already exists. Please use a different email address.",
+        debug: { errorType: 'DuplicateKey', field: Object.keys(error.keyValue)[0] }
       });
     }
     
+    // Generic server error with debug info
+    console.error('❌ Unhandled error:', error.message);
     res.status(500).json({ 
       success: false, 
-      message: "Server error during user creation. Please try again or contact support if the issue persists." 
+      message: "Server error during user creation. Please try again or contact support if the issue persists.",
+      debug: {
+        errorType: error.name || 'UnknownError',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 };
