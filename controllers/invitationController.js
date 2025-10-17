@@ -834,10 +834,53 @@ exports.createInvitation = async (req, res) => {
     const invitedBy = req.user._id; // From authenticated user
 
     // ✅ VALIDATION 1: Check if user is authorized to invite
-    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required' 
+      });
+    }
+
+    // ✅ FLEXIBLE AUTHORIZATION: Check if user can send invitations
+    let canSendInvitations = false;
+    
+    // ✅ FALLBACK 1: Check for super-admin (always allowed)
+    if (req.user.role === 'super-admin') {
+      canSendInvitations = true;
+    }
+    
+    // ✅ FALLBACK 2: Check for admin role (legacy support)
+    else if (req.user.role === 'admin') {
+      canSendInvitations = true;
+    }
+    
+    // ✅ FALLBACK 3: Check role permissions if user has roleId
+    else if (req.user.roleId) {
+      try {
+        const Role = require('../models/role');
+        const userRole = await Role.findById(req.user.roleId).select('permissions name');
+        
+        if (userRole && userRole.permissions) {
+          // Check if role has invitation permissions
+          canSendInvitations = userRole.permissions.invite_users === true || 
+                              userRole.permissions.user_management === true ||
+                              userRole.permissions.admin_access === true;
+        }
+      } catch (roleError) {
+        console.error('❌ Error checking role permissions:', roleError.message);
+      }
+    }
+    
+    // ✅ FALLBACK 4: Check if user is in the same organization (basic authorization)
+    else if (req.user.organization) {
+      // Allow any user in an organization to send invitations (can be restricted later)
+      canSendInvitations = true;
+    }
+    
+    if (!canSendInvitations) {
       return res.status(403).json({ 
         success: false, 
-        message: 'You are not authorized to send invitations' 
+        message: 'You are not authorized to send invitations. Please contact your administrator to update your permissions.' 
       });
     }
 
@@ -1427,13 +1470,45 @@ exports.updateInvitation = async (req, res) => {
       });
     }
 
-    // Check if user is authorized to update this invitation
-    if (invitation.invitedBy.toString() !== userId.toString() && 
-        req.user.role !== 'admin' && 
-        req.user.role !== 'super-admin') {
+    // ✅ FLEXIBLE AUTHORIZATION: Check if user can update this invitation
+    let canUpdateInvitation = false;
+    
+    // ✅ FALLBACK 1: User is the one who sent the invitation
+    if (invitation.invitedBy.toString() === userId.toString()) {
+      canUpdateInvitation = true;
+    }
+    
+    // ✅ FALLBACK 2: Check for super-admin (always allowed)
+    else if (req.user.role === 'super-admin') {
+      canUpdateInvitation = true;
+    }
+    
+    // ✅ FALLBACK 3: Check for admin role (legacy support)
+    else if (req.user.role === 'admin') {
+      canUpdateInvitation = true;
+    }
+    
+    // ✅ FALLBACK 4: Check role permissions if user has roleId
+    else if (req.user.roleId) {
+      try {
+        const Role = require('../models/role');
+        const userRole = await Role.findById(req.user.roleId).select('permissions name');
+        
+        if (userRole && userRole.permissions) {
+          // Check if role has invitation management permissions
+          canUpdateInvitation = userRole.permissions.invite_users === true || 
+                               userRole.permissions.user_management === true ||
+                               userRole.permissions.admin_access === true;
+        }
+      } catch (roleError) {
+        console.error('❌ Error checking role permissions for invitation update:', roleError.message);
+      }
+    }
+    
+    if (!canUpdateInvitation) {
       return res.status(403).json({ 
         success: false, 
-        message: "You are not authorized to update this invitation" 
+        message: "You are not authorized to update this invitation. Please contact your administrator to update your permissions." 
       });
     }
 
