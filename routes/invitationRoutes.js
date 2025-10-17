@@ -8,7 +8,7 @@ const router = express.Router();
  *     description: invitations operations
  */
 
-const { authenticateUser } = require('../middlewares/authMiddleware');
+const { authenticateUser } = require('../middleware/authMiddleware');
 const {
   createInvitation,
   getInvitations,

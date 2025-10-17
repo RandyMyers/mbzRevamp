@@ -1007,8 +1007,30 @@ exports.createInvitation = async (req, res) => {
     // ✅ GENERATE SECURE TOKEN
     const token = crypto.randomBytes(32).toString('hex');
     
-    // ✅ SET EXPIRATION (default 7 days)
-    const expirationDate = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // ✅ SET EXPIRATION (default 7 days) WITH ROBUST PARSING
+    let expirationDate;
+    try {
+      if (expiresAt) {
+        // Handle different formats: "7 days", "2024-12-31", or Date string
+        if (typeof expiresAt === 'string' && expiresAt.includes('days')) {
+          const days = parseInt(expiresAt.replace(/\D/g, '')) || 7;
+          expirationDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        } else {
+          expirationDate = new Date(expiresAt);
+        }
+      } else {
+        expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      }
+      
+      // Validate the date
+      if (isNaN(expirationDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+    } catch (dateError) {
+      console.error('❌ Error parsing expiration date:', dateError.message);
+      console.log('🔄 Using default expiration date (7 days)');
+      expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    }
 
     // ✅ CREATE INVITATION WITH FALLBACKS
     console.log('🔍 DEBUG: Creating invitation with data:', {
