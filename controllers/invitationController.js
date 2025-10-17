@@ -851,7 +851,7 @@ exports.createInvitation = async (req, res) => {
       userRoleId: req.user?.roleId,
       userOrganization: req.user?.organization
     });
-
+    
     const invitedBy = req.user._id; // From authenticated user
 
     // ✅ VALIDATION 1: Check if user is authorized to invite
@@ -1052,16 +1052,16 @@ exports.createInvitation = async (req, res) => {
         email: email.toLowerCase(),
         invitedBy,
         organization: organizationId, // Use validated organizationId
-        role: role || null,
-        department: department || null,
-        groups: [], // Removed groups from here
-        message: message || '',
-        token,
-        expiresAt: expirationDate,
-        status: 'pending'
-      });
+      role: role || null,
+      department: department || null,
+      groups: [], // Removed groups from here
+      message: message || '',
+      token,
+      expiresAt: expirationDate,
+      status: 'pending'
+    });
 
-      await invitation.save();
+    await invitation.save();
       invitationSaved = true;
       console.log('✅ Invitation saved successfully:', invitation._id);
     } catch (saveError) {
@@ -1096,11 +1096,11 @@ exports.createInvitation = async (req, res) => {
     console.log('🔍 DEBUG: Populating invitation references...');
     
     try {
-      await invitation.populate([
-        { path: 'invitedBy', select: 'fullName email' },
-        { path: 'organization', select: 'name' },
-        { path: 'role', select: 'name' }
-      ]);
+    await invitation.populate([
+      { path: 'invitedBy', select: 'fullName email' },
+      { path: 'organization', select: 'name' },
+      { path: 'role', select: 'name' }
+    ]);
       console.log('✅ Invitation populated successfully');
     } catch (populateError) {
       console.error('❌ Error populating invitation:', populateError.message);
@@ -1200,19 +1200,19 @@ exports.createInvitation = async (req, res) => {
       
       // ✅ NON-BLOCKING AUDIT LOG EMAIL FAILURE
       try {
-        await createAuditLog({
-          userId: req.user.id,
-          action: 'INVITATION_EMAIL_FAILED',
-          resourceType: 'INVITATION',
-          resourceId: invitation._id,
-          details: {
-            invitationId: invitation._id,
-            recipientEmail: invitation.email,
-            error: emailError.message
-          },
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
-        });
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'INVITATION_EMAIL_FAILED',
+        resourceType: 'INVITATION',
+        resourceId: invitation._id,
+        details: {
+          invitationId: invitation._id,
+          recipientEmail: invitation.email,
+          error: emailError.message
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
       } catch (auditError) {
         console.error('❌ Audit log failed (non-critical):', auditError.message);
       }
@@ -1223,28 +1223,28 @@ exports.createInvitation = async (req, res) => {
 
     // ✅ AUDIT LOG: Invitation Created (NON-BLOCKING)
     try {
-      await createAuditLog({
-        action: 'Invitation Created',
-        user: invitedBy,
-        resource: 'invitation',
-        resourceId: invitation._id,
-        details: {
-          inviteeEmail: email,
-          role: role,
-          department: department,
+    await createAuditLog({
+      action: 'Invitation Created',
+      user: invitedBy,
+      resource: 'invitation',
+      resourceId: invitation._id,
+      details: {
+        inviteeEmail: email,
+        role: role,
+        department: department,
           organization: organizationId,
-          expiresAt: expirationDate,
-          baseUrl: baseUrl,
+        expiresAt: expirationDate,
+        baseUrl: baseUrl,
           emailSent: emailSent,
           emailError: emailError,
-          ip: req.ip,
-          userAgent: req.headers['user-agent']
-        },
-        organization: organizationId,
-        severity: 'info',
         ip: req.ip,
         userAgent: req.headers['user-agent']
-      });
+      },
+        organization: organizationId,
+      severity: 'info',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
       console.log('✅ Audit log created successfully');
     } catch (auditError) {
       console.error('❌ Audit log failed (non-critical):', auditError.message);

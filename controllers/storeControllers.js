@@ -87,266 +87,304 @@ const storeErrorNotification = async (storeId, operation, errorMessage, organiza
 
 // Synchronize products with WooCommerce API
 const syncProducts = async (storeId, organizationId, userId) => {
-  try {
-    console.log(`🔄 Starting product sync for store: ${storeId}`);
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log(`🔄 Starting product sync for store: ${storeId}`);
 
-    const store = await Store.findById(storeId);
-    if (!store) {
-      console.error('❌ Store not found for product sync');
-      return;
-    }
-
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      console.error('❌ Organization not found for product sync');
-      return;
-    }
-
-    // Extract only serializable properties from the store document
-    const storeData = {
-      _id: store._id,
-      name: store.name,
-      url: store.url,
-      apiKey: store.apiKey,
-      secretKey: store.secretKey,
-      platformType: store.platformType,
-      isActive: store.isActive
-    };
-
-    const worker = new Worker(path.resolve(__dirname, '../helper/syncProductWorker.js'), {
-      workerData: { storeId, store: storeData, organizationId, userId },
-    });
-
-    console.log('Worker Path:', path.resolve(__dirname, '../helper/syncProductWorker.js'));
-
-    worker.on('message', (message) => {
-      if (message.status === 'success') {
-        console.log(`✅ Product sync completed: ${message.message}`);
-        // Notify success for product sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Product Sync Succeeded - ${store.name}`,
-          body: `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
-        }).catch(() => {});
-      } else if (message.status === 'error') {
-        console.error(`❌ Product sync error: ${message.message}`);
-        console.error(`📋 Error Type: ${message.errorType}`);
-        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-        
-        // Store error information in the database for user notification
-        storeErrorNotification(storeId, 'product_sync', message, organizationId, userId);
-        // Notify failure for product sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Product Sync Failed - ${store.name}`,
-          body: `Product sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
-        }).catch(() => {});
+      const store = await Store.findById(storeId);
+      if (!store) {
+        console.error('❌ Store not found for product sync');
+        reject(new Error('Store not found for product sync'));
+        return;
       }
-    });
 
-    worker.on('error', (error) => {
-      console.error(`❌ Product sync worker error: ${error.message}`);
-    });
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        console.error('❌ Organization not found for product sync');
+        reject(new Error('Organization not found for product sync'));
+        return;
+      }
 
-    worker.on('exit', (code) => {
-      if (code !== 0) console.error(`❌ Product sync worker stopped with exit code ${code}`);
-    });
+      // Extract only serializable properties from the store document
+      const storeData = {
+        _id: store._id,
+        name: store.name,
+        url: store.url,
+        apiKey: store.apiKey,
+        secretKey: store.secretKey,
+        platformType: store.platformType,
+        isActive: store.isActive
+      };
 
-  } catch (error) {
-    console.error('❌ Error in syncProducts:', error.message);
-  }
+      const worker = new Worker(path.resolve(__dirname, '../helper/syncProductWorker.js'), {
+        workerData: { storeId, store: storeData, organizationId, userId },
+      });
+
+      console.log('Worker Path:', path.resolve(__dirname, '../helper/syncProductWorker.js'));
+
+      worker.on('message', (message) => {
+        if (message.status === 'success') {
+          console.log(`✅ Product sync completed: ${message.message}`);
+          // Notify success for product sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Product Sync Succeeded - ${store.name}`,
+            body: `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+          }).catch(() => {});
+          resolve(message);
+        } else if (message.status === 'error') {
+          console.error(`❌ Product sync error: ${message.message}`);
+          console.error(`📋 Error Type: ${message.errorType}`);
+          console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+          
+          // Store error information in the database for user notification
+          storeErrorNotification(storeId, 'product_sync', message, organizationId, userId);
+          // Notify failure for product sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Product Sync Failed - ${store.name}`,
+            body: `Product sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+          }).catch(() => {});
+          reject(new Error(message.message));
+        }
+      });
+
+      worker.on('error', (error) => {
+        console.error(`❌ Product sync worker error: ${error.message}`);
+        reject(error);
+      });
+
+      worker.on('exit', (code) => {
+        if (code !== 0) {
+          console.error(`❌ Product sync worker stopped with exit code ${code}`);
+          reject(new Error(`Worker exited with code ${code}`));
+        } else {
+          console.log('✅ Product sync worker completed successfully');
+          resolve({ status: 'completed' });
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error in syncProducts:', error.message);
+      reject(error);
+    }
+  });
 };
 
 const syncCustomers = async (storeId, organizationId, userId) => {
-  try {
-    console.log(`🔄 Starting customer sync for store: ${storeId}`);
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log(`🔄 Starting customer sync for store: ${storeId}`);
 
-    const store = await Store.findById(storeId);
-    if (!store) {
-      console.error('❌ Store not found for customer sync');
-      return;
-    }
-
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      console.error('❌ Organization not found for customer sync');
-      return;
-    }
-
-    // Extract only serializable properties from the store document
-    const storeData = {
-      _id: store._id,
-      name: store.name,
-      url: store.url,
-      apiKey: store.apiKey,
-      secretKey: store.secretKey,
-      platformType: store.platformType,
-      isActive: store.isActive
-    };
-
-    const worker = new Worker(path.resolve(__dirname, '../helper/syncCustomerWorker.js'), {
-      workerData: { storeId, store: storeData, organizationId, userId },
-    });
-
-    worker.on('message', (message) => {
-      if (message.status === 'success') {
-        console.log(`✅ Customer sync completed: ${message.message}`);
-        // Notify success for customer sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Customer Sync Succeeded - ${store.name}`,
-          body: `Customer sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
-        }).catch(() => {});
-      } else if (message.status === 'error') {
-        console.error(`❌ Customer sync error: ${message.message}`);
-        console.error(`📋 Error Type: ${message.errorType}`);
-        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-        
-        // Store error information in the database for user notification
-        storeErrorNotification(storeId, 'customer_sync', message, organizationId, userId);
-        // Notify failure for customer sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Customer Sync Failed - ${store.name}`,
-          body: `Customer sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
-        }).catch(() => {});
+      const store = await Store.findById(storeId);
+      if (!store) {
+        console.error('❌ Store not found for customer sync');
+        reject(new Error('Store not found for customer sync'));
+        return;
       }
-    });
 
-    worker.on('error', (error) => {
-      console.error(`❌ Customer sync worker error: ${error.message}`);
-      console.error(`❌ Customer sync worker stack: ${error.stack}`);
-      
-      // Store error notification for user feedback
-      storeErrorNotification(storeId, 'customer_sync_worker_error', {
-        message: error.message,
-        errorType: 'worker_thread_error',
-        suggestions: ['Check worker thread implementation', 'Verify database connections'],
-        technicalDetails: error.stack,
-        severity: 'error'
-      }, organizationId, userId);
-    });
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        console.error('❌ Organization not found for customer sync');
+        reject(new Error('Organization not found for customer sync'));
+        return;
+      }
 
-    worker.on('exit', (code) => {
-      if (code !== 0) {
-        console.error(`❌ Customer sync worker stopped with exit code ${code}`);
+      // Extract only serializable properties from the store document
+      const storeData = {
+        _id: store._id,
+        name: store.name,
+        url: store.url,
+        apiKey: store.apiKey,
+        secretKey: store.secretKey,
+        platformType: store.platformType,
+        isActive: store.isActive
+      };
+
+      const worker = new Worker(path.resolve(__dirname, '../helper/syncCustomerWorker.js'), {
+        workerData: { storeId, store: storeData, organizationId, userId },
+      });
+
+      worker.on('message', (message) => {
+        if (message.status === 'success') {
+          console.log(`✅ Customer sync completed: ${message.message}`);
+          // Notify success for customer sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Customer Sync Succeeded - ${store.name}`,
+            body: `Customer sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+          }).catch(() => {});
+          resolve(message);
+        } else if (message.status === 'error') {
+          console.error(`❌ Customer sync error: ${message.message}`);
+          console.error(`📋 Error Type: ${message.errorType}`);
+          console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+          
+          // Store error information in the database for user notification
+          storeErrorNotification(storeId, 'customer_sync', message, organizationId, userId);
+          // Notify failure for customer sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Customer Sync Failed - ${store.name}`,
+            body: `Customer sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+          }).catch(() => {});
+          reject(new Error(message.message));
+        }
+      });
+
+      worker.on('error', (error) => {
+        console.error(`❌ Customer sync worker error: ${error.message}`);
+        console.error(`❌ Customer sync worker stack: ${error.stack}`);
         
         // Store error notification for user feedback
-        storeErrorNotification(storeId, 'customer_sync_worker_exit', {
-          message: `Worker exited with code ${code}`,
-          errorType: 'worker_thread_exit',
-          suggestions: ['Check worker thread logs', 'Verify API credentials'],
-          technicalDetails: `Exit code: ${code}`,
+        storeErrorNotification(storeId, 'customer_sync_worker_error', {
+          message: error.message,
+          errorType: 'worker_thread_error',
+          suggestions: ['Check worker thread implementation', 'Verify database connections'],
+          technicalDetails: error.stack,
           severity: 'error'
         }, organizationId, userId);
-      }
-    });
+        reject(error);
+      });
 
-  } catch (error) {
-    console.error('❌ Error in syncCustomers:', error.message);
-  }
+      worker.on('exit', (code) => {
+        if (code !== 0) {
+          console.error(`❌ Customer sync worker stopped with exit code ${code}`);
+          
+          // Store error notification for user feedback
+          storeErrorNotification(storeId, 'customer_sync_worker_exit', {
+            message: `Worker exited with code ${code}`,
+            errorType: 'worker_thread_exit',
+            suggestions: ['Check worker thread logs', 'Verify API credentials'],
+            technicalDetails: `Exit code: ${code}`,
+            severity: 'error'
+          }, organizationId, userId);
+          reject(new Error(`Worker exited with code ${code}`));
+        } else {
+          console.log('✅ Customer sync worker completed successfully');
+          resolve({ status: 'completed' });
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error in syncCustomers:', error.message);
+      reject(error);
+    }
+  });
 };
 
 const syncOrders = async (storeId, organizationId, userId) => {
-  try {
-    console.log(`🔄 Starting order sync for store: ${storeId}`);
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log(`🔄 Starting order sync for store: ${storeId}`);
 
-    const store = await Store.findById(storeId);
-    if (!store) {
-      console.error('❌ Store not found for order sync');
-      return;
-    }
-
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      console.error('❌ Organization not found for order sync');
-      return;
-    }
-
-    // Extract only serializable properties from the store document
-    const storeData = {
-      _id: store._id,
-      name: store.name,
-      url: store.url,
-      apiKey: store.apiKey,
-      secretKey: store.secretKey,
-      platformType: store.platformType,
-      isActive: store.isActive
-    };
-
-    const worker = new Worker(path.resolve(__dirname, '../helper/syncOrderWorker.js'), {
-      workerData: { storeId, store: storeData, organizationId, userId },
-    });
-
-    worker.on('message', (message) => {
-      if (message.status === 'success') {
-        console.log(`✅ Order sync completed: ${message.message}`);
-        // Notify success for order sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Order Sync Succeeded - ${store.name}`,
-          body: `Order sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
-        }).catch(() => {});
-      } else if (message.status === 'error') {
-        console.error(`❌ Order sync error: ${message.message}`);
-        console.error(`📋 Error Type: ${message.errorType}`);
-        console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-        
-        // Store error information in the database for user notification
-        storeErrorNotification(storeId, 'order_sync', message, organizationId, userId);
-        // Notify failure for order sync
-        createAndSendNotification({
-          userId,
-          organization: organizationId,
-          type: 'system',
-          subject: `WooCommerce Order Sync Failed - ${store.name}`,
-          body: `Order sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
-        }).catch(() => {});
+      const store = await Store.findById(storeId);
+      if (!store) {
+        console.error('❌ Store not found for order sync');
+        reject(new Error('Store not found for order sync'));
+        return;
       }
-    });
 
-    worker.on('error', (error) => {
-      console.error(`❌ Order sync worker error: ${error.message}`);
-      console.error(`❌ Order sync worker stack: ${error.stack}`);
-      
-      // Store error notification for user feedback
-      storeErrorNotification(storeId, 'order_sync_worker_error', {
-        message: error.message,
-        errorType: 'worker_thread_error',
-        suggestions: ['Check worker thread implementation', 'Verify database connections'],
-        technicalDetails: error.stack,
-        severity: 'error'
-      }, organizationId, userId);
-    });
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        console.error('❌ Organization not found for order sync');
+        reject(new Error('Organization not found for order sync'));
+        return;
+      }
 
-    worker.on('exit', (code) => {
-      if (code !== 0) {
-        console.error(`❌ Order sync worker stopped with exit code ${code}`);
+      // Extract only serializable properties from the store document
+      const storeData = {
+        _id: store._id,
+        name: store.name,
+        url: store.url,
+        apiKey: store.apiKey,
+        secretKey: store.secretKey,
+        platformType: store.platformType,
+        isActive: store.isActive
+      };
+
+      const worker = new Worker(path.resolve(__dirname, '../helper/syncOrderWorker.js'), {
+        workerData: { storeId, store: storeData, organizationId, userId },
+      });
+
+      worker.on('message', (message) => {
+        if (message.status === 'success') {
+          console.log(`✅ Order sync completed: ${message.message}`);
+          // Notify success for order sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Order Sync Succeeded - ${store.name}`,
+            body: `Order sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+          }).catch(() => {});
+          resolve(message);
+        } else if (message.status === 'error') {
+          console.error(`❌ Order sync error: ${message.message}`);
+          console.error(`📋 Error Type: ${message.errorType}`);
+          console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
+          
+          // Store error information in the database for user notification
+          storeErrorNotification(storeId, 'order_sync', message, organizationId, userId);
+          // Notify failure for order sync
+          createAndSendNotification({
+            userId,
+            organization: organizationId,
+            type: 'system',
+            subject: `WooCommerce Order Sync Failed - ${store.name}`,
+            body: `Order sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
+          }).catch(() => {});
+          reject(new Error(message.message));
+        }
+      });
+
+      worker.on('error', (error) => {
+        console.error(`❌ Order sync worker error: ${error.message}`);
+        console.error(`❌ Order sync worker stack: ${error.stack}`);
         
         // Store error notification for user feedback
-        storeErrorNotification(storeId, 'order_sync_worker_exit', {
-          message: `Worker exited with code ${code}`,
-          errorType: 'worker_thread_exit',
-          suggestions: ['Check worker thread logs', 'Verify API credentials'],
-          technicalDetails: `Exit code: ${code}`,
+        storeErrorNotification(storeId, 'order_sync_worker_error', {
+          message: error.message,
+          errorType: 'worker_thread_error',
+          suggestions: ['Check worker thread implementation', 'Verify database connections'],
+          technicalDetails: error.stack,
           severity: 'error'
         }, organizationId, userId);
-      }
-    });
+        reject(error);
+      });
 
-  } catch (error) {
-    console.error('❌ Error in syncOrders:', error.message);
-  }
+      worker.on('exit', (code) => {
+        if (code !== 0) {
+          console.error(`❌ Order sync worker stopped with exit code ${code}`);
+          
+          // Store error notification for user feedback
+          storeErrorNotification(storeId, 'order_sync_worker_exit', {
+            message: `Worker exited with code ${code}`,
+            errorType: 'worker_thread_exit',
+            suggestions: ['Check worker thread logs', 'Verify API credentials'],
+            technicalDetails: `Exit code: ${code}`,
+            severity: 'error'
+          }, organizationId, userId);
+          reject(new Error(`Worker exited with code ${code}`));
+        } else {
+          console.log('✅ Order sync worker completed successfully');
+          resolve({ status: 'completed' });
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error in syncOrders:', error.message);
+      reject(error);
+    }
+  });
 };
 
 // Category sync function (different pattern - uses helper function)
