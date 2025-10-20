@@ -18,3 +18,5 @@ fi
 
 echo "🎉 Server restart completed!"
 echo "The latest invitation fixes should now be active"
+
+

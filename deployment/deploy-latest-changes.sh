@@ -31,3 +31,5 @@ curl -s -I https://api.elapix.store/api/users/create | head -1
 
 echo -e "\n✅ Deployment complete!"
 echo "📖 Latest changes should now be live at: https://api.elapix.store"
+
+

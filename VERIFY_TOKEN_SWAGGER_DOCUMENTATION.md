@@ -332,3 +332,5 @@ The `verifyToken` endpoint provides:
 - 🎯 **Easy integration**
 
 **This enables the frontend to properly handle authentication state and provide a seamless user experience!**
+
+

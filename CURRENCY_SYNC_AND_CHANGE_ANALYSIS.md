@@ -366,3 +366,5 @@ This is a **CRITICAL** issue that affects:
 - **Business decisions** based on incorrect currency data
 
 **Immediate action required** to fix currency conversion during sync and when users change their currency preferences.
+
+

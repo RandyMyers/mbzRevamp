@@ -190,3 +190,5 @@ if (error.name === 'CastError') {
 - ✅ **Robust error handling** for all scenarios
 
 **Users can now create users successfully even when no roles exist in the organization!** 🎯
+
+

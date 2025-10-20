@@ -2951,3 +2951,304 @@ exports.verifyToken = async (req, res) => {
   }
 };
 
+// Super Admin 2FA and Email Verification Functions
+exports.sendSuperAdmin2FA = async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required'
+        });
+      }
+
+      // Find super admin user
+      const user = await User.findOne({ 
+        email: email.toLowerCase(),
+        role: 'super-admin'
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Super admin account not found'
+        });
+      }
+
+      // Generate 6-digit 2FA code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store 2FA code with expiration (5 minutes)
+      user.twoFactorCode = code;
+      user.twoFactorCodeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+      await user.save();
+
+      // Send 2FA email
+      const emailResult = await SendGridService.sendSuperAdmin2FAEmail(user, code);
+
+      if (!emailResult.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send 2FA code. Please try again.'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: '2FA code sent to your email',
+        expiresIn: 300 // 5 minutes in seconds
+      });
+
+    } catch (error) {
+      console.error('❌ [AUTH] Send super admin 2FA error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+};
+
+exports.verifySuperAdmin2FA = async (req, res) => {
+    try {
+      const { email, code } = req.body;
+
+      if (!email || !code) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and 2FA code are required'
+        });
+      }
+
+      // Find super admin user
+      const user = await User.findOne({ 
+        email: email.toLowerCase(),
+        role: 'super-admin'
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Super admin account not found'
+        });
+      }
+
+      // Check if 2FA code exists and is valid
+      if (!user.twoFactorCode || !user.twoFactorCodeExpires) {
+        return res.status(400).json({
+          success: false,
+          message: 'No 2FA code found. Please request a new code.'
+        });
+      }
+
+      // Check if code has expired
+      if (new Date() > user.twoFactorCodeExpires) {
+        // Clear expired code
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpires = undefined;
+        await user.save();
+
+        return res.status(400).json({
+          success: false,
+          message: '2FA code has expired. Please request a new code.'
+        });
+      }
+
+      // Verify the code
+      if (user.twoFactorCode !== code) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid 2FA code'
+        });
+      }
+
+      // Clear the 2FA code after successful verification
+      user.twoFactorCode = undefined;
+      user.twoFactorCodeExpires = undefined;
+      await user.save();
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { 
+          userId: user._id, 
+          email: user.email,
+          role: user.role,
+          userType: 'super-admin'
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: '2FA verification successful',
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          userType: 'super-admin'
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [AUTH] Verify super admin 2FA error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+};
+
+exports.sendSuperAdminEmailVerification = async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required'
+        });
+      }
+
+      // Find super admin user
+      const user = await User.findOne({ 
+        email: email.toLowerCase(),
+        role: 'super-admin'
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Super admin account not found'
+        });
+      }
+
+      if (user.isEmailVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already verified'
+        });
+      }
+
+      // Generate 6-digit verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store verification code with expiration (15 minutes)
+      user.emailVerificationCode = verificationCode;
+      user.emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      await user.save();
+
+      // Send verification email
+      const emailResult = await SendGridService.sendSuperAdminVerificationEmail(user, verificationCode);
+
+      if (!emailResult.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send verification email. Please try again.'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Verification email sent to your email address',
+        expiresIn: 900 // 15 minutes in seconds
+      });
+
+    } catch (error) {
+      console.error('❌ [AUTH] Send super admin email verification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+};
+
+exports.verifySuperAdminEmail = async (req, res) => {
+    try {
+      const { email, verificationCode } = req.body;
+
+      if (!email || !verificationCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and verification code are required'
+        });
+      }
+
+      // Find super admin user
+      const user = await User.findOne({ 
+        email: email.toLowerCase(),
+        role: 'super-admin'
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Super admin account not found'
+        });
+      }
+
+      if (user.isEmailVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already verified'
+        });
+      }
+
+      // Check if verification code exists and is valid
+      if (!user.emailVerificationCode || !user.emailVerificationCodeExpires) {
+        return res.status(400).json({
+          success: false,
+          message: 'No verification code found. Please request a new code.'
+        });
+      }
+
+      // Check if code has expired
+      if (new Date() > user.emailVerificationCodeExpires) {
+        // Clear expired code
+        user.emailVerificationCode = undefined;
+        user.emailVerificationCodeExpires = undefined;
+        await user.save();
+
+        return res.status(400).json({
+          success: false,
+          message: 'Verification code has expired. Please request a new code.'
+        });
+      }
+
+      // Verify the code
+      if (user.emailVerificationCode !== verificationCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid verification code'
+        });
+      }
+
+      // Mark email as verified and clear verification code
+      user.isEmailVerified = true;
+      user.emailVerificationCode = undefined;
+      user.emailVerificationCodeExpires = undefined;
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Email verified successfully',
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          isEmailVerified: user.isEmailVerified
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [AUTH] Verify super admin email error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+};
+

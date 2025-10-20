@@ -67,7 +67,7 @@ router.post('/create', customerController.createCustomer);
  *       500:
  *         description: Server error
  */
-router.get('/organization/:organizationId', customerController.getCustomersByOrganizationId);
+router.get('/organization/:organizationId', require('../middleware/authMiddleware').protect, customerController.getCustomersByOrganizationId);
 
 /**
  * @swagger
