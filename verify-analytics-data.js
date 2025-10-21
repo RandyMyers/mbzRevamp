@@ -242,5 +242,3 @@ async function verifyAnalyticsData() {
 }
 
 verifyAnalyticsData();
-
-

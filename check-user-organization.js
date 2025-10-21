@@ -126,5 +126,3 @@ async function checkUserOrganization() {
 }
 
 checkUserOrganization();
-
-

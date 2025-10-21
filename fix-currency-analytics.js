@@ -262,5 +262,3 @@ async function testCurrencyAnalytics() {
 }
 
 testCurrencyAnalytics();
-
-

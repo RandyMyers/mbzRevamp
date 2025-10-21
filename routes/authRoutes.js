@@ -214,20 +214,4 @@ router.get('/otp-settings', protect, authController.getOTPSettings);
 // Verify JWT token validity (no authentication required)
 router.post('/verify-token', authController.verifyToken);
 
-// ========================================
-// SUPER ADMIN ENDPOINTS
-// ========================================
-
-// Send 2FA code for super admin
-router.post('/super-admin/send-2fa', authController.sendSuperAdmin2FA);
-
-// Verify 2FA code for super admin
-router.post('/super-admin/verify-2fa', authController.verifySuperAdmin2FA);
-
-// Send email verification for super admin
-router.post('/super-admin/send-email-verification', authController.sendSuperAdminEmailVerification);
-
-// Verify email for super admin
-router.post('/super-admin/verify-email', authController.verifySuperAdminEmail);
-
 module.exports = router;

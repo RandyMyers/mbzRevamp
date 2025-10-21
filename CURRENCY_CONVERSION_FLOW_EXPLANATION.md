@@ -293,5 +293,3 @@ if (isCurrencyChanging) {
 5. **Analytics** use pre-converted amounts for unified currency display
 
 **The system provides a seamless, unified currency experience with optimal performance!**
-
-

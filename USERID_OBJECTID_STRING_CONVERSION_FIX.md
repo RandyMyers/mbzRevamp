@@ -199,5 +199,3 @@ mongoose.Types.ObjectId.isValid(userId)  // ✅ Works because userId is string
 **Users can now create users successfully without any "Invalid user ID format" errors!** 🎯
 
 The system now properly converts MongoDB ObjectIds to strings in all login responses, ensuring consistent data types throughout the entire authentication and user creation flow.
-
-

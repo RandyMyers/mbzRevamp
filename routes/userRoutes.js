@@ -175,9 +175,4 @@ router.delete('/:userId/sessions/:sessionId', userController.terminateSession);
 // Update user role route (no protect middleware as requested)
 //router.patch('/:userId/role', userController.updateUserRole);
 
-// Self-deletion routes (organization users only)
-router.post('/delete-account', userController.requestAccountDeletion);
-router.post('/cancel-deletion', userController.cancelAccountDeletion);
-router.get('/deletion-status', userController.getAccountDeletionStatus);
-
 module.exports = router;

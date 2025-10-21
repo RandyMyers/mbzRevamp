@@ -841,7 +841,7 @@ exports.createInvitation = async (req, res) => {
     }
     
     // ✅ Hardcoded baseUrl for invitation links
-    const baseUrl = 'https://elapix.store';
+    const baseUrl = 'https://crm.mbztechnology.com';
     
     // ✅ DEBUG: Log user data for troubleshooting
     console.log('🔍 DEBUG: req.user data:', {
@@ -1346,7 +1346,7 @@ exports.resendInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
     // ✅ Hardcoded baseUrl for invitation links
-    const baseUrl = 'https://elapix.store';
+    const baseUrl = 'https://crm.mbztechnology.com';
     const invitedBy = req.user._id;
 
     // ✅ VALIDATION 1: Check if user is authorized

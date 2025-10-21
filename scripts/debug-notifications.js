@@ -260,5 +260,3 @@ module.exports = {
   checkRecentNotifications,
   testEmailConfiguration
 };
-
-

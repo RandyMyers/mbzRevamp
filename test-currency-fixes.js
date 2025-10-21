@@ -241,5 +241,3 @@ async function testCurrencyFixes() {
 }
 
 testCurrencyFixes();
-
-

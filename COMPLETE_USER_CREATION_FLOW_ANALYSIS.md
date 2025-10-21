@@ -565,5 +565,3 @@ The "no role" error occurs because:
 - ✅ Complete user creation flow from frontend to backend
 
 **This will completely resolve the "no role" error and improve the overall user management system!**
-
-

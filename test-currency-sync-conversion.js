@@ -263,5 +263,3 @@ async function testCurrencySyncConversion() {
 }
 
 testCurrencySyncConversion();
-
-

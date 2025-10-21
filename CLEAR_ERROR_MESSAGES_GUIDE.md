@@ -220,5 +220,3 @@ if (error.message.includes("No role selected")) {
 ```
 
 **This completely eliminates the confusion and guides the admin to the solution!** 🎯
-
-

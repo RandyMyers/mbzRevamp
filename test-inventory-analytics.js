@@ -261,5 +261,3 @@ async function testInventoryAnalytics() {
 }
 
 testInventoryAnalytics();
-
-

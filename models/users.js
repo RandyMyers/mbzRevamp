@@ -207,33 +207,6 @@ const UserSchema = new Schema({
         }
       }
     },
-    // Soft deletion fields
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      index: true
-    },
-    deletedAt: {
-      type: Date,
-      default: null
-    },
-    deletionReason: {
-      type: String,
-      enum: ['user-requested', 'admin-requested', 'inactive', 'policy-violation'],
-      default: null
-    },
-    deletionScheduledFor: {
-      type: Date,
-      default: null
-    },
-    deletionConfirmationToken: {
-      type: String,
-      default: null
-    },
-    deletionConfirmationExpires: {
-      type: Date,
-      default: null
-    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -260,43 +233,6 @@ UserSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
     return JWTTimestamp < changedTimestamp;
   }
   return false;
-};
-
-// Method to check if user is deleted
-UserSchema.methods.isUserDeleted = function() {
-  return this.isDeleted === true;
-};
-
-// Method to check if user can be deleted (not super-admin or affiliate)
-UserSchema.methods.canBeDeleted = function() {
-  return this.role !== 'super-admin' && this.role !== 'affiliate';
-};
-
-// Method to initiate soft deletion
-UserSchema.methods.initiateSoftDeletion = function(reason = 'user-requested') {
-  this.isDeleted = true;
-  this.deletedAt = new Date();
-  this.deletionReason = reason;
-  this.deletionScheduledFor = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
-  this.status = 'inactive';
-  return this.save();
-};
-
-// Method to cancel soft deletion
-UserSchema.methods.cancelSoftDeletion = function() {
-  this.isDeleted = false;
-  this.deletedAt = null;
-  this.deletionReason = null;
-  this.deletionScheduledFor = null;
-  this.deletionConfirmationToken = null;
-  this.deletionConfirmationExpires = null;
-  this.status = 'active';
-  return this.save();
-};
-
-// Method to check if deletion is scheduled
-UserSchema.methods.isDeletionScheduled = function() {
-  return this.deletionScheduledFor && this.deletionScheduledFor > new Date();
 };
 
 module.exports = mongoose.model('User', UserSchema);

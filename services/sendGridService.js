@@ -124,7 +124,7 @@ class SendGridService {
         throw new Error('Inviter data is missing or invalid');
       }
 
-      const baseUrl = 'https://elapix.store';
+      const baseUrl = 'https://crm.mbztechnology.com';
       const invitationUrl = `${baseUrl}/accept-invitation?token=${invitation.token}`;
 
       const htmlContent = `
@@ -176,7 +176,7 @@ class SendGridService {
             </div>
             
             <div class="footer">
-              <p>This invitation was sent from Elapix Platform</p>
+              <p>This invitation was sent from MBZTECH Platform</p>
               <p>If you didn't expect this invitation, please ignore this email.</p>
             </div>
           </div>
@@ -219,7 +219,7 @@ class SendGridService {
     try {
       const emailData = {
         to: user.email,
-        subject: 'Verify Your Email Address - Elapix',
+        subject: 'Verify Your Email Address - MBZ Technology',
         html: `
           <!DOCTYPE html>
           <html>
@@ -249,11 +249,11 @@ class SendGridService {
           <body>
             <div class="container">
               <div class="header">
-                <h1>Welcome to Elapix!</h1>
+                <h1>Welcome to MBZ Technology!</h1>
               </div>
               <div class="content">
                 <h2>Hello ${user.fullName || user.email}!</h2>
-                <p>Thank you for registering with Elapix. To complete your registration, please verify your email address using the code below:</p>
+                <p>Thank you for registering with MBZ Technology. To complete your registration, please verify your email address using the code below:</p>
                 
                 <div class="verification-code">
                   ${verificationCode}
@@ -263,10 +263,10 @@ class SendGridService {
                 
                 <p>If you didn't create an account with us, please ignore this email.</p>
                 
-                <p>Best regards,<br>The Elapix Team</p>
+                <p>Best regards,<br>The MBZ Technology Team</p>
               </div>
               <div class="footer">
-                <p>This email was sent from Elapix Platform</p>
+                <p>This email was sent from MBZ Technology Platform</p>
                 <p>If you have any questions, please contact our support team.</p>
               </div>
             </div>
@@ -297,7 +297,7 @@ class SendGridService {
    */
   static async sendPasswordResetEmail(user, resetToken, organization) {
     try {
-      const baseUrl = 'https://elapix.store';
+      const baseUrl = 'https://crm.mbztechnology.com';
       const resetUrl = `${baseUrl}/reset-password?token=${resetToken.token}`;
 
       const htmlContent = `
@@ -355,7 +355,7 @@ class SendGridService {
             </div>
             
             <div class="footer">
-              <p>This password reset was requested from Elapix Platform</p>
+              <p>This password reset was requested from MBZTECH Platform</p>
               <p>If you didn't request this password reset, please contact your administrator immediately.</p>
             </div>
           </div>
@@ -656,345 +656,6 @@ class SendGridService {
       }
       
     } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Send verification email for super admin
-   * @param {Object} user - Super admin user object
-   * @param {string} verificationCode - 6-digit verification code
-   * @returns {Promise<Object>} Result object
-   */
-  static async sendSuperAdminVerificationEmail(user, verificationCode) {
-    try {
-      const emailData = {
-        to: user.email,
-        subject: 'Verify Your Super Admin Account - Elapix',
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Super Admin Email Verification</title>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 20px; text-align: center; }
-              .content { padding: 20px; background: #f9f9f9; }
-              .verification-code { 
-                background: #1a1a2e; 
-                color: white; 
-                padding: 15px; 
-                text-align: center; 
-                font-size: 24px; 
-                font-weight: bold; 
-                margin: 20px 0; 
-                border-radius: 5px;
-                letter-spacing: 3px;
-              }
-              .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
-              .admin-badge {
-                background: #ff6b35;
-                color: white;
-                padding: 5px 10px;
-                border-radius: 15px;
-                font-size: 12px;
-                font-weight: bold;
-                display: inline-block;
-                margin-bottom: 10px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="admin-badge">SUPER ADMIN</div>
-                <h1>Welcome to Elapix Super Admin!</h1>
-              </div>
-              <div class="content">
-                <h2>Hello ${user.fullName || user.email}!</h2>
-                <p>Thank you for registering as a Super Admin for Elapix. To complete your account setup, please verify your email address using the code below:</p>
-                
-                <div class="verification-code">
-                  ${verificationCode}
-                </div>
-                
-                <p>This verification code will expire in 15 minutes for security reasons.</p>
-                
-                <p><strong>Super Admin Access:</strong> Once verified, you'll have full platform access including user management, system settings, and analytics.</p>
-                
-                <p>If you didn't create this account, please ignore this email and contact our security team immediately.</p>
-                
-                <p>Best regards,<br>The Elapix Platform Team</p>
-              </div>
-              <div class="footer">
-                <p>This email was sent from Elapix Super Admin System</p>
-                <p>If you have any questions, please contact our platform administrators.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
-        userId: user._id,
-        userType: 'super-admin'
-      };
-      
-      return await this.sendEmail(emailData);
-      
-    } catch (error) {
-      console.error('❌ [SENDGRID] Failed to send super admin verification email:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Send password reset email for super admin
-   * @param {Object} user - Super admin user object
-   * @param {Object} resetToken - Reset token object
-   * @returns {Promise<Object>} Result object
-   */
-  static async sendSuperAdminPasswordResetEmail(user, resetToken) {
-    try {
-      const baseUrl = 'https://elapix.store';
-      const resetUrl = `${baseUrl}/super-admin/reset-password?token=${resetToken.token}`;
-
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Reset Your Super Admin Password - Elapix</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .button { display: inline-block; padding: 12px 24px; background: #1a1a2e; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-            .details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 5px; color: #856404; }
-            .admin-badge {
-              background: #ff6b35;
-              color: white;
-              padding: 5px 10px;
-              border-radius: 15px;
-              font-size: 12px;
-              font-weight: bold;
-              display: inline-block;
-              margin-bottom: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="admin-badge">SUPER ADMIN</div>
-              <h1>🔐 Reset Your Super Admin Password</h1>
-            </div>
-            
-            <div class="content">
-              <h2>Hello ${user.fullName}!</h2>
-              <p>You requested to reset your password for your <strong>Elapix Super Admin</strong> account.</p>
-              
-              <div class="details">
-                <h3>Reset Details:</h3>
-                <ul>
-                  <li><strong>Account Type:</strong> Super Admin</li>
-                  <li><strong>Email:</strong> ${user.email}</li>
-                  <li><strong>Requested:</strong> ${new Date().toLocaleString()}</li>
-                  <li><strong>Expires:</strong> ${new Date(resetToken.expiresAt).toLocaleString()}</li>
-                </ul>
-              </div>
-              
-              <p style="text-align: center;">
-                <a href="${resetUrl}" class="button">Reset Super Admin Password</a>
-              </p>
-              
-              <p style="font-size: 12px; color: #666;">Or copy and paste this link into your browser:<br>${resetUrl}</p>
-              
-              <div class="warning">
-                <strong>⚠️ Important Security Information:</strong>
-                <ul>
-                  <li>This link will expire in <strong>1 hour</strong></li>
-                  <li>This link can only be used <strong>once</strong></li>
-                  <li>If you didn't request this, please ignore this email</li>
-                  <li>Your password will remain unchanged until you click the link above</li>
-                  <li><strong>Super Admin Access:</strong> This reset affects your platform administrator privileges</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <p>This password reset was requested from Elapix Super Admin System</p>
-              <p>If you didn't request this password reset, please contact our security team immediately.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      const emailData = {
-        to: user.email,
-        subject: 'Reset Your Super Admin Password - Elapix',
-        html: htmlContent,
-        userId: user._id,
-        userType: 'super-admin'
-      };
-
-      const result = await this.sendEmail(emailData);
-
-      if (result.success) {
-        console.log(`✅ [SENDGRID] Super admin password reset email sent to ${user.email}`);
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('❌ [SENDGRID] Failed to send super admin password reset email:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Send 2FA code email for super admin
-   * @param {Object} user - Super admin user object
-   * @param {string} code - 6-digit 2FA code
-   * @returns {Promise<Object>} Result object
-   */
-  static async sendSuperAdmin2FAEmail(user, code) {
-    try {
-      const emailData = {
-        to: user.email,
-        subject: 'Your Super Admin 2FA Code - Elapix',
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Super Admin 2FA Code</title>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 20px; text-align: center; }
-              .content { padding: 20px; background: #f9f9f9; }
-              .code-container {
-                background: #ffffff;
-                border: 2px solid #1a1a2e;
-                border-radius: 12px;
-                padding: 25px;
-                margin: 25px 0;
-                text-align: center;
-                box-shadow: 0 2px 8px rgba(26, 26, 46, 0.1);
-              }
-              .code { 
-                font-size: 32px; 
-                font-weight: bold; 
-                color: #1a1a2e; 
-                letter-spacing: 8px;
-                font-family: 'Courier New', monospace;
-                margin: 10px 0;
-              }
-              .warning { 
-                background: #fff3cd; 
-                border: 1px solid #ffeaa7; 
-                padding: 20px; 
-                margin: 20px 0; 
-                border-radius: 8px; 
-                color: #856404;
-                border-left: 4px solid #ffc107;
-              }
-              .footer { 
-                text-align: center; 
-                padding: 20px; 
-                color: #666; 
-                font-size: 12px; 
-                background-color: #f8f9fa;
-                border-top: 1px solid #e9ecef;
-                border-radius: 0 0 8px 8px;
-              }
-              .admin-badge {
-                background: #ff6b35;
-                color: white;
-                padding: 5px 10px;
-                border-radius: 15px;
-                font-size: 12px;
-                font-weight: bold;
-                display: inline-block;
-                margin-bottom: 10px;
-              }
-            </style>
-          </head>
-          <body>
-            <div style="padding: 20px;">
-              <div class="container">
-                <div class="header">
-                  <div class="admin-badge">SUPER ADMIN</div>
-                  <div style="font-size: 24px;">🔐</div>
-                  <h1>Two-Factor Authentication Code</h1>
-                  <p style="margin: 10px 0 0; opacity: 0.9;">Secure access to your super admin account</p>
-                </div>
-                
-                <div class="content">
-                  <h2 style="color: #1a1a2e; margin-top: 0;">Hello ${user.fullName}!</h2>
-                  <p>You requested a 2FA code for your <strong>Elapix Super Admin</strong> account.</p>
-                  
-                  <div class="code-container">
-                    <h3 style="margin: 0 0 15px; color: #333;">Your 2FA Code:</h3>
-                    <div class="code">${code}</div>
-                    <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Please enter this 6-digit code to complete your login.</strong></p>
-                  </div>
-                  
-                  <div class="warning">
-                    <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Important Security Information:</h4>
-                    <ul style="margin: 0; padding-left: 20px;">
-                      <li>This code will expire in <strong>5 minutes</strong></li>
-                      <li>Never share this code with anyone</li>
-                      <li>If you didn't request this code, please ignore this email</li>
-                      <li>For security, this code can only be used once</li>
-                      <li><strong>Super Admin Access:</strong> This code provides access to platform administration features</li>
-                    </ul>
-                  </div>
-                  
-                  <p style="margin-top: 30px;">If you need help or didn't request this 2FA code, please contact our security team immediately.</p>
-                </div>
-                
-                <div class="footer">
-                  <img src="/placeholder.svg" alt="Elapix Super Admin Logo" style="height: 40px; margin-bottom: 15px;" />
-                  <p style="margin: 5px 0;"><strong>Elapix Super Admin System</strong></p>
-                  <p style="margin: 5px 0;">This email was sent for super admin account security</p>
-                  <p style="margin: 5px 0;">© ${new Date().getFullYear()} Elapix. All rights reserved.</p>
-                </div>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
-        userId: user._id,
-        userType: 'super-admin'
-      };
-
-      const result = await this.sendEmail(emailData);
-
-      if (result.success) {
-        console.log(`✅ [SENDGRID] Super admin 2FA email sent to ${user.email}`);
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('❌ [SENDGRID] Failed to send super admin 2FA email:', error);
       return {
         success: false,
         error: error.message

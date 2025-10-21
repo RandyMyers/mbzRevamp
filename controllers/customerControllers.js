@@ -612,14 +612,13 @@ exports.createCustomer = async (req, res) => {
         .populate('userId', 'name email') // Adjust fields to match User schema
         .populate('organizationId', 'name'); // Adjust fields to match Organization schema
   
-      // Return empty array if no customers found (not an error)
+      if (customers.length === 0) {
+        return res.status(404).json({ message: 'No customers found for this organization.' });
+      }
+  
       res.status(200).json({
-        success: true,
-        message: customers.length === 0 
-          ? 'No customers found for this organization.' 
-          : 'Customers retrieved successfully for the organization.',
+        message: 'Customers retrieved successfully for the organization.',
         customers,
-        count: customers.length
       });
     } catch (error) {
       console.error('Error retrieving customers by organization ID:', error);
@@ -1369,10 +1368,9 @@ exports.createCustomer = async (req, res) => {
       console.log(`📊 Found ${customers.length} customers to delete`);
 
       if (customers.length === 0) {
-        return res.status(200).json({ 
-          success: true, 
-          message: "No customers found for this store",
-          deletedCount: 0
+        return res.status(404).json({ 
+          success: false, 
+          message: "No customers found for this store" 
         });
       }
 

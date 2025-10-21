@@ -317,5 +317,3 @@ async function testCustomerAnalytics() {
 }
 
 testCustomerAnalytics();
-
-

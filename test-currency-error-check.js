@@ -216,5 +216,3 @@ async function testCurrencyErrorCheck() {
 }
 
 testCurrencyErrorCheck();
-
-

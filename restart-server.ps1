@@ -22,5 +22,3 @@ try {
 
 Write-Host "🎉 Server restart completed!" -ForegroundColor Green
 Write-Host "The latest invitation fixes should now be active" -ForegroundColor Green
-
-

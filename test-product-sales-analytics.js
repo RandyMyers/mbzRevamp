@@ -372,5 +372,3 @@ async function testProductSalesAnalytics() {
 }
 
 testProductSalesAnalytics();
-
-

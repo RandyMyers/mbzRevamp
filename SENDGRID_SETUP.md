@@ -133,5 +133,3 @@ If you must use SMTP instead of SendGrid HTTP API, uncomment the Nodemailer code
 
 
 
-
-

@@ -106,7 +106,7 @@ exports.sendInvitationEmail = async (invitation) => {
           </div>
           
           <div class="footer">
-            <p>This invitation was sent from Elapix Platform</p>
+            <p>This invitation was sent from MBZTECH Platform</p>
             <p>If you didn't expect this invitation, please ignore this email.</p>
           </div>
         </div>
@@ -132,7 +132,7 @@ exports.sendInvitationEmail = async (invitation) => {
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: invitation.email,
       subject: subject,
       html: htmlContent,
@@ -191,7 +191,7 @@ exports.sendInvitationEmail = async (invitation) => {
 exports.sendNotificationEmail = async (user, subject, htmlContent, textContent) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -317,7 +317,7 @@ exports.sendPasswordResetEmail = async (user, resetToken, organization) => {
           </div>
           
           <div class="footer">
-            <p>This password reset was requested from Elapix Platform</p>
+            <p>This password reset was requested from MBZTECH Platform</p>
             <p>If you didn't request this password reset, please contact your administrator immediately.</p>
           </div>
         </div>
@@ -349,13 +349,13 @@ exports.sendPasswordResetEmail = async (user, resetToken, organization) => {
       
       If you're having trouble with the link, copy and paste the URL above into your web browser.
       
-      This password reset was requested from Elapix Platform
+      This password reset was requested from MBZTECH Platform
       If you didn't request this password reset, please contact your administrator immediately.
     `;
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
@@ -591,10 +591,10 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
           </div>
           
           <div class="footer">
-              <img src="/placeholder.svg" alt="Elapix Logo" class="logo" />
+              <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
               <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
               <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
-              <p style="margin: 5px 0;">© ${new Date().getFullYear()} Elapix. All rights reserved.</p>
+              <p style="margin: 5px 0;">© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -633,7 +633,7 @@ exports.sendEmailVerificationCode = async (user, code, organization) => {
       
       If you need help with verification or didn't create this account, please contact our support team immediately.
       
-      © ${new Date().getFullYear()} Elapix. All rights reserved.
+      © ${new Date().getFullYear()} MBZ Technology. All rights reserved.
     `;
 
     // Send email
@@ -717,7 +717,7 @@ exports.sendSystemEmail = async (to, subject, htmlContent, textContent = null) =
 
     // Create mail options
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: to,
       subject: subject,
       html: htmlContent,
@@ -933,10 +933,10 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
           </div>
           
           <div class="footer">
-              <img src="/placeholder.svg" alt="Elapix Logo" class="logo" />
+              <img src="/placeholder.svg" alt="MBZ Technology Logo" class="logo" />
               <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
               <p style="margin: 5px 0;">This email was sent by ${organization.name}</p>
-              <p style="margin: 5px 0;">© ${new Date().getFullYear()} Elapix. All rights reserved.</p>
+              <p style="margin: 5px 0;">© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -969,7 +969,7 @@ exports.sendPasswordResetCodeEmail = async (user, code, organization) => {
       
       If you need help or didn't request this password reset, please contact our support team.
       
-      © ${new Date().getFullYear()} Elapix. All rights reserved.
+      © ${new Date().getFullYear()} MBZ Technology. All rights reserved.
     `;
 
     // Send email
@@ -1134,7 +1134,7 @@ exports.sendPasswordResetSuccessEmail = async (user, organization) => {
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: subject,
       html: htmlContent,
