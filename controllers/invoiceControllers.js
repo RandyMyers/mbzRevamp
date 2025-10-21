@@ -409,6 +409,22 @@ exports.createInvoice = async (req, res) => {
       });
     }
 
+    // Verify store belongs to the organization
+    if (store.organizationId.toString() !== organizationId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Store does not belong to your organization' 
+      });
+    }
+
+    // Verify store is active
+    if (!store.isActive) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Store is not active' 
+      });
+    }
+
     // Validate template if provided
     if (templateId) {
       const template = await InvoiceTemplate.findById(templateId);
@@ -1648,6 +1664,205 @@ exports.bulkGenerateInvoices = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error bulk generating invoices',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoices/store/{storeId}:
+ *   get:
+ *     summary: Get invoices for a specific store
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, sent, paid, overdue, cancelled]
+ *         description: Filter by invoice status
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date filter
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date filter
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of invoices per page
+ *     responses:
+ *       200:
+ *         description: Invoices retrieved successfully
+ *       403:
+ *         description: Store access denied
+ *       404:
+ *         description: Store not found
+ */
+exports.getInvoicesByStore = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const {
+      status,
+      startDate,
+      endDate,
+      search,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Get user's organization
+    const userOrganizationId = req.user?.organization;
+    
+    if (!userOrganizationId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // Verify store exists and belongs to user's organization
+    const store = await Store.findById(storeId);
+    
+    if (!store) {
+      return res.status(404).json({
+        success: false,
+        message: 'Store not found'
+      });
+    }
+
+    if (store.organizationId.toString() !== userOrganizationId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only access stores from your organization'
+      });
+    }
+
+    if (!store.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Store is not active'
+      });
+    }
+
+    // Build filter object
+    const filter = { 
+      storeId,
+      organizationId: userOrganizationId
+    };
+    
+    if (status) filter.status = status;
+    
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    if (search) {
+      filter.$or = [
+        { invoiceNumber: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { customerEmail: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+
+    // Execute query
+    const invoices = await Invoice.find(filter)
+      .populate('customerId', 'name email')
+      .populate('storeId', 'name platformType')
+      .populate('createdBy', 'fullName email')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const totalInvoices = await Invoice.countDocuments(filter);
+    const totalPages = Math.ceil(totalInvoices / limit);
+
+    // Calculate store-specific statistics
+    const storeStats = await Invoice.aggregate([
+      { $match: { storeId: store._id, organizationId: userOrganizationId } },
+      {
+        $group: {
+          _id: null,
+          totalInvoices: { $sum: 1 },
+          totalAmount: { $sum: '$totalAmount' },
+          paidInvoices: {
+            $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] }
+          },
+          overdueInvoices: {
+            $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] }
+          },
+          draftInvoices: {
+            $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Store invoices retrieved successfully',
+      data: {
+        invoices,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalInvoices,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        },
+        store: {
+          _id: store._id,
+          name: store.name,
+          platformType: store.platformType,
+          url: store.url
+        },
+        statistics: storeStats[0] || {
+          totalInvoices: 0,
+          totalAmount: 0,
+          paidInvoices: 0,
+          overdueInvoices: 0,
+          draftInvoices: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [INVOICE] Get invoices by store error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching store invoices',
       error: error.message
     });
   }

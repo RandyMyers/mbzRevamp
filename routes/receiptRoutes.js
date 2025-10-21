@@ -537,4 +537,8 @@ router.get('/templates/random/:scenario', receiptControllers.getRandomTemplate);
  */
 router.get('/:id/pdf/:scenario', receiptControllers.generateReceiptPDF);
 
+// Store-specific receipt routes
+const receiptStoreController = require('../controllers/receiptStoreController');
+router.get('/store/:storeId', authenticateToken, receiptStoreController.getReceiptsByStore);
+
 module.exports = router; 
