@@ -253,48 +253,57 @@ const path = require('path');
  *                 example: "507f1f77bcf86cd799439011"
  *               companyInfo:
  *                 type: object
- *                 description: Company information override for this invoice
+ *                 description: Company information override for this invoice (optional - overrides template defaults)
  *                 properties:
  *                   name:
  *                     type: string
- *                     description: Company name
- *                     example: "Acme Corp"
+ *                     description: Company name for invoice header
+ *                     example: "Acme Corporation"
  *                   email:
  *                     type: string
  *                     format: email
- *                     description: Company email
+ *                     description: Company billing email address
  *                     example: "billing@acme.com"
  *                   phone:
  *                     type: string
- *                     description: Company phone
+ *                     description: Company phone number
  *                     example: "+1 (555) 123-4567"
+ *                   website:
+ *                     type: string
+ *                     description: Company website URL
+ *                     example: "https://www.acme.com"
  *                   address:
  *                     type: object
- *                     description: Company address
+ *                     description: Company business address
  *                     properties:
  *                       street:
  *                         type: string
- *                         example: "123 Business St"
+ *                         description: Street address
+ *                         example: "123 Business Street"
  *                       city:
  *                         type: string
+ *                         description: City name
  *                         example: "New York"
  *                       state:
  *                         type: string
+ *                         description: State or province
  *                         example: "NY"
  *                       zipCode:
  *                         type: string
+ *                         description: Postal/ZIP code
  *                         example: "10001"
  *                       country:
  *                         type: string
- *                         example: "USA"
+ *                         description: Country name
+ *                         example: "United States"
  *                   logo:
  *                     type: string
- *                     description: Company logo URL
+ *                     description: Company logo URL (if not uploading file)
  *                     example: "https://example.com/logo.png"
  *                   logoPosition:
  *                     type: string
  *                     enum: [top-left, top-right, top-center]
- *                     description: Logo position on invoice
+ *                     description: Position of logo on invoice
  *                     example: "top-left"
  *               logo:
  *                 type: string
@@ -433,8 +442,8 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
-    // Validate required fields
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount'];
+    // Validate required fields (made more flexible)
+    const requiredFields = ['items', 'totalAmount']; // Only items and totalAmount are truly required
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {

@@ -12,33 +12,33 @@ const InvoiceSchema = new Schema({
   customerId: {
     type: Schema.Types.ObjectId,
     ref: 'Customer',
-    required: true
+    required: false
   },
   organizationId: {
     type: Schema.Types.ObjectId,
     ref: 'Organization',
-    required: true
+    required: false
   },
   storeId: {
     type: Schema.Types.ObjectId,
     ref: 'Store',
-    required: true
+    required: false
   },
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
 
   // Invoice Details
   customerName: {
     type: String,
-    required: true,
+    required: false,
     trim: true
   },
   customerEmail: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
     lowercase: true
   },

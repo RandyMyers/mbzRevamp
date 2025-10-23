@@ -19,7 +19,7 @@ const ReceiptSchema = new Schema({
   organizationId: {
     type: Schema.Types.ObjectId,
     ref: 'Organization',
-    required: true
+    required: false
   },
   storeId: {
     type: Schema.Types.ObjectId,
@@ -31,7 +31,7 @@ const ReceiptSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
 
   // Receipt Details
