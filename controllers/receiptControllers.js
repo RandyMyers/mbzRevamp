@@ -13,6 +13,34 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Helper function to get merged company info
+async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo, logoUrl) {
+  try {
+    const templateMergerService = require('../services/templateMergerService');
+    let mergedCompanyInfo = await templateMergerService.getMergedCompanyInfo(organizationId, storeId, 'receipt');
+    
+    // Override with provided companyInfo if any
+    if (providedCompanyInfo) {
+      mergedCompanyInfo = { ...mergedCompanyInfo, ...providedCompanyInfo };
+    }
+    
+    // Add logo if uploaded
+    if (logoUrl) {
+      mergedCompanyInfo = { ...mergedCompanyInfo, logo: logoUrl };
+    }
+    
+    return mergedCompanyInfo;
+  } catch (error) {
+    console.error('Error getting merged company info:', error);
+    // Fallback to provided companyInfo or empty object
+    let fallbackInfo = providedCompanyInfo || {};
+    if (logoUrl) {
+      fallbackInfo = { ...fallbackInfo, logo: logoUrl };
+    }
+    return fallbackInfo;
+  }
+}
+
 /**
  * @swagger
  * components:
@@ -1224,8 +1252,6 @@ exports.createReceipt = async (req, res) => {
     const {
       customerId,
       storeId,
-      organizationId,
-      userId,
       customerName,
       customerEmail,
       customerAddress,
@@ -1245,6 +1271,10 @@ exports.createReceipt = async (req, res) => {
       // New company info override fields
       companyInfo
     } = req.body;
+
+    // Auto-populate from authenticated user
+    const organizationId = req.user.organization;
+    const userId = req.user._id;
 
     // Handle logo upload if provided
     let logoUrl = null;
@@ -1332,11 +1362,8 @@ exports.createReceipt = async (req, res) => {
       description,
       type: type || 'purchase',
       templateId,
-      // Add company info override if provided
-      companyInfo: companyInfo ? {
-        ...companyInfo,
-        ...(logoUrl && { logo: logoUrl })
-      } : (logoUrl ? { logo: logoUrl } : undefined),
+      // Get merged company info from template merger service
+      companyInfo: await getMergedCompanyInfo(organizationId, storeId, companyInfo, logoUrl),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1893,6 +1920,8 @@ exports.bulkGenerateReceipts = async (req, res) => {
           transactionId: order.transactionId,
           transactionDate: new Date(),
           type: 'purchase',
+          // Get merged company info from template merger service
+          companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
           createdBy: userId,
           updatedBy: userId
         });
@@ -1991,6 +2020,8 @@ exports.generateOrderReceipt = async (req, res) => {
       type: 'purchase',
       scenario: 'woocommerce_order',
       templateId: template._id,
+      // Get merged company info from template merger service
+      companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
       createdBy: userId,
       updatedBy: userId
     });
@@ -2792,7 +2823,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -4294,7 +4325,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -5796,7 +5827,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 

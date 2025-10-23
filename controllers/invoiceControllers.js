@@ -11,6 +11,34 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Helper function to get merged company info
+async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo, logoUrl) {
+  try {
+    const templateMergerService = require('../services/templateMergerService');
+    let mergedCompanyInfo = await templateMergerService.getMergedCompanyInfo(organizationId, storeId, 'invoice');
+    
+    // Override with provided companyInfo if any
+    if (providedCompanyInfo) {
+      mergedCompanyInfo = { ...mergedCompanyInfo, ...providedCompanyInfo };
+    }
+    
+    // Add logo if uploaded
+    if (logoUrl) {
+      mergedCompanyInfo = { ...mergedCompanyInfo, logo: logoUrl };
+    }
+    
+    return mergedCompanyInfo;
+  } catch (error) {
+    console.error('Error getting merged company info:', error);
+    // Fallback to provided companyInfo or empty object
+    let fallbackInfo = providedCompanyInfo || {};
+    if (logoUrl) {
+      fallbackInfo = { ...fallbackInfo, logo: logoUrl };
+    }
+    return fallbackInfo;
+  }
+}
+
 /**
  * @swagger
  * components:
@@ -20,8 +48,6 @@ const path = require('path');
  *       required:
  *         - customerId
  *         - storeId
- *         - organizationId
- *         - userId
  *         - customerName
  *         - customerEmail
  *         - items
@@ -142,8 +168,6 @@ const path = require('path');
  *             required:
  *               - customerId
  *               - storeId
- *               - organizationId
- *               - userId
  *               - customerName
  *               - customerEmail
  *               - items
@@ -158,16 +182,6 @@ const path = require('path');
  *                 type: string
  *                 format: ObjectId
  *                 description: Store ID
- *                 example: "507f1f77bcf86cd799439011"
- *               organizationId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Organization ID
- *                 example: "507f1f77bcf86cd799439011"
- *               userId:
- *                 type: string
- *                 format: ObjectId
- *                 description: User ID who created the invoice
  *                 example: "507f1f77bcf86cd799439011"
  *               customerName:
  *                 type: string
@@ -373,8 +387,6 @@ exports.createInvoice = async (req, res) => {
     const {
       customerId,
       storeId,
-      organizationId,
-      userId,
       customerName,
       customerEmail,
       customerAddress,
@@ -392,6 +404,10 @@ exports.createInvoice = async (req, res) => {
       // New company info override fields
       companyInfo
     } = req.body;
+
+    // Auto-populate from authenticated user
+    const organizationId = req.user.organization;
+    const userId = req.user._id;
 
     // Handle logo upload if provided
     let logoUrl = null;
@@ -443,7 +459,7 @@ exports.createInvoice = async (req, res) => {
     }
 
     // Validate required fields (made more flexible)
-    const requiredFields = ['items', 'totalAmount']; // Only items and totalAmount are truly required
+    const requiredFields = ['customerId', 'storeId', 'items', 'totalAmount']; // Essential fields for invoice creation
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -576,11 +592,8 @@ exports.createInvoice = async (req, res) => {
       terms,
       type: type || 'one_time',
       templateId,
-      // Add company info override if provided
-      companyInfo: companyInfo ? {
-        ...companyInfo,
-        ...(logoUrl && { logo: logoUrl })
-      } : (logoUrl ? { logo: logoUrl } : undefined),
+      // Get merged company info from template merger service
+      companyInfo: await getMergedCompanyInfo(organizationId, storeId, companyInfo, logoUrl),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1754,6 +1767,8 @@ exports.bulkGenerateInvoices = async (req, res) => {
           currency: order.currency || 'USD',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           type: 'one_time',
+          // Get merged company info from template merger service
+          companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
           createdBy: userId,
           updatedBy: userId
         });

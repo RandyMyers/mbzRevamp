@@ -114,6 +114,173 @@ const OrganizationSchema = new Schema({
       default: true
     }
   },
+
+  // Organization-specific template customizations
+  organizationTemplateSettings: {
+    invoiceTemplate: {
+      // Store-specific data (from selected store)
+      storeInfo: {
+        name: {
+          type: String,
+          trim: true
+        },
+        website: {
+          type: String,
+          trim: true
+        },
+        logo: {
+          type: String,
+          trim: true
+        }
+      },
+      // Custom email field
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true
+      },
+      // Custom fields (user input)
+      customFields: {
+        phone: {
+          type: String,
+          trim: true
+        },
+        address: {
+          street: {
+            type: String,
+            trim: true
+          },
+          city: {
+            type: String,
+            trim: true
+          },
+          state: {
+            type: String,
+            trim: true
+          },
+          zipCode: {
+            type: String,
+            trim: true
+          },
+          country: {
+            type: String,
+            trim: true
+          }
+        }
+      },
+      // Design settings
+      design: {
+        primaryColor: {
+          type: String,
+          default: '#000000'
+        },
+        secondaryColor: {
+          type: String,
+          default: '#666666'
+        },
+        backgroundColor: {
+          type: String,
+          default: '#ffffff'
+        }
+      },
+      // Layout settings
+      layout: {
+        logoPosition: {
+          type: String,
+          enum: ['top-left', 'top-right', 'top-center'],
+          default: 'top-left'
+        },
+        headerStyle: {
+          type: String,
+          default: 'standard'
+        },
+        footerStyle: {
+          type: String,
+          default: 'standard'
+        }
+      }
+    },
+    receiptTemplate: {
+      // Same structure as invoiceTemplate
+      storeInfo: {
+        name: {
+          type: String,
+          trim: true
+        },
+        website: {
+          type: String,
+          trim: true
+        },
+        logo: {
+          type: String,
+          trim: true
+        }
+      },
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true
+      },
+      customFields: {
+        phone: {
+          type: String,
+          trim: true
+        },
+        address: {
+          street: {
+            type: String,
+            trim: true
+          },
+          city: {
+            type: String,
+            trim: true
+          },
+          state: {
+            type: String,
+            trim: true
+          },
+          zipCode: {
+            type: String,
+            trim: true
+          },
+          country: {
+            type: String,
+            trim: true
+          }
+        }
+      },
+      design: {
+        primaryColor: {
+          type: String,
+          default: '#000000'
+        },
+        secondaryColor: {
+          type: String,
+          default: '#666666'
+        },
+        backgroundColor: {
+          type: String,
+          default: '#ffffff'
+        }
+      },
+      layout: {
+        logoPosition: {
+          type: String,
+          enum: ['top-left', 'top-right', 'top-center'],
+          default: 'top-left'
+        },
+        headerStyle: {
+          type: String,
+          default: 'standard'
+        },
+        footerStyle: {
+          type: String,
+          default: 'standard'
+        }
+      }
+    }
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,

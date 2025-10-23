@@ -9,6 +9,7 @@ const router = express.Router();
  */
 
 const organizationController = require("../controllers/organizationControllers");
+const organizationControllerNew = require("../controllers/organizationController");
 
 // CREATE a new organization
 
@@ -194,5 +195,14 @@ router.delete("/delete/:organizationId", organizationController.deleteOrganizati
  *         description: Server error
  */
 router.patch('/logo/:organizationId', organizationController.updateOrganizationLogo);
+
+// GET organization company info for selectors
+router.get('/company-info', organizationControllerNew.getOrganizationCompanyInfo);
+
+// Template settings routes
+router.get('/template-settings', organizationControllerNew.getTemplateSettings);
+router.put('/template-settings', organizationControllerNew.updateTemplateSettings);
+router.get('/stores', organizationControllerNew.getOrganizationStores);
+router.post('/template-settings/reset', organizationControllerNew.resetTemplateSettings);
 
 module.exports = router;
