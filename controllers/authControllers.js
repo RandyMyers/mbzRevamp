@@ -474,7 +474,17 @@ exports.registerOrganizationUser = async (req, res) => {
     // Save the organization
     await newOrganization.save();
 
-    // ✅ PHASE 1: Create default admin role for the organization
+    // ✅ PHASE 1.5: Assign default templates to the organization
+    try {
+      const templateAssignmentService = require('../services/templateAssignmentService');
+      await templateAssignmentService.assignDefaultTemplates(newOrganization._id);
+      console.log('✅ [REGISTRATION] Default templates assigned to new organization');
+    } catch (templateError) {
+      console.error('❌ [REGISTRATION] Failed to assign default templates:', templateError);
+      // Don't fail registration if template assignment fails
+    }
+
+    // ✅ PHASE 2: Create default admin role for the organization
     const Role = require('../models/role');
     
     // Check if admin role already exists for this organization (handle duplicate key gracefully)
@@ -1780,6 +1790,16 @@ exports.registerUser = async (req, res) => {
 
     // Save the organization
     await newOrganization.save();
+
+    // ✅ Assign default templates to the organization
+    try {
+      const templateAssignmentService = require('../services/templateAssignmentService');
+      await templateAssignmentService.assignDefaultTemplates(newOrganization._id);
+      console.log('✅ [REGISTRATION] Default templates assigned to new organization');
+    } catch (templateError) {
+      console.error('❌ [REGISTRATION] Failed to assign default templates:', templateError);
+      // Don't fail registration if template assignment fails
+    }
 
     // Create the admin role for this organization
     // Check if admin role already exists for this organization (handle duplicate key gracefully)

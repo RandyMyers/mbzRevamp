@@ -83,6 +83,18 @@ const OrganizationSchema = new Schema({
     default: false,
   },
   
+  // Invoice template preferences
+  invoiceSettings: {
+    defaultInvoiceTemplate: {
+      type: Schema.Types.ObjectId,
+      ref: 'InvoiceTemplate'
+    },
+    autoGenerateInvoices: {
+      type: Boolean,
+      default: true
+    }
+  },
+
   // Receipt template preferences
   receiptSettings: {
     defaultOrderTemplate: {

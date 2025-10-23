@@ -151,6 +151,31 @@ exports.listEmployees = async (req, res, next) => {
  *               department: { type: string }
  *               roleTitle: { type: string }
  *               status: { type: string }
+ *               taxState: { 
+ *                 type: string,
+ *                 description: 'Tax state/province for staff members (any country)',
+ *                 example: 'California'
+ *               }
+ *               salary: { type: number }
+ *               bankDetails: { 
+ *                 type: object,
+ *                 properties: {
+ *                   bankName: { type: string },
+ *                   accountNumber: { type: string },
+ *                   accountName: { type: string }
+ *                 }
+ *               }
+ *               emergencyContacts: {
+ *                 type: array,
+ *                 items: {
+ *                   type: object,
+ *                   properties: {
+ *                     name: { type: string },
+ *                     phone: { type: string },
+ *                     relationship: { type: string }
+ *                   }
+ *                 }
+ *               }
  *     responses:
  *       201: { description: Created }
  */
@@ -158,7 +183,17 @@ exports.createEmployee = async (req, res, next) => {
   try {
     const { fullName, email } = req.body;
     if (!fullName || !email) throw new BadRequestError('fullName and email required');
-    const emp = await Employee.create(req.body);
+    
+    // Generate the next employee ID
+    const employeeId = await Employee.generateEmployeeId();
+    
+    // Create employee with auto-generated ID
+    const employeeData = {
+      ...req.body,
+      employeeId: employeeId
+    };
+    
+    const emp = await Employee.create(employeeData);
     res.status(201).json({ success: true, employee: emp });
   } catch (err) { next(err); }
 };

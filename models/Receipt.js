@@ -180,6 +180,39 @@ const ReceiptSchema = new Schema({
     default: {}
   },
 
+  // Company Information Override (for generation-time customization)
+  companyInfo: {
+    name: {
+      type: String,
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    },
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      zipCode: String,
+      country: String
+    },
+    logo: {
+      type: String,
+      trim: true
+    },
+    logoPosition: {
+      type: String,
+      enum: ['top-left', 'top-right', 'top-center'],
+      default: 'top-left'
+    }
+  },
+
   // Template preferences
   templatePreferences: {
     defaultOrderTemplate: {

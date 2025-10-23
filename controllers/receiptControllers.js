@@ -188,7 +188,7 @@ const path = require('path');
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -314,6 +314,55 @@ const path = require('path');
  *                 format: ObjectId
  *                 description: Receipt template ID
  *                 example: "507f1f77bcf86cd799439011"
+ *               companyInfo:
+ *                 type: object
+ *                 description: Company information override for this receipt
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: Company name
+ *                     example: "Acme Corp"
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     description: Company email
+ *                     example: "billing@acme.com"
+ *                   phone:
+ *                     type: string
+ *                     description: Company phone
+ *                     example: "+1 (555) 123-4567"
+ *                   address:
+ *                     type: object
+ *                     description: Company address
+ *                     properties:
+ *                       street:
+ *                         type: string
+ *                         example: "123 Business St"
+ *                       city:
+ *                         type: string
+ *                         example: "New York"
+ *                       state:
+ *                         type: string
+ *                         example: "NY"
+ *                       zipCode:
+ *                         type: string
+ *                         example: "10001"
+ *                       country:
+ *                         type: string
+ *                         example: "USA"
+ *                   logo:
+ *                     type: string
+ *                     description: Company logo URL
+ *                     example: "https://example.com/logo.png"
+ *                   logoPosition:
+ *                     type: string
+ *                     enum: [top-left, top-right, top-center]
+ *                     description: Logo position on receipt
+ *                     example: "top-left"
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Company logo file (PNG, JPG, JPEG, SVG) - optional
  *     responses:
  *       201:
  *         description: Receipt created successfully
@@ -1183,8 +1232,59 @@ exports.createReceipt = async (req, res) => {
       transactionDate,
       description,
       type,
-      templateId
+      templateId,
+      // New company info override fields
+      companyInfo
     } = req.body;
+
+    // Handle logo upload if provided
+    let logoUrl = null;
+    if (req.files && req.files.logo) {
+      try {
+        const logoFile = req.files.logo;
+        
+        // Validate file type
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+        if (!allowedTypes.includes(logoFile.mimetype)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid logo file type. Only PNG, JPG, JPEG, and SVG files are allowed.'
+          });
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (logoFile.size > maxSize) {
+          return res.status(400).json({
+            success: false,
+            message: 'Logo file size too large. Maximum size is 5MB.'
+          });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const publicId = `logos/${organizationId || 'default'}/${userId}_${timestamp}`;
+
+        // Upload to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload(logoFile.tempFilePath, {
+          public_id: publicId,
+          folder: 'elapix/logos',
+          resource_type: 'auto',
+          transformation: [
+            { width: 300, height: 300, crop: 'limit' }, // Resize if needed
+            { quality: 'auto' }
+          ]
+        });
+
+        logoUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('❌ [RECEIPT] Logo upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload logo'
+        });
+      }
+    }
 
     // Validate required fields
     const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
@@ -1223,6 +1323,11 @@ exports.createReceipt = async (req, res) => {
       description,
       type: type || 'purchase',
       templateId,
+      // Add company info override if provided
+      companyInfo: companyInfo ? {
+        ...companyInfo,
+        ...(logoUrl && { logo: logoUrl })
+      } : (logoUrl ? { logo: logoUrl } : undefined),
       createdBy: userId,
       updatedBy: userId
     });
