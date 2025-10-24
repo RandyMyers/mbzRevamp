@@ -130,7 +130,13 @@ const templateMergerService = require('../services/templateMergerService');
  * @swagger
  * /api/invoices/create:
  *   post:
- *     summary: Create a new invoice
+ *     summary: Create a new invoice (automatically uses organization's default store and template)
+ *     description: |
+ *       **AUTOMATED INVOICE CREATION:**
+ *       - Uses organization's default store automatically
+ *       - Uses organization's default invoice template automatically  
+ *       - Uses organization's personalized company info automatically
+ *       - Only customer and invoice data required
  *     tags: [Invoices]
  *     security:
  *       - bearerAuth: []
@@ -142,7 +148,6 @@ const templateMergerService = require('../services/templateMergerService');
  *             type: object
  *             required:
  *               - customerId
- *               - storeId
  *               - organizationId
  *               - userId
  *               - customerName
@@ -154,11 +159,6 @@ const templateMergerService = require('../services/templateMergerService');
  *                 type: string
  *                 format: ObjectId
  *                 description: Customer ID
- *                 example: "507f1f77bcf86cd799439011"
- *               storeId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Store ID
  *                 example: "507f1f77bcf86cd799439011"
  *               organizationId:
  *                 type: string
@@ -247,56 +247,6 @@ const templateMergerService = require('../services/templateMergerService');
  *                 type: string
  *                 description: Invoice type
  *                 example: "standard"
- *               templateId:
- *                 type: string
- *                 format: ObjectId
- *                 description: Invoice template ID
- *                 example: "507f1f77bcf86cd799439011"
- *               companyInfo:
- *                 type: object
- *                 description: Company information override for this invoice
- *                 properties:
- *                   name:
- *                     type: string
- *                     description: Company name
- *                     example: "Acme Corp"
- *                   email:
- *                     type: string
- *                     format: email
- *                     description: Company email
- *                     example: "billing@acme.com"
- *                   phone:
- *                     type: string
- *                     description: Company phone
- *                     example: "+1 (555) 123-4567"
- *                   address:
- *                     type: object
- *                     description: Company address
- *                     properties:
- *                       street:
- *                         type: string
- *                         example: "123 Business St"
- *                       city:
- *                         type: string
- *                         example: "New York"
- *                       state:
- *                         type: string
- *                         example: "NY"
- *                       zipCode:
- *                         type: string
- *                         example: "10001"
- *                       country:
- *                         type: string
- *                         example: "USA"
- *                   logo:
- *                     type: string
- *                     description: Company logo URL
- *                     example: "https://example.com/logo.png"
- *                   logoPosition:
- *                     type: string
- *                     enum: [top-left, top-right, top-center]
- *                     description: Logo position on invoice
- *                     example: "top-left"
  *               logo:
  *                 type: string
  *                 format: binary
@@ -364,7 +314,6 @@ exports.createInvoice = async (req, res) => {
   try {
     const {
       customerId,
-      storeId,
       organizationId,
       userId,
       customerName,
@@ -379,10 +328,7 @@ exports.createInvoice = async (req, res) => {
       dueDate,
       notes,
       terms,
-      type,
-      templateId,
-      // New company info override fields
-      companyInfo
+      type
     } = req.body;
 
     // Handle logo upload if provided
@@ -434,8 +380,8 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
-    // Validate required fields
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount'];
+    // Validate required fields (storeId is now optional - will use organization default)
+    const requiredFields = ['customerId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -481,22 +427,42 @@ exports.createInvoice = async (req, res) => {
       });
     }
 
-    // Validate dependencies exist
-    const [customer, store, organization, user] = await Promise.all([
+    // Get organization with template settings
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+
+    // Get organization's default store (first active store)
+    const defaultStore = await Store.findOne({ 
+      organizationId: organizationId, 
+      isActive: true 
+    });
+    
+    if (!defaultStore) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No active store found for this organization. Please add a store first.' 
+      });
+    }
+
+    // Get organization's default invoice template
+    const defaultTemplate = organization.invoiceSettings?.defaultInvoiceTemplate;
+    if (!defaultTemplate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No default invoice template set for this organization. Please configure template settings.' 
+      });
+    }
+
+    // Validate other dependencies
+    const [customer, user] = await Promise.all([
       Customer.findById(customerId),
-      Store.findById(storeId),
-      Organization.findById(organizationId),
       User.findById(userId)
     ]);
 
     if (!customer) {
       return res.status(404).json({ success: false, message: 'Customer not found' });
-    }
-    if (!store) {
-      return res.status(404).json({ success: false, message: 'Store not found' });
-    }
-    if (!organization) {
-      return res.status(404).json({ success: false, message: 'Organization not found' });
     }
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -510,34 +476,10 @@ exports.createInvoice = async (req, res) => {
       });
     }
 
-    // Verify store belongs to the organization
-    if (store.organizationId.toString() !== organizationId) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Store does not belong to your organization' 
-      });
-    }
-
-    // Verify store is active
-    if (!store.isActive) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Store is not active' 
-      });
-    }
-
-    // Validate template if provided
-    if (templateId) {
-      const template = await InvoiceTemplate.findById(templateId);
-      if (!template) {
-        return res.status(404).json({ success: false, message: 'Invoice template not found' });
-      }
-    }
-
-    // Get merged company info from organization template settings
+    // Get merged company info from organization template settings using default store
     let mergedCompanyInfo = null;
     try {
-      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, storeId, 'invoice');
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'invoice');
     } catch (error) {
       console.error('Error getting merged company info:', error);
       // Continue without merged company info if there's an error
@@ -556,11 +498,11 @@ exports.createInvoice = async (req, res) => {
       taxRate: Number(item.taxRate) || 0
     }));
 
-    // Create new invoice
+    // Create new invoice using organization defaults
     const newInvoice = new Invoice({
       invoiceNumber,
       customerId,
-      storeId,
+      storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
       customerName,
@@ -576,16 +518,12 @@ exports.createInvoice = async (req, res) => {
       notes,
       terms,
       type: type || 'one_time',
-      templateId,
-      // Use merged company info from organization template settings, with overrides
+      templateId: defaultTemplate, // Use organization's default template
+      // Use merged company info from organization template settings
       companyInfo: mergedCompanyInfo ? {
         ...mergedCompanyInfo,
-        ...(companyInfo || {}),
         ...(logoUrl && { logo: logoUrl })
-      } : (companyInfo ? {
-        ...companyInfo,
-        ...(logoUrl && { logo: logoUrl })
-      } : (logoUrl ? { logo: logoUrl } : undefined)),
+      } : (logoUrl ? { logo: logoUrl } : undefined),
       createdBy: userId,
       updatedBy: userId
     });
@@ -2061,10 +1999,38 @@ exports.generateOrderInvoice = async (req, res) => {
       });
     }
 
-    // Get merged company info from organization template settings
+    // Get organization with template settings
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+
+    // Get organization's default store (first active store)
+    const defaultStore = await Store.findOne({ 
+      organizationId: organizationId, 
+      isActive: true 
+    });
+    
+    if (!defaultStore) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No active store found for this organization. Please add a store first.' 
+      });
+    }
+
+    // Get organization's default invoice template
+    const defaultTemplate = organization.invoiceSettings?.defaultInvoiceTemplate;
+    if (!defaultTemplate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No default invoice template set for this organization. Please configure template settings.' 
+      });
+    }
+
+    // Get merged company info from organization template settings using default store
     let mergedCompanyInfo = null;
     try {
-      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, order.storeId, 'invoice');
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'invoice');
     } catch (error) {
       console.error('Error getting merged company info:', error);
       // Continue without merged company info if there's an error
@@ -2073,11 +2039,11 @@ exports.generateOrderInvoice = async (req, res) => {
     // Generate invoice number
     const invoiceNumber = await Invoice.generateInvoiceNumber(organizationId);
 
-    // Create invoice from order
+    // Create invoice from order using organization defaults
     const newInvoice = new Invoice({
       invoiceNumber,
       customerId: order.customerId,
-      storeId: order.storeId,
+      storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
       customerName: order.billing?.first_name || 'Customer',
@@ -2106,6 +2072,7 @@ exports.generateOrderInvoice = async (req, res) => {
       notes: order.customer_note || '',
       terms: 'Payment is due within 30 days.',
       type: 'one_time',
+      templateId: defaultTemplate, // Use organization's default template
       // Use merged company info from organization template settings
       companyInfo: mergedCompanyInfo,
       createdBy: userId,

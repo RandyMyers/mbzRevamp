@@ -12,7 +12,7 @@ const sendEmailNotification = async (notification, user) => {
     // Import nodemailer dynamically to avoid issues if not installed
     const nodemailer = require('nodemailer');
     
-    // Create transporter - Using MBZTECH SMTP settings
+    // Create transporter - Using Elapix SMTP settings
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'mbztechnology.com',
       port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465,
@@ -25,7 +25,7 @@ const sendEmailNotification = async (notification, user) => {
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"MBZTECH" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: notification.subject,
       html: notification.body,

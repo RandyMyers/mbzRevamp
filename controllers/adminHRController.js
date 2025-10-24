@@ -131,7 +131,35 @@ exports.updateDepartment = async (req, res, next) => {
     const dep = await Department.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!dep) throw new NotFoundError('department not found');
     res.status(200).json({ success: true, department: dep });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error updating department:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid department ID format',
+        message: 'The department ID provided is not in the correct format'
+      });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation Error',
+        message: err.message 
+      });
+    }
+    if (err.name === 'NotFoundError') {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Department not found',
+        message: err.message 
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update department',
+      message: 'An error occurred while updating the department. Please try again.'
+    });
+  }
 };
 
 /**
@@ -152,51 +180,33 @@ exports.updateDepartment = async (req, res, next) => {
  */
 exports.deleteDepartment = async (req, res, next) => {
   try {
-    await Department.findByIdAndDelete(req.params.id);
-    res.status(200).json({ success: true, message: 'Deleted' });
-  } catch (err) { next(err); }
+    const department = await Department.findByIdAndDelete(req.params.id);
+    if (!department) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Department not found',
+        message: 'The department you are trying to delete does not exist'
+      });
+    }
+    res.status(200).json({ success: true, message: 'Department deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting department:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid department ID format',
+        message: 'The department ID provided is not in the correct format'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to delete department',
+      message: 'An error occurred while deleting the department. Please try again.'
+    });
+  }
 };
 
 // Employees
-/**
- * @swagger
- * /api/admin/hr/employees:
- *   get:
- *     summary: List employees
- *     tags: [Admin HR]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: 
- *         description: OK
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 employees: { type: array }
- *       400:
- *         description: Bad Request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: false }
- *                 error: { type: string }
- *                 message: { type: string }
- *       500:
- *         description: Internal Server Error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean, example: false }
- *                 error: { type: string }
- *                 message: { type: string }
- */
 exports.listEmployees = async (req, res, next) => {
   try {
     const items = await Employee.find({}).populate('department').sort({ createdAt: -1 });

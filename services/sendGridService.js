@@ -30,7 +30,7 @@ class SendGridService {
         to: emailData.to,
         from: {
           email: process.env.SMTP_USER || 'noreply@mbztechnology.com',
-          name: process.env.FROM_NAME || 'MBZ Technology'
+          name: process.env.FROM_NAME || 'Elapix'
         },
         subject: emailData.subject,
         html: emailData.html,
@@ -124,7 +124,7 @@ class SendGridService {
         throw new Error('Inviter data is missing or invalid');
       }
 
-      const baseUrl = 'https://crm.mbztechnology.com';
+      const baseUrl = 'https://api.elapix.store';
       const invitationUrl = `${baseUrl}/accept-invitation?token=${invitation.token}`;
 
       const htmlContent = `
@@ -176,7 +176,7 @@ class SendGridService {
             </div>
             
             <div class="footer">
-              <p>This invitation was sent from MBZTECH Platform</p>
+              <p>This invitation was sent from Elapix Platform</p>
               <p>If you didn't expect this invitation, please ignore this email.</p>
             </div>
           </div>
@@ -297,7 +297,7 @@ class SendGridService {
    */
   static async sendPasswordResetEmail(user, resetToken, organization) {
     try {
-      const baseUrl = 'https://crm.mbztechnology.com';
+      const baseUrl = 'https://api.elapix.store';
       const resetUrl = `${baseUrl}/reset-password?token=${resetToken.token}`;
 
       const htmlContent = `
@@ -355,7 +355,7 @@ class SendGridService {
             </div>
             
             <div class="footer">
-              <p>This password reset was requested from MBZTECH Platform</p>
+              <p>This password reset was requested from Elapix Platform</p>
               <p>If you didn't request this password reset, please contact your administrator immediately.</p>
             </div>
           </div>
@@ -595,7 +595,7 @@ class SendGridService {
             </div>
             
             <div class="footer">
-              <p>This notification was sent from MBZTECH Platform</p>
+              <p>This notification was sent from Elapix Platform</p>
               <p>If you did not reset your password, please contact support immediately.</p>
             </div>
           </div>

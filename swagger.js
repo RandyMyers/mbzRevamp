@@ -878,13 +878,13 @@ const options = {
                 name: {
                   type: 'string',
                   description: 'Company name',
-                  example: 'MBZ Technology'
+                  example: 'Elapix'
                 },
                 email: {
                   type: 'string',
                   format: 'email',
                   description: 'Company email',
-                  example: 'billing@mbztechnology.com'
+                  example: 'billing@elapix.store'
                 },
                 phone: {
                   type: 'string',
@@ -904,7 +904,7 @@ const options = {
                 website: {
                   type: 'string',
                   description: 'Company website',
-                  example: 'https://mbztechnology.com'
+                  example: 'https://elapix.store'
                 },
                 logo: {
                   type: 'string',

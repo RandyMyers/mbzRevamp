@@ -696,13 +696,121 @@ router.delete('/hr/departments/:id', adminHR.deleteDepartment);
  * @swagger
  * /api/admin/hr/employees:
  *   get:
- *     summary: List employees
- *     tags: [Users]
+ *     summary: 👥 GET ALL SUPER ADMIN EMPLOYEES
+ *     description: |
+ *       **SUPER ADMIN ONLY: This endpoint retrieves all employees who can access the super admin system.**
+ *       
+ *       **Important Notes:**
+ *       - These are NOT organization users
+ *       - These are staff members who manage the super admin system
+ *       - Returns employees with populated department information
+ *       - Sorted by creation date (newest first)
+ *     tags: [Admin HR]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Employees list
+ *         description: ✅ Successfully retrieved all super admin employees
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 employees:
+ *                   type: array
+ *                   description: "List of all super admin employees with department info"
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         format: ObjectId
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       fullName:
+ *                         type: string
+ *                         example: "John Doe"
+ *                       email:
+ *                         type: string
+ *                         example: "john.doe@company.com"
+ *                       employeeId:
+ *                         type: string
+ *                         example: "Mb001Z"
+ *                       department:
+ *                         type: object
+ *                         description: "Populated department information"
+ *                         properties:
+ *                           _id: { type: string, example: "507f1f77bcf86cd799439011" }
+ *                           name: { type: string, example: "IT Department" }
+ *                       roleTitle:
+ *                         type: string
+ *                         example: "Senior Developer"
+ *                       status:
+ *                         type: string
+ *                         enum: ["active", "suspended", "terminated"]
+ *                         example: "active"
+ *                       salary:
+ *                         type: number
+ *                         example: 75000
+ *                       taxState:
+ *                         type: string
+ *                         example: "California"
+ *                       bankDetails:
+ *                         type: object
+ *                         properties:
+ *                           bankName: { type: string, example: "Chase Bank" }
+ *                           accountNumber: { type: string, example: "****1234" }
+ *                           accountName: { type: string, example: "John Doe" }
+ *                       emergencyContacts:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name: { type: string, example: "Jane Doe" }
+ *                             phone: { type: string, example: "+1-555-0123" }
+ *                             relationship: { type: string, example: "Spouse" }
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T10:30:00.000Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-15T10:30:00.000Z"
+ *       400:
+ *         description: ❌ Bad Request - Invalid employee ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid employee ID format"
+ *                 message:
+ *                   type: string
+ *                   example: "The employee ID provided is not in the correct format"
+ *       500:
+ *         description: ❌ Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to retrieve employees"
+ *                 message:
+ *                   type: string
+ *                   example: "An error occurred while fetching employee data. Please try again."
  */
 router.get('/hr/employees', adminHR.listEmployees);
 /**

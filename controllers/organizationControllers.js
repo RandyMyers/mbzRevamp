@@ -143,18 +143,193 @@ exports.getAllOrganizations = async (req, res) => {
   }
 };
 
-// GET an organization by its ID
+// GET an organization by its ID with populated template details
 exports.getOrganizationById = async (req, res) => {
   const { organizationId } = req.params;
   try {
-    const organization = await Organization.findById(organizationId);
+    const organization = await Organization.findById(organizationId)
+      .populate('invoiceSettings.defaultInvoiceTemplate', 'name templateType design layout content companyInfo isDefault isActive')
+      .populate('receiptSettings.defaultOrderTemplate', 'name templateType design layout content companyInfo isDefault isActive scenario')
+      .populate('receiptSettings.defaultSubscriptionTemplate', 'name templateType design layout content companyInfo isDefault isActive scenario');
+    
     if (!organization) {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
-    res.status(200).json({ success: true, organization });
+    
+    res.status(200).json({ 
+      success: true, 
+      organization,
+      templateDetails: {
+        invoiceTemplate: organization.invoiceSettings?.defaultInvoiceTemplate,
+        receiptTemplates: {
+          order: organization.receiptSettings?.defaultOrderTemplate,
+          subscription: organization.receiptSettings?.defaultSubscriptionTemplate
+        }
+      }
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to retrieve organization" });
+    console.error('Error retrieving organization with templates:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to retrieve organization",
+      error: error.message 
+    });
+  }
+};
+
+// UPDATE organization template settings and personalization
+exports.updateOrganizationTemplates = async (req, res) => {
+  const { organizationId } = req.params;
+  const { 
+    // Template assignment (which templates to use)
+    invoiceTemplateId, 
+    receiptTemplateId,
+    
+    // Store selection (gets company info automatically)
+    storeId,
+    
+    // Company Information (from TemplateCustomization page)
+    companyName,
+    companyEmail,
+    companyPhone,
+    companyAddress,
+    logo,
+    
+    // Design Colors (from TemplateCustomization page)
+    primaryColor,
+    secondaryColor
+  } = req.body;
+  
+  try {
+    const updateData = {};
+    
+    // 1. Update template assignments
+    if (invoiceTemplateId) {
+      updateData['invoiceSettings.defaultInvoiceTemplate'] = invoiceTemplateId;
+    }
+    
+    if (receiptTemplateId) {
+      updateData['receiptSettings.defaultOrderTemplate'] = receiptTemplateId;
+      updateData['receiptSettings.defaultSubscriptionTemplate'] = receiptTemplateId;
+    }
+    
+    // 2. Handle store selection and company information
+    let invoiceStoreInfo = {};
+    let receiptStoreInfo = {};
+    
+    if (storeId) {
+      const Store = require('../models/store');
+      const store = await Store.findById(storeId);
+      if (store) {
+        invoiceStoreInfo = {
+          name: store.name,
+          website: store.url,
+          logo: store.websiteLogo
+        };
+        receiptStoreInfo = {
+          name: store.name,
+          website: store.url,
+          logo: store.websiteLogo
+        };
+      }
+    }
+    
+    // Override store info with custom company information if provided
+    if (companyName) {
+      invoiceStoreInfo.name = companyName;
+      receiptStoreInfo.name = companyName;
+    }
+    
+    if (logo) {
+      invoiceStoreInfo.logo = logo;
+      receiptStoreInfo.logo = logo;
+    }
+    
+    if (website) {
+      invoiceStoreInfo.website = website;
+      receiptStoreInfo.website = website;
+    }
+    
+    // Apply store info if we have any data
+    if (Object.keys(invoiceStoreInfo).length > 0) {
+      updateData['organizationTemplateSettings.invoiceTemplate.storeInfo'] = invoiceStoreInfo;
+      updateData['organizationTemplateSettings.receiptTemplate.storeInfo'] = receiptStoreInfo;
+    }
+    
+    if (companyEmail) {
+      updateData['organizationTemplateSettings.invoiceTemplate.email'] = companyEmail;
+      updateData['organizationTemplateSettings.receiptTemplate.email'] = companyEmail;
+    }
+    
+    if (companyPhone) {
+      updateData['organizationTemplateSettings.invoiceTemplate.customFields.phone'] = companyPhone;
+      updateData['organizationTemplateSettings.receiptTemplate.customFields.phone'] = companyPhone;
+    }
+    
+    if (companyAddress) {
+      // Parse address string into object structure
+      const addressParts = companyAddress.split(',').map(part => part.trim());
+      const addressObj = {
+        street: addressParts[0] || '',
+        city: addressParts[1] || '',
+        state: addressParts[2] || '',
+        zipCode: addressParts[3] || '',
+        country: addressParts[4] || ''
+      };
+      
+      updateData['organizationTemplateSettings.invoiceTemplate.customFields.address'] = addressObj;
+      updateData['organizationTemplateSettings.receiptTemplate.customFields.address'] = addressObj;
+    }
+    
+    
+    // 4. Update design colors
+    if (primaryColor || secondaryColor) {
+      const designUpdate = {};
+      if (primaryColor) designUpdate.primaryColor = primaryColor;
+      if (secondaryColor) designUpdate.secondaryColor = secondaryColor;
+      
+      updateData['organizationTemplateSettings.invoiceTemplate.design'] = designUpdate;
+      updateData['organizationTemplateSettings.receiptTemplate.design'] = designUpdate;
+    }
+    
+    const organization = await Organization.findByIdAndUpdate(
+      organizationId, 
+      updateData, 
+      { new: true }
+    ).populate('invoiceSettings.defaultInvoiceTemplate', 'name templateType design layout content companyInfo isDefault isActive')
+     .populate('receiptSettings.defaultOrderTemplate', 'name templateType design layout content companyInfo isDefault isActive scenario')
+     .populate('receiptSettings.defaultSubscriptionTemplate', 'name templateType design layout content companyInfo isDefault isActive scenario');
+    
+    if (!organization) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Organization not found" 
+      });
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "Organization templates and personalization updated successfully",
+      organization,
+      templateDetails: {
+        invoiceTemplate: organization.invoiceSettings?.defaultInvoiceTemplate,
+        receiptTemplates: {
+          order: organization.receiptSettings?.defaultOrderTemplate,
+          subscription: organization.receiptSettings?.defaultSubscriptionTemplate
+        }
+      },
+      personalizationSettings: {
+        invoiceTemplate: organization.organizationTemplateSettings?.invoiceTemplate,
+        receiptTemplate: organization.organizationTemplateSettings?.receiptTemplate
+      }
+    });
+  } catch (error) {
+    console.error('Error updating organization templates:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to update organization templates",
+      error: error.message 
+    });
   }
 };
 

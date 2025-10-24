@@ -1215,7 +1215,6 @@ exports.createReceipt = async (req, res) => {
   try {
     const {
       customerId,
-      storeId,
       organizationId,
       userId,
       customerName,
@@ -1232,10 +1231,7 @@ exports.createReceipt = async (req, res) => {
       transactionId,
       transactionDate,
       description,
-      type,
-      templateId,
-      // New company info override fields
-      companyInfo
+      type
     } = req.body;
 
     // Handle logo upload if provided
@@ -1287,8 +1283,8 @@ exports.createReceipt = async (req, res) => {
       }
     }
 
-    // Validate required fields
-    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    // Validate required fields (storeId is now automatic - uses organization default)
+    const requiredFields = ['customerId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -1298,10 +1294,38 @@ exports.createReceipt = async (req, res) => {
       });
     }
 
-    // Get merged company info from organization template settings
+    // Get organization with template settings
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+
+    // Get organization's default store (first active store)
+    const defaultStore = await Store.findOne({ 
+      organizationId: organizationId, 
+      isActive: true 
+    });
+    
+    if (!defaultStore) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No active store found for this organization. Please add a store first.' 
+      });
+    }
+
+    // Get organization's default receipt template
+    const defaultTemplate = organization.receiptSettings?.defaultOrderTemplate;
+    if (!defaultTemplate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No default receipt template set for this organization. Please configure template settings.' 
+      });
+    }
+
+    // Get merged company info from organization template settings using default store
     let mergedCompanyInfo = null;
     try {
-      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, storeId, 'receipt');
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'receipt');
     } catch (error) {
       console.error('Error getting merged company info:', error);
       // Continue without merged company info if there's an error
@@ -1310,11 +1334,11 @@ exports.createReceipt = async (req, res) => {
     // Generate receipt number
     const receiptNumber = await Receipt.generateReceiptNumber(organizationId);
 
-    // Create new receipt
+    // Create new receipt using organization defaults
     const newReceipt = new Receipt({
       receiptNumber,
       customerId,
-      storeId,
+      storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
       customerName,
@@ -1332,16 +1356,12 @@ exports.createReceipt = async (req, res) => {
       transactionDate: transactionDate || new Date(),
       description,
       type: type || 'purchase',
-      templateId,
-      // Use merged company info from organization template settings, with overrides
+      templateId: defaultTemplate, // Use organization's default template
+      // Use merged company info from organization template settings
       companyInfo: mergedCompanyInfo ? {
         ...mergedCompanyInfo,
-        ...(companyInfo || {}),
         ...(logoUrl && { logo: logoUrl })
-      } : (companyInfo ? {
-        ...companyInfo,
-        ...(logoUrl && { logo: logoUrl })
-      } : (logoUrl ? { logo: logoUrl } : undefined)),
+      } : (logoUrl ? { logo: logoUrl } : undefined),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1966,17 +1986,51 @@ exports.generateOrderReceipt = async (req, res) => {
       });
     }
 
-    // Get template (default or random)
-    const template = await getTemplateForScenario('woocommerce_order', organizationId);
+    // Get organization with template settings
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+
+    // Get organization's default store (first active store)
+    const defaultStore = await Store.findOne({ 
+      organizationId: organizationId, 
+      isActive: true 
+    });
+    
+    if (!defaultStore) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No active store found for this organization. Please add a store first.' 
+      });
+    }
+
+    // Get organization's default receipt template
+    const defaultTemplate = organization.receiptSettings?.defaultOrderTemplate;
+    if (!defaultTemplate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No default receipt template set for this organization. Please configure template settings.' 
+      });
+    }
+
+    // Get merged company info from organization template settings using default store
+    let mergedCompanyInfo = null;
+    try {
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'receipt');
+    } catch (error) {
+      console.error('Error getting merged company info:', error);
+      // Continue without merged company info if there's an error
+    }
 
     // Generate receipt number
     const receiptNumber = await Receipt.generateReceiptNumber(organizationId);
 
-    // Create receipt from order
+    // Create receipt from order using organization defaults
     const newReceipt = new Receipt({
       receiptNumber,
       customerId: order.customerId,
-      storeId: order.storeId,
+      storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
       customerName: order.billing?.first_name || 'Customer',
@@ -2007,7 +2061,9 @@ exports.generateOrderReceipt = async (req, res) => {
       description: order.customer_note || '',
       type: 'purchase',
       scenario: 'woocommerce_order',
-      templateId: template._id,
+      templateId: defaultTemplate, // Use organization's default template
+      // Use merged company info from organization template settings
+      companyInfo: mergedCompanyInfo,
       createdBy: userId,
       updatedBy: userId
     });

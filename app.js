@@ -165,9 +165,7 @@ app.use(cors({
       'http://localhost:8080',
       'http://localhost:8081',
       'https://api.elapix.store',
-      'https://crm.mbztechnology.com',
-      'https://app.mbztechnology.com',
-      'https://elapix.mbztechnology.com',
+      'https://elapix.store',
       'https://elapix.store'
     ];
     
@@ -203,9 +201,7 @@ app.use((req, res, next) => {
     'http://localhost:8080',
     'http://localhost:8081',
     'https://api.elapix.store',
-    'https://crm.mbztechnology.com',
-    'https://app.mbztechnology.com',
-    'https://elapix.mbztechnology.com',
+    'https://elapix.store',
     'https://elapix.store'
   ];
   
