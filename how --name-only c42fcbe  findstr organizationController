@@ -1,0 +1,126 @@
+[1mdiff --git a/controllers/invoiceControllers.js b/controllers/invoiceControllers.js[m
+[1mindex 77ef3ee..29181b1 100644[m
+[1m--- a/controllers/invoiceControllers.js[m
+[1m+++ b/controllers/invoiceControllers.js[m
+[36m@@ -11,6 +11,34 @@[m [mconst PDFDocument = require('pdfkit');[m
+ const fs = require('fs');[m
+ const path = require('path');[m
+ [m
+[32m+[m[32m// Helper function to get merged company info[m
+[32m+[m[32masync function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo, logoUrl) {[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    const templateMergerService = require('../services/templateMergerService');[m
+[32m+[m[32m    let mergedCompanyInfo = await templateMergerService.getMergedCompanyInfo(organizationId, storeId, 'invoice');[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Override with provided companyInfo if any[m
+[32m+[m[32m    if (providedCompanyInfo) {[m
+[32m+[m[32m      mergedCompanyInfo = { ...mergedCompanyInfo, ...providedCompanyInfo };[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add logo if uploaded[m
+[32m+[m[32m    if (logoUrl) {[m
+[32m+[m[32m      mergedCompanyInfo = { ...mergedCompanyInfo, logo: logoUrl };[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    return mergedCompanyInfo;[m
+[32m+[m[32m  } catch (error) {[m
+[32m+[m[32m    console.error('Error getting merged company info:', error);[m
+[32m+[m[32m    // Fallback to provided companyInfo or empty object[m
+[32m+[m[32m    let fallbackInfo = providedCompanyInfo || {};[m
+[32m+[m[32m    if (logoUrl) {[m
+[32m+[m[32m      fallbackInfo = { ...fallbackInfo, logo: logoUrl };[m
+[32m+[m[32m    }[m
+[32m+[m[32m    return fallbackInfo;[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+ /**[m
+  * @swagger[m
+  * components:[m
+[36m@@ -20,8 +48,6 @@[m [mconst path = require('path');[m
+  *       required:[m
+  *         - customerId[m
+  *         - storeId[m
+[31m- *         - organizationId[m
+[31m- *         - userId[m
+  *         - customerName[m
+  *         - customerEmail[m
+  *         - items[m
+[36m@@ -142,8 +168,6 @@[m [mconst path = require('path');[m
+  *             required:[m
+  *               - customerId[m
+  *               - storeId[m
+[31m- *               - organizationId[m
+[31m- *               - userId[m
+  *               - customerName[m
+  *               - customerEmail[m
+  *               - items[m
+[36m@@ -159,16 +183,6 @@[m [mconst path = require('path');[m
+  *                 format: ObjectId[m
+  *                 description: Store ID[m
+  *                 example: "507f1f77bcf86cd799439011"[m
+[31m- *               organizationId:[m
+[31m- *                 type: string[m
+[31m- *                 format: ObjectId[m
+[31m- *                 description: Organization ID[m
+[31m- *                 example: "507f1f77bcf86cd799439011"[m
+[31m- *               userId:[m
+[31m- *                 type: string[m
+[31m- *                 format: ObjectId[m
+[31m- *                 description: User ID who created the invoice[m
+[31m- *                 example: "507f1f77bcf86cd799439011"[m
+  *               customerName:[m
+  *                 type: string[m
+  *                 description: Customer name[m
+[36m@@ -373,8 +387,6 @@[m [mexports.createInvoice = async (req, res) => {[m
+     const {[m
+       customerId,[m
+       storeId,[m
+[31m-      organizationId,[m
+[31m-      userId,[m
+       customerName,[m
+       customerEmail,[m
+       customerAddress,[m
+[36m@@ -393,6 +405,10 @@[m [mexports.createInvoice = async (req, res) => {[m
+       companyInfo[m
+     } = req.body;[m
+ [m
+[32m+[m[32m    // Auto-populate from authenticated user[m
+[32m+[m[32m    const organizationId = req.user.organization;[m
+[32m+[m[32m    const userId = req.user._id;[m
+[32m+[m
+     // Handle logo upload if provided[m
+     let logoUrl = null;[m
+     if (req.files && req.files.logo) {[m
+[36m@@ -443,7 +459,7 @@[m [mexports.createInvoice = async (req, res) => {[m
+     }[m
+ [m
+     // Validate required fields (made more flexible)[m
+[31m-    const requiredFields = ['items', 'totalAmount']; // Only items and totalAmount are truly required[m
+[32m+[m[32m    const requiredFields = ['customerId', 'storeId', 'items', 'totalAmount']; // Essential fields for invoice creation[m
+     const missingFields = requiredFields.filter(field => !req.body[field]);[m
+     [m
+     if (missingFields.length > 0) {[m
+[36m@@ -576,11 +592,8 @@[m [mexports.createInvoice = async (req, res) => {[m
+       terms,[m
+       type: type || 'one_time',[m
+       templateId,[m
+[31m-      // Add company info override if provided[m
+[31m-      companyInfo: companyInfo ? {[m
+[31m-        ...companyInfo,[m
+[31m-        ...(logoUrl && { logo: logoUrl })[m
+[31m-      } : (logoUrl ? { logo: logoUrl } : undefined),[m
+[32m+[m[32m      // Get merged company info from template merger service[m
+[32m+[m[32m      companyInfo: await getMergedCompanyInfo(organizationId, storeId, companyInfo, logoUrl),[m
+       createdBy: userId,[m
+       updatedBy: userId[m
+     });[m
+[36m@@ -1754,6 +1767,8 @@[m [mexports.bulkGenerateInvoices = async (req, res) => {[m
+           currency: order.currency || 'USD',[m
+           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),[m
+           type: 'one_time',[m
+[32m+[m[32m          // Get merged company info from template merger service[m
+[32m+[m[32m          companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),[m
+           createdBy: userId,[m
+           updatedBy: userId[m
+         });[m

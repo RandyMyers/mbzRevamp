@@ -4,240 +4,164 @@ const Organization = require('../models/organization');
 const Store = require('../models/store');
 
 /**
- * Service to merge base templates with organization customizations and data sources
+ * Service to merge base templates with organization-specific customizations and dynamic data.
  */
 
 /**
- * Merge invoice template with organization customizations and data
- * @param {string} organizationId - Organization ID
- * @param {string} storeId - Store ID (optional)
- * @param {Object} orderData - Order data for customer and product info
- * @returns {Promise<Object>} - Merged template data
+ * Merges company information from organization settings and selected store data.
+ * @param {Object} organizationSettings - The organization's template customization settings.
+ * @param {Object} storeData - The selected store's data (name, website, logo).
+ * @returns {Object} Merged company information.
  */
-exports.mergeInvoiceTemplate = async (organizationId, storeId = null, orderData = null) => {
-  try {
-    // Get organization and its template settings
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      throw new Error('Organization not found');
-    }
-
-    // Get organization's default invoice template
-    const defaultTemplateId = organization.invoiceSettings?.defaultInvoiceTemplate;
-    if (!defaultTemplateId) {
-      throw new Error('No default invoice template found for organization');
-    }
-
-    // Get base template
-    const baseTemplate = await InvoiceTemplate.findById(defaultTemplateId);
-    if (!baseTemplate) {
-      throw new Error('Base invoice template not found');
-    }
-
-    // Get organization's customizations
-    const customizations = organization.organizationTemplateSettings?.invoiceTemplate || {};
-
-    // Get store data if storeId provided
-    let storeData = null;
-    if (storeId) {
-      const store = await Store.findById(storeId);
-      if (store) {
-        storeData = {
-          name: store.name,
-          website: store.url,
-          logo: store.websiteLogo
-        };
-      }
-    }
-
-    // Merge template with customizations and data
-    const mergedTemplate = {
-      // Base template data
-      ...baseTemplate.toObject(),
-      
-      // Override with organization customizations
-      companyInfo: {
-        // Use store data if available, otherwise use customizations
-        name: storeData?.name || customizations.storeInfo?.name || baseTemplate.companyInfo?.name,
-        email: customizations.email || baseTemplate.companyInfo?.email,
-        phone: customizations.customFields?.phone || baseTemplate.companyInfo?.phone,
-        website: storeData?.website || customizations.storeInfo?.website || baseTemplate.companyInfo?.website,
-        logo: storeData?.logo || customizations.storeInfo?.logo || baseTemplate.companyInfo?.logo,
-        address: customizations.customFields?.address || baseTemplate.companyInfo?.address
-      },
-      
-      // Override design settings
-      design: {
-        ...baseTemplate.design,
-        ...customizations.design
-      },
-      
-      // Override layout settings
-      layout: {
-        ...baseTemplate.layout,
-        ...customizations.layout
-      }
-    };
-
-    // Add order data if provided
-    if (orderData) {
-      mergedTemplate.orderData = {
-        customer: {
-          name: `${orderData.billing?.first_name || ''} ${orderData.billing?.last_name || ''}`.trim(),
-          email: orderData.billing?.email,
-          address: {
-            street: orderData.billing?.address_1,
-            city: orderData.billing?.city,
-            state: orderData.billing?.state,
-            zipCode: orderData.billing?.postcode,
-            country: orderData.billing?.country
-          }
-        },
-        items: orderData.line_items?.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: parseFloat(item.price),
-          total: parseFloat(item.total)
-        })) || [],
-        totals: {
-          subtotal: parseFloat(orderData.total) - parseFloat(orderData.total_tax || 0),
-          tax: parseFloat(orderData.total_tax || 0),
-          discount: parseFloat(orderData.discount_total || 0),
-          total: parseFloat(orderData.total)
-        }
-      };
-    }
-
-    return mergedTemplate;
-  } catch (error) {
-    console.error('Error merging invoice template:', error);
-    throw error;
-  }
+exports.getMergedCompanyInfo = (organizationSettings, storeData) => {
+  const companyInfo = {
+    name: storeData?.name || organizationSettings?.storeInfo?.name || '',
+    email: organizationSettings?.email || '',
+    phone: organizationSettings?.customFields?.phone || '',
+    website: storeData?.website || organizationSettings?.storeInfo?.website || '',
+    address: {
+      street: organizationSettings?.customFields?.address?.street || '',
+      city: organizationSettings?.customFields?.address?.city || '',
+      state: organizationSettings?.customFields?.address?.state || '',
+      zipCode: organizationSettings?.customFields?.address?.zipCode || '',
+      country: organizationSettings?.customFields?.address?.country || ''
+    },
+    logo: storeData?.logo || organizationSettings?.storeInfo?.logo || ''
+  };
+  return companyInfo;
 };
 
 /**
- * Merge receipt template with organization customizations and data
- * @param {string} organizationId - Organization ID
- * @param {string} storeId - Store ID (optional)
- * @param {Object} orderData - Order data for customer and product info
- * @returns {Promise<Object>} - Merged template data
+ * Merges a base invoice template with organization-specific customizations and order data.
+ * @param {Object} baseTemplate - The base InvoiceTemplate document.
+ * @param {Object} organizationSettings - The organization's template customization settings.
+ * @param {Object} storeData - The selected store's data.
+ * @param {Object} orderData - The WooCommerce order data.
+ * @returns {Object} Merged invoice data ready for generation.
  */
-exports.mergeReceiptTemplate = async (organizationId, storeId = null, orderData = null) => {
-  try {
-    // Get organization and its template settings
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      throw new Error('Organization not found');
-    }
+exports.mergeInvoiceTemplate = (baseTemplate, organizationSettings, storeData, orderData) => {
+  const mergedCompanyInfo = exports.getMergedCompanyInfo(organizationSettings.invoiceTemplate, storeData);
 
-    // Get organization's default receipt template
-    const defaultTemplateId = organization.receiptSettings?.defaultOrderTemplate;
-    if (!defaultTemplateId) {
-      throw new Error('No default receipt template found for organization');
-    }
+  // Merge design and layout from organization settings, falling back to base template
+  const design = {
+    ...baseTemplate.design,
+    ...organizationSettings.invoiceTemplate?.design
+  };
+  const layout = {
+    ...baseTemplate.layout,
+    ...organizationSettings.invoiceTemplate?.layout
+  };
 
-    // Get base template
-    const baseTemplate = await ReceiptTemplate.findById(defaultTemplateId);
-    if (!baseTemplate) {
-      throw new Error('Base receipt template not found');
-    }
-
-    // Get organization's customizations
-    const customizations = organization.organizationTemplateSettings?.receiptTemplate || {};
-
-    // Get store data if storeId provided
-    let storeData = null;
-    if (storeId) {
-      const store = await Store.findById(storeId);
-      if (store) {
-        storeData = {
-          name: store.name,
-          website: store.url,
-          logo: store.websiteLogo
-        };
-      }
-    }
-
-    // Merge template with customizations and data
-    const mergedTemplate = {
-      // Base template data
-      ...baseTemplate.toObject(),
-      
-      // Override with organization customizations
-      companyInfo: {
-        // Use store data if available, otherwise use customizations
-        name: storeData?.name || customizations.storeInfo?.name || baseTemplate.companyInfo?.name,
-        email: customizations.email || baseTemplate.companyInfo?.email,
-        phone: customizations.customFields?.phone || baseTemplate.companyInfo?.phone,
-        website: storeData?.website || customizations.storeInfo?.website || baseTemplate.companyInfo?.website,
-        logo: storeData?.logo || customizations.storeInfo?.logo || baseTemplate.companyInfo?.logo,
-        address: customizations.customFields?.address || baseTemplate.companyInfo?.address
-      },
-      
-      // Override design settings
-      design: {
-        ...baseTemplate.design,
-        ...customizations.design
-      },
-      
-      // Override layout settings
-      layout: {
-        ...baseTemplate.layout,
-        ...customizations.layout
-      }
-    };
-
-    // Add order data if provided
-    if (orderData) {
-      mergedTemplate.orderData = {
-        customer: {
-          name: `${orderData.billing?.first_name || ''} ${orderData.billing?.last_name || ''}`.trim(),
-          email: orderData.billing?.email,
-          address: {
-            street: orderData.billing?.address_1,
-            city: orderData.billing?.city,
-            state: orderData.billing?.state,
-            zipCode: orderData.billing?.postcode,
-            country: orderData.billing?.country
-          }
-        },
-        items: orderData.line_items?.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: parseFloat(item.price),
-          total: parseFloat(item.total)
-        })) || [],
-        totals: {
-          subtotal: parseFloat(orderData.total) - parseFloat(orderData.total_tax || 0),
-          tax: parseFloat(orderData.total_tax || 0),
-          discount: parseFloat(orderData.discount_total || 0),
-          total: parseFloat(orderData.total)
-        }
-      };
-    }
-
-    return mergedTemplate;
-  } catch (error) {
-    console.error('Error merging receipt template:', error);
-    throw error;
-  }
+  return {
+    templateId: baseTemplate._id,
+    companyInfo: mergedCompanyInfo,
+    design,
+    layout,
+    // Customer info from order
+    customerName: `${orderData.billing?.first_name || ''} ${orderData.billing?.last_name || ''}`.trim(),
+    customerEmail: orderData.billing?.email || '',
+    customerAddress: {
+      street: orderData.billing?.address_1 || '',
+      city: orderData.billing?.city || '',
+      state: orderData.billing?.state || '',
+      zipCode: orderData.billing?.postcode || '',
+      country: orderData.billing?.country || ''
+    },
+    // Items from order
+    items: orderData.line_items?.map(item => ({
+      name: item.name,
+      description: item.meta_data?.find(m => m.key === 'description')?.value || '',
+      quantity: item.quantity,
+      unitPrice: parseFloat(item.price),
+      totalPrice: parseFloat(item.total),
+      taxRate: 0 // Assuming tax rate is not per item in order, or needs calculation
+    })) || [],
+    // Amounts from order
+    subtotal: parseFloat(orderData.total) - parseFloat(orderData.total_tax || 0),
+    taxAmount: parseFloat(orderData.total_tax || 0),
+    discountAmount: parseFloat(orderData.discount_total || 0),
+    totalAmount: parseFloat(orderData.total),
+    currency: orderData.currency || 'USD',
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
+    notes: orderData.customer_note || '',
+    terms: 'Net 30', // Default terms
+    type: 'one_time', // Default type
+  };
 };
 
 /**
- * Get merged company info for invoice/receipt generation
+ * Merges a base receipt template with organization-specific customizations and order data.
+ * @param {Object} baseTemplate - The base ReceiptTemplate document.
+ * @param {Object} organizationSettings - The organization's template customization settings.
+ * @param {Object} storeData - The selected store's data.
+ * @param {Object} orderData - The WooCommerce order data.
+ * @returns {Object} Merged receipt data ready for generation.
+ */
+exports.mergeReceiptTemplate = (baseTemplate, organizationSettings, storeData, orderData) => {
+  const mergedCompanyInfo = exports.getMergedCompanyInfo(organizationSettings.receiptTemplate, storeData);
+
+  // Merge design and layout from organization settings, falling back to base template
+  const design = {
+    ...baseTemplate.design,
+    ...organizationSettings.receiptTemplate?.design
+  };
+  const layout = {
+    ...baseTemplate.layout,
+    ...organizationSettings.receiptTemplate?.layout
+  };
+
+  return {
+    templateId: baseTemplate._id,
+    companyInfo: mergedCompanyInfo,
+    design,
+    layout,
+    // Customer info from order
+    customerName: `${orderData.billing?.first_name || ''} ${orderData.billing?.last_name || ''}`.trim(),
+    customerEmail: orderData.billing?.email || '',
+    customerAddress: {
+      street: orderData.billing?.address_1 || '',
+      city: orderData.billing?.city || '',
+      state: orderData.billing?.state || '',
+      zipCode: orderData.billing?.postcode || '',
+      country: orderData.billing?.country || ''
+    },
+    // Items from order
+    items: orderData.line_items?.map(item => ({
+      name: item.name,
+      description: item.meta_data?.find(m => m.key === 'description')?.value || '',
+      quantity: item.quantity,
+      unitPrice: parseFloat(item.price),
+      totalPrice: parseFloat(item.total),
+      taxRate: 0
+    })) || [],
+    // Amounts from order
+    subtotal: parseFloat(orderData.total) - parseFloat(orderData.total_tax || 0),
+    taxAmount: parseFloat(orderData.total_tax || 0),
+    discountAmount: parseFloat(orderData.discount_total || 0),
+    totalAmount: parseFloat(orderData.total),
+    currency: orderData.currency || 'USD',
+    paymentMethod: orderData.payment_method_title || 'Credit Card',
+    transactionId: orderData.transaction_id || '',
+    transactionDate: orderData.date_created || new Date(),
+    description: orderData.customer_note || '',
+    type: 'purchase',
+  };
+};
+
+/**
+ * Gets merged company info for invoice/receipt generation
  * @param {string} organizationId - Organization ID
  * @param {string} storeId - Store ID (optional)
  * @param {string} templateType - 'invoice' or 'receipt'
- * @returns {Promise<Object>} - Merged company info
+ * @returns {Object} Merged company information
  */
-exports.getMergedCompanyInfo = async (organizationId, storeId = null, templateType = 'invoice') => {
+exports.getMergedCompanyInfoForGeneration = async (organizationId, storeId, templateType) => {
   try {
+    // Get organization with template settings
     const organization = await Organization.findById(organizationId);
     if (!organization) {
       throw new Error('Organization not found');
     }
-
-    const customizations = organization.organizationTemplateSettings?.[`${templateType}Template`] || {};
 
     // Get store data if storeId provided
     let storeData = null;
@@ -252,17 +176,30 @@ exports.getMergedCompanyInfo = async (organizationId, storeId = null, templateTy
       }
     }
 
-    // Return merged company info
-    return {
-      name: storeData?.name || customizations.storeInfo?.name,
-      email: customizations.email,
-      phone: customizations.customFields?.phone,
-      website: storeData?.website || customizations.storeInfo?.website,
-      logo: storeData?.logo || customizations.storeInfo?.logo,
-      address: customizations.customFields?.address
-    };
+    // Get organization template settings
+    const organizationSettings = organization.organizationTemplateSettings || {};
+    const templateSettings = organizationSettings[`${templateType}Template`] || {};
+
+    // Merge company info
+    const mergedCompanyInfo = exports.getMergedCompanyInfo(templateSettings, storeData);
+
+    return mergedCompanyInfo;
   } catch (error) {
     console.error('Error getting merged company info:', error);
-    throw error;
+    // Return empty company info as fallback
+    return {
+      name: '',
+      email: '',
+      phone: '',
+      website: '',
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: ''
+      },
+      logo: ''
+    };
   }
 };

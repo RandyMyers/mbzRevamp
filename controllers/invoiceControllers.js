@@ -10,34 +10,7 @@ const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
-
-// Helper function to get merged company info
-async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo, logoUrl) {
-  try {
-    const templateMergerService = require('../services/templateMergerService');
-    let mergedCompanyInfo = await templateMergerService.getMergedCompanyInfo(organizationId, storeId, 'invoice');
-    
-    // Override with provided companyInfo if any
-    if (providedCompanyInfo) {
-      mergedCompanyInfo = { ...mergedCompanyInfo, ...providedCompanyInfo };
-    }
-    
-    // Add logo if uploaded
-    if (logoUrl) {
-      mergedCompanyInfo = { ...mergedCompanyInfo, logo: logoUrl };
-    }
-    
-    return mergedCompanyInfo;
-  } catch (error) {
-    console.error('Error getting merged company info:', error);
-    // Fallback to provided companyInfo or empty object
-    let fallbackInfo = providedCompanyInfo || {};
-    if (logoUrl) {
-      fallbackInfo = { ...fallbackInfo, logo: logoUrl };
-    }
-    return fallbackInfo;
-  }
-}
+const templateMergerService = require('../services/templateMergerService');
 
 /**
  * @swagger
@@ -48,6 +21,8 @@ async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo
  *       required:
  *         - customerId
  *         - storeId
+ *         - organizationId
+ *         - userId
  *         - customerName
  *         - customerEmail
  *         - items
@@ -168,6 +143,8 @@ async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo
  *             required:
  *               - customerId
  *               - storeId
+ *               - organizationId
+ *               - userId
  *               - customerName
  *               - customerEmail
  *               - items
@@ -182,6 +159,16 @@ async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo
  *                 type: string
  *                 format: ObjectId
  *                 description: Store ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               organizationId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Organization ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID who created the invoice
  *                 example: "507f1f77bcf86cd799439011"
  *               customerName:
  *                 type: string
@@ -267,57 +254,48 @@ async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo
  *                 example: "507f1f77bcf86cd799439011"
  *               companyInfo:
  *                 type: object
- *                 description: Company information override for this invoice (optional - overrides template defaults)
+ *                 description: Company information override for this invoice
  *                 properties:
  *                   name:
  *                     type: string
- *                     description: Company name for invoice header
- *                     example: "Acme Corporation"
+ *                     description: Company name
+ *                     example: "Acme Corp"
  *                   email:
  *                     type: string
  *                     format: email
- *                     description: Company billing email address
+ *                     description: Company email
  *                     example: "billing@acme.com"
  *                   phone:
  *                     type: string
- *                     description: Company phone number
+ *                     description: Company phone
  *                     example: "+1 (555) 123-4567"
- *                   website:
- *                     type: string
- *                     description: Company website URL
- *                     example: "https://www.acme.com"
  *                   address:
  *                     type: object
- *                     description: Company business address
+ *                     description: Company address
  *                     properties:
  *                       street:
  *                         type: string
- *                         description: Street address
- *                         example: "123 Business Street"
+ *                         example: "123 Business St"
  *                       city:
  *                         type: string
- *                         description: City name
  *                         example: "New York"
  *                       state:
  *                         type: string
- *                         description: State or province
  *                         example: "NY"
  *                       zipCode:
  *                         type: string
- *                         description: Postal/ZIP code
  *                         example: "10001"
  *                       country:
  *                         type: string
- *                         description: Country name
- *                         example: "United States"
+ *                         example: "USA"
  *                   logo:
  *                     type: string
- *                     description: Company logo URL (if not uploading file)
+ *                     description: Company logo URL
  *                     example: "https://example.com/logo.png"
  *                   logoPosition:
  *                     type: string
  *                     enum: [top-left, top-right, top-center]
- *                     description: Position of logo on invoice
+ *                     description: Logo position on invoice
  *                     example: "top-left"
  *               logo:
  *                 type: string
@@ -387,6 +365,8 @@ exports.createInvoice = async (req, res) => {
     const {
       customerId,
       storeId,
+      organizationId,
+      userId,
       customerName,
       customerEmail,
       customerAddress,
@@ -404,10 +384,6 @@ exports.createInvoice = async (req, res) => {
       // New company info override fields
       companyInfo
     } = req.body;
-
-    // Auto-populate from authenticated user
-    const organizationId = req.user.organization;
-    const userId = req.user._id;
 
     // Handle logo upload if provided
     let logoUrl = null;
@@ -458,8 +434,8 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
-    // Validate required fields (made more flexible)
-    const requiredFields = ['customerId', 'storeId', 'items', 'totalAmount']; // Essential fields for invoice creation
+    // Validate required fields
+    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -558,6 +534,15 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
+    // Get merged company info from organization template settings
+    let mergedCompanyInfo = null;
+    try {
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, storeId, 'invoice');
+    } catch (error) {
+      console.error('Error getting merged company info:', error);
+      // Continue without merged company info if there's an error
+    }
+
     // Generate invoice number
     const invoiceNumber = await Invoice.generateInvoiceNumber(organizationId);
 
@@ -592,8 +577,15 @@ exports.createInvoice = async (req, res) => {
       terms,
       type: type || 'one_time',
       templateId,
-      // Get merged company info from template merger service
-      companyInfo: await getMergedCompanyInfo(organizationId, storeId, companyInfo, logoUrl),
+      // Use merged company info from organization template settings, with overrides
+      companyInfo: mergedCompanyInfo ? {
+        ...mergedCompanyInfo,
+        ...(companyInfo || {}),
+        ...(logoUrl && { logo: logoUrl })
+      } : (companyInfo ? {
+        ...companyInfo,
+        ...(logoUrl && { logo: logoUrl })
+      } : (logoUrl ? { logo: logoUrl } : undefined)),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1745,6 +1737,16 @@ exports.bulkGenerateInvoices = async (req, res) => {
 
     const generatedInvoices = [];
 
+    // Get merged company info for all invoices (same organization and store)
+    let mergedCompanyInfo = null;
+    try {
+      const firstOrder = orders[0];
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, firstOrder.storeId, 'invoice');
+    } catch (error) {
+      console.error('Error getting merged company info for bulk generation:', error);
+      // Continue without merged company info if there's an error
+    }
+
     for (const order of orders) {
       try {
         // Generate invoice number
@@ -1767,8 +1769,8 @@ exports.bulkGenerateInvoices = async (req, res) => {
           currency: order.currency || 'USD',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           type: 'one_time',
-          // Get merged company info from template merger service
-          companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
+          // Use merged company info from organization template settings
+          companyInfo: mergedCompanyInfo,
           createdBy: userId,
           updatedBy: userId
         });
@@ -1992,6 +1994,152 @@ exports.getInvoicesByStore = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching store invoices',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoices/generate-from-order:
+ *   post:
+ *     summary: Generate invoice from WooCommerce order
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - organizationId
+ *               - userId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: Order ID
+ *               organizationId:
+ *                 type: string
+ *                 description: Organization ID
+ *               userId:
+ *                 type: string
+ *                 description: User ID
+ *     responses:
+ *       201:
+ *         description: Invoice generated successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+exports.generateOrderInvoice = async (req, res) => {
+  try {
+    const { orderId, organizationId, userId } = req.body;
+
+    if (!orderId || !organizationId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: orderId, organizationId, userId'
+      });
+    }
+
+    // Get order details
+    const Order = require('../models/order');
+    const order = await Order.findOne({ _id: orderId, organizationId })
+      .populate('customerId', 'name email phone address')
+      .populate('storeId', 'name url');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Get merged company info from organization template settings
+    let mergedCompanyInfo = null;
+    try {
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, order.storeId, 'invoice');
+    } catch (error) {
+      console.error('Error getting merged company info:', error);
+      // Continue without merged company info if there's an error
+    }
+
+    // Generate invoice number
+    const invoiceNumber = await Invoice.generateInvoiceNumber(organizationId);
+
+    // Create invoice from order
+    const newInvoice = new Invoice({
+      invoiceNumber,
+      customerId: order.customerId,
+      storeId: order.storeId,
+      organizationId,
+      userId,
+      customerName: order.billing?.first_name || 'Customer',
+      customerEmail: order.billing?.email || 'customer@example.com',
+      customerAddress: {
+        street: order.billing?.address_1 || '',
+        city: order.billing?.city || '',
+        state: order.billing?.state || '',
+        zipCode: order.billing?.postcode || '',
+        country: order.billing?.country || ''
+      },
+      items: order.line_items?.map(item => ({
+        name: item.name,
+        description: item.meta_data?.find(m => m.key === 'description')?.value || '',
+        quantity: item.quantity,
+        unitPrice: parseFloat(item.price),
+        totalPrice: parseFloat(item.total),
+        taxRate: 0
+      })) || [],
+      subtotal: parseFloat(order.total) - parseFloat(order.total_tax || 0),
+      taxAmount: parseFloat(order.total_tax || 0),
+      discountAmount: parseFloat(order.discount_total || 0),
+      totalAmount: parseFloat(order.total),
+      currency: order.currency || 'USD',
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      notes: order.customer_note || '',
+      terms: 'Payment is due within 30 days.',
+      type: 'one_time',
+      // Use merged company info from organization template settings
+      companyInfo: mergedCompanyInfo,
+      createdBy: userId,
+      updatedBy: userId
+    });
+
+    newInvoice.calculateTotals();
+    const savedInvoice = await newInvoice.save();
+
+    // Create audit log
+    await logEvent({
+      action: 'ORDER_INVOICE_GENERATED',
+      user: userId,
+      resource: 'Invoice',
+      resourceId: savedInvoice._id,
+      details: {
+        invoiceNumber: savedInvoice.invoiceNumber,
+        orderId: order._id,
+        totalAmount: savedInvoice.totalAmount
+      },
+      organization: organizationId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Order invoice generated successfully',
+      invoice: savedInvoice
+    });
+
+  } catch (error) {
+    console.error('Error generating order invoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating order invoice',
       error: error.message
     });
   }

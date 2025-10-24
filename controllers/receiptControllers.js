@@ -12,34 +12,7 @@ const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
-
-// Helper function to get merged company info
-async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo, logoUrl) {
-  try {
-    const templateMergerService = require('../services/templateMergerService');
-    let mergedCompanyInfo = await templateMergerService.getMergedCompanyInfo(organizationId, storeId, 'receipt');
-    
-    // Override with provided companyInfo if any
-    if (providedCompanyInfo) {
-      mergedCompanyInfo = { ...mergedCompanyInfo, ...providedCompanyInfo };
-    }
-    
-    // Add logo if uploaded
-    if (logoUrl) {
-      mergedCompanyInfo = { ...mergedCompanyInfo, logo: logoUrl };
-    }
-    
-    return mergedCompanyInfo;
-  } catch (error) {
-    console.error('Error getting merged company info:', error);
-    // Fallback to provided companyInfo or empty object
-    let fallbackInfo = providedCompanyInfo || {};
-    if (logoUrl) {
-      fallbackInfo = { ...fallbackInfo, logo: logoUrl };
-    }
-    return fallbackInfo;
-  }
-}
+const templateMergerService = require('../services/templateMergerService');
 
 /**
  * @swagger
@@ -344,57 +317,48 @@ async function getMergedCompanyInfo(organizationId, storeId, providedCompanyInfo
  *                 example: "507f1f77bcf86cd799439011"
  *               companyInfo:
  *                 type: object
- *                 description: Company information override for this receipt (optional - overrides template defaults)
+ *                 description: Company information override for this receipt
  *                 properties:
  *                   name:
  *                     type: string
- *                     description: Company name for receipt header
- *                     example: "Acme Corporation"
+ *                     description: Company name
+ *                     example: "Acme Corp"
  *                   email:
  *                     type: string
  *                     format: email
- *                     description: Company billing email address
+ *                     description: Company email
  *                     example: "billing@acme.com"
  *                   phone:
  *                     type: string
- *                     description: Company phone number
+ *                     description: Company phone
  *                     example: "+1 (555) 123-4567"
- *                   website:
- *                     type: string
- *                     description: Company website URL
- *                     example: "https://www.acme.com"
  *                   address:
  *                     type: object
- *                     description: Company business address
+ *                     description: Company address
  *                     properties:
  *                       street:
  *                         type: string
- *                         description: Street address
- *                         example: "123 Business Street"
+ *                         example: "123 Business St"
  *                       city:
  *                         type: string
- *                         description: City name
  *                         example: "New York"
  *                       state:
  *                         type: string
- *                         description: State or province
  *                         example: "NY"
  *                       zipCode:
  *                         type: string
- *                         description: Postal/ZIP code
  *                         example: "10001"
  *                       country:
  *                         type: string
- *                         description: Country name
- *                         example: "United States"
+ *                         example: "USA"
  *                   logo:
  *                     type: string
- *                     description: Company logo URL (if not uploading file)
+ *                     description: Company logo URL
  *                     example: "https://example.com/logo.png"
  *                   logoPosition:
  *                     type: string
  *                     enum: [top-left, top-right, top-center]
- *                     description: Position of logo on receipt
+ *                     description: Logo position on receipt
  *                     example: "top-left"
  *               logo:
  *                 type: string
@@ -1252,6 +1216,8 @@ exports.createReceipt = async (req, res) => {
     const {
       customerId,
       storeId,
+      organizationId,
+      userId,
       customerName,
       customerEmail,
       customerAddress,
@@ -1271,10 +1237,6 @@ exports.createReceipt = async (req, res) => {
       // New company info override fields
       companyInfo
     } = req.body;
-
-    // Auto-populate from authenticated user
-    const organizationId = req.user.organization;
-    const userId = req.user._id;
 
     // Handle logo upload if provided
     let logoUrl = null;
@@ -1325,8 +1287,8 @@ exports.createReceipt = async (req, res) => {
       }
     }
 
-    // Validate required fields (made more flexible)
-    const requiredFields = ['items', 'totalAmount', 'paymentMethod']; // Only essential fields are required
+    // Validate required fields
+    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -1334,6 +1296,15 @@ exports.createReceipt = async (req, res) => {
         success: false, 
         message: `Missing required fields: ${missingFields.join(', ')}` 
       });
+    }
+
+    // Get merged company info from organization template settings
+    let mergedCompanyInfo = null;
+    try {
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, storeId, 'receipt');
+    } catch (error) {
+      console.error('Error getting merged company info:', error);
+      // Continue without merged company info if there's an error
     }
 
     // Generate receipt number
@@ -1362,8 +1333,15 @@ exports.createReceipt = async (req, res) => {
       description,
       type: type || 'purchase',
       templateId,
-      // Get merged company info from template merger service
-      companyInfo: await getMergedCompanyInfo(organizationId, storeId, companyInfo, logoUrl),
+      // Use merged company info from organization template settings, with overrides
+      companyInfo: mergedCompanyInfo ? {
+        ...mergedCompanyInfo,
+        ...(companyInfo || {}),
+        ...(logoUrl && { logo: logoUrl })
+      } : (companyInfo ? {
+        ...companyInfo,
+        ...(logoUrl && { logo: logoUrl })
+      } : (logoUrl ? { logo: logoUrl } : undefined)),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1896,6 +1874,16 @@ exports.bulkGenerateReceipts = async (req, res) => {
 
     const generatedReceipts = [];
 
+    // Get merged company info for all receipts (same organization and store)
+    let mergedCompanyInfo = null;
+    try {
+      const firstOrder = orders[0];
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, firstOrder.storeId, 'receipt');
+    } catch (error) {
+      console.error('Error getting merged company info for bulk generation:', error);
+      // Continue without merged company info if there's an error
+    }
+
     for (const order of orders) {
       try {
         // Generate receipt number
@@ -1920,8 +1908,8 @@ exports.bulkGenerateReceipts = async (req, res) => {
           transactionId: order.transactionId,
           transactionDate: new Date(),
           type: 'purchase',
-          // Get merged company info from template merger service
-          companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
+          // Use merged company info from organization template settings
+          companyInfo: mergedCompanyInfo,
           createdBy: userId,
           updatedBy: userId
         });
@@ -2020,8 +2008,6 @@ exports.generateOrderReceipt = async (req, res) => {
       type: 'purchase',
       scenario: 'woocommerce_order',
       templateId: template._id,
-      // Get merged company info from template merger service
-      companyInfo: await getMergedCompanyInfo(organizationId, order.storeId, null, null),
       createdBy: userId,
       updatedBy: userId
     });
@@ -2823,7 +2809,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -4325,7 +4311,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -5827,7 +5813,7 @@ exports.createReceipt = async (req, res) => {
 
     // Validate required fields
 
-    const requiredFields = ['customerId', 'storeId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
+    const requiredFields = ['customerId', 'storeId', 'organizationId', 'userId', 'customerName', 'customerEmail', 'items', 'totalAmount', 'paymentMethod'];
 
     const missingFields = requiredFields.filter(field => !req.body[field]);
 

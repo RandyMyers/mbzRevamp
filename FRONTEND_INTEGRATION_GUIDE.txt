@@ -29,13 +29,13 @@ REQUIRED CHANGES
    Required Implementation (CORRECT):
    ```javascript
    // Load settings from backend
-   const response = await fetch('/api/organizations/template-settings', {
+   const response = await fetch('/api/organization/template-settings', {
      headers: { 'Authorization': `Bearer ${token}` }
    });
    const { data } = await response.json();
    
    // Save settings to backend
-   await fetch('/api/organizations/template-settings', {
+   await fetch('/api/organization/template-settings', {
      method: 'PUT',
      headers: { 
        'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ REQUIRED CHANGES
    Required API Call:
    ```javascript
    // Get organization's stores
-   const response = await fetch('/api/organizations/stores', {
+   const response = await fetch('/api/organization/stores', {
      headers: { 'Authorization': `Bearer ${token}` }
    });
    const { data: stores } = await response.json();
@@ -267,8 +267,8 @@ REQUIRED CHANGES
 API ENDPOINTS TO USE
 ====================
 
-GET /api/organizations/template-settings
-----------------------------------------
+GET /api/organization/template-settings
+--------------------------------------
 Load current template customizations for the organization.
 
 Response:
@@ -305,7 +305,7 @@ Response:
 }
 ```
 
-PUT /api/organizations/template-settings
+PUT /api/organization/template-settings
 ---------------------------------------
 Save template customizations for the organization.
 
@@ -340,8 +340,8 @@ Request Body:
 }
 ```
 
-GET /api/organizations/stores
------------------------------
+GET /api/organization/stores
+----------------------------
 Get list of stores for the organization.
 
 Response:
@@ -365,7 +365,7 @@ Response:
 }
 ```
 
-POST /api/organizations/template-settings/reset
+POST /api/organization/template-settings/reset
 -----------------------------------------------
 Reset template settings to defaults.
 
@@ -391,7 +391,7 @@ DATA FLOW EXPLANATION
 
 2. FRONTEND SAVES TO BACKEND
    --------------------------
-   - Frontend calls PUT /api/organizations/template-settings
+   - Frontend calls PUT /api/organization/template-settings
    - Backend saves to organization.organizationTemplateSettings
    - Settings are now persisted and available for document generation
 
