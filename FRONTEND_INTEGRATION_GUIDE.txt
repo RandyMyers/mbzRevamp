@@ -1,0 +1,463 @@
+FRONTEND INTEGRATION GUIDE FOR TEMPLATE CUSTOMIZATION SYSTEM
+================================================================
+
+OVERVIEW
+--------
+This guide explains how to integrate the backend template customization system with the Elapix frontend. The system allows organizations to customize their invoice and receipt templates with store-specific data and custom branding.
+
+CURRENT STATE
+-------------
+❌ Frontend currently uses localStorage (data never reaches backend)
+❌ No store selector for multi-store organizations  
+❌ No custom field inputs (email, phone, address)
+❌ No logo upload integration
+❌ Template customizations are not persisted
+
+REQUIRED CHANGES
+----------------
+
+1. REPLACE LOCALSTORAGE WITH API CALLS
+   ===================================
+   
+   Current Implementation (WRONG):
+   ```javascript
+   // In TemplateContext.tsx
+   const savedSettings = localStorage.getItem('invoiceTemplateSettings');
+   localStorage.setItem('invoiceTemplateSettings', JSON.stringify(settings));
+   ```
+   
+   Required Implementation (CORRECT):
+   ```javascript
+   // Load settings from backend
+   const response = await fetch('/api/organization/template-settings', {
+     headers: { 'Authorization': `Bearer ${token}` }
+   });
+   const { data } = await response.json();
+   
+   // Save settings to backend
+   await fetch('/api/organization/template-settings', {
+     method: 'PUT',
+     headers: { 
+       'Content-Type': 'application/json',
+       'Authorization': `Bearer ${token}` 
+     },
+     body: JSON.stringify(settings)
+   });
+   ```
+
+2. ADD STORE SELECTOR
+   ===================
+   
+   Organizations can have multiple WooCommerce stores. Users need to select which store's data to use.
+   
+   Required API Call:
+   ```javascript
+   // Get organization's stores
+   const response = await fetch('/api/organization/stores', {
+     headers: { 'Authorization': `Bearer ${token}` }
+   });
+   const { data: stores } = await response.json();
+   
+   // Returns: [{ _id, name, website, logo }]
+   ```
+   
+   Required UI Component:
+   ```jsx
+   <Select>
+     <SelectTrigger>
+       <SelectValue placeholder="Select store" />
+     </SelectTrigger>
+     <SelectContent>
+       {stores.map(store => (
+         <SelectItem key={store._id} value={store._id}>
+           {store.name} ({store.website})
+         </SelectItem>
+       ))}
+     </SelectContent>
+   </Select>
+   ```
+
+3. ADD CUSTOM FIELD INPUTS
+   ========================
+   
+   Users need to input custom company information that will be used in all generated documents.
+   
+   Required Fields:
+   ```jsx
+   <div className="space-y-4">
+     <div>
+       <Label>Company Email</Label>
+       <Input 
+         value={settings.email}
+         onChange={(e) => updateSettings({ email: e.target.value })}
+         placeholder="billing@company.com"
+       />
+     </div>
+     
+     <div>
+       <Label>Company Phone</Label>
+       <Input 
+         value={settings.customFields.phone}
+         onChange={(e) => updateSettings({ 
+           customFields: { ...settings.customFields, phone: e.target.value }
+         })}
+         placeholder="+1 (555) 123-4567"
+       />
+     </div>
+     
+     <div>
+       <Label>Company Address</Label>
+       <div className="grid grid-cols-2 gap-2">
+         <Input 
+           value={settings.customFields.address.street}
+           onChange={(e) => updateSettings({ 
+             customFields: { 
+               ...settings.customFields, 
+               address: { ...settings.customFields.address, street: e.target.value }
+             }
+           })}
+           placeholder="Street Address"
+         />
+         <Input 
+           value={settings.customFields.address.city}
+           onChange={(e) => updateSettings({ 
+             customFields: { 
+               ...settings.customFields, 
+               address: { ...settings.customFields.address, city: e.target.value }
+             }
+           })}
+           placeholder="City"
+         />
+         <Input 
+           value={settings.customFields.address.state}
+           onChange={(e) => updateSettings({ 
+             customFields: { 
+               ...settings.customFields, 
+               address: { ...settings.customFields.address, state: e.target.value }
+             }
+           })}
+           placeholder="State"
+         />
+         <Input 
+           value={settings.customFields.address.zipCode}
+           onChange={(e) => updateSettings({ 
+             customFields: { 
+               ...settings.customFields, 
+               address: { ...settings.customFields.address, zipCode: e.target.value }
+             }
+           })}
+           placeholder="ZIP Code"
+         />
+         <Input 
+           value={settings.customFields.address.country}
+           onChange={(e) => updateSettings({ 
+             customFields: { 
+               ...settings.customFields, 
+               address: { ...settings.customFields.address, country: e.target.value }
+             }
+           })}
+           placeholder="Country"
+         />
+       </div>
+     </div>
+   </div>
+   ```
+
+4. ADD LOGO UPLOAD FUNCTIONALITY
+   ==============================
+   
+   Users can upload a company logo that will be used in all generated documents.
+   
+   Required Implementation:
+   ```jsx
+   <div>
+     <Label>Company Logo</Label>
+     <div className="flex items-center space-x-4">
+       {logoPreview && (
+         <img src={logoPreview} alt="Logo preview" className="w-16 h-16 object-contain" />
+       )}
+       <Input
+         type="file"
+         accept="image/*"
+         onChange={handleLogoUpload}
+         className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+       />
+     </div>
+   </div>
+   ```
+   
+   Required Handler:
+   ```javascript
+   const handleLogoUpload = async (event) => {
+     const file = event.target.files[0];
+     if (!file) return;
+     
+     const formData = new FormData();
+     formData.append('logo', file);
+     
+     try {
+       const response = await fetch('/api/upload/logo', {
+         method: 'POST',
+         headers: { 'Authorization': `Bearer ${token}` },
+         body: formData
+       });
+       
+       const { data } = await response.json();
+       updateSettings({ logo: data.url });
+     } catch (error) {
+       console.error('Logo upload failed:', error);
+     }
+   };
+   ```
+
+5. UPDATE TEMPLATECUSTOMIZATION.TSX
+   =================================
+   
+   The main component needs to be completely refactored to use the new API endpoints.
+   
+   Required Structure:
+   ```jsx
+   const TemplateCustomization = () => {
+     const [settings, setSettings] = useState({
+       invoiceTemplate: {
+         storeInfo: { name: '', website: '', logo: '' },
+         email: '',
+         customFields: {
+           phone: '',
+           address: { street: '', city: '', state: '', zipCode: '', country: '' }
+         },
+         design: { primaryColor: '#000000', secondaryColor: '#666666', backgroundColor: '#ffffff' },
+         layout: { logoPosition: 'top-left', headerStyle: 'standard', footerStyle: 'standard' }
+       },
+       receiptTemplate: { /* same structure */ }
+     });
+     const [stores, setStores] = useState([]);
+     const [loading, setLoading] = useState(false);
+     
+     // Load settings and stores on mount
+     useEffect(() => {
+       loadSettings();
+       loadStores();
+     }, []);
+     
+     const loadSettings = async () => {
+       // API call to get current settings
+     };
+     
+     const loadStores = async () => {
+       // API call to get organization stores
+     };
+     
+     const saveSettings = async () => {
+       // API call to save settings
+     };
+     
+     return (
+       <div className="space-y-6">
+         {/* Store Selector */}
+         {/* Custom Fields */}
+         {/* Logo Upload */}
+         {/* Design Settings */}
+         {/* Save Button */}
+       </div>
+     );
+   };
+   ```
+
+API ENDPOINTS TO USE
+====================
+
+GET /api/organization/template-settings
+--------------------------------------
+Load current template customizations for the organization.
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "invoiceTemplate": {
+      "storeInfo": { "name": "", "website": "", "logo": "" },
+      "email": "billing@company.com",
+      "customFields": {
+        "phone": "+1 (555) 123-4567",
+        "address": {
+          "street": "123 Main St",
+          "city": "New York",
+          "state": "NY",
+          "zipCode": "10001",
+          "country": "USA"
+        }
+      },
+      "design": {
+        "primaryColor": "#000000",
+        "secondaryColor": "#666666",
+        "backgroundColor": "#ffffff"
+      },
+      "layout": {
+        "logoPosition": "top-left",
+        "headerStyle": "standard",
+        "footerStyle": "standard"
+      }
+    },
+    "receiptTemplate": { /* same structure */ }
+  }
+}
+```
+
+PUT /api/organization/template-settings
+---------------------------------------
+Save template customizations for the organization.
+
+Request Body:
+```json
+{
+  "invoiceTemplate": {
+    "storeInfo": { "name": "Store Name", "website": "https://store.com", "logo": "https://logo.url" },
+    "email": "billing@company.com",
+    "customFields": {
+      "phone": "+1 (555) 123-4567",
+      "address": {
+        "street": "123 Main St",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10001",
+        "country": "USA"
+      }
+    },
+    "design": {
+      "primaryColor": "#000000",
+      "secondaryColor": "#666666",
+      "backgroundColor": "#ffffff"
+    },
+    "layout": {
+      "logoPosition": "top-left",
+      "headerStyle": "standard",
+      "footerStyle": "standard"
+    }
+  },
+  "receiptTemplate": { /* same structure */ }
+}
+```
+
+GET /api/organization/stores
+----------------------------
+Get list of stores for the organization.
+
+Response:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "store_id_1",
+      "name": "Main Store",
+      "website": "https://mainstore.com",
+      "logo": "https://logo.url"
+    },
+    {
+      "_id": "store_id_2", 
+      "name": "Secondary Store",
+      "website": "https://secondarystore.com",
+      "logo": "https://logo2.url"
+    }
+  ]
+}
+```
+
+POST /api/organization/template-settings/reset
+-----------------------------------------------
+Reset template settings to defaults.
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Template settings reset successfully",
+  "data": {}
+}
+```
+
+DATA FLOW EXPLANATION
+=====================
+
+1. USER CUSTOMIZES TEMPLATE
+   -------------------------
+   - User selects store from dropdown
+   - User enters custom email, phone, address
+   - User uploads logo
+   - User adjusts colors and layout
+   - User clicks "Save Settings"
+
+2. FRONTEND SAVES TO BACKEND
+   --------------------------
+   - Frontend calls PUT /api/organization/template-settings
+   - Backend saves to organization.organizationTemplateSettings
+   - Settings are now persisted and available for document generation
+
+3. DOCUMENT GENERATION
+   --------------------
+   - User generates invoice/receipt (manual or from WooCommerce order)
+   - Backend gets organization's template customizations
+   - Backend gets store data (name, website, logo)
+   - Backend merges everything using templateMergerService
+   - Generated document uses merged company information
+
+4. FINAL RESULT
+   -------------
+   - Company Name: Store name (from selected store)
+   - Company Website: Store website (from selected store)
+   - Company Logo: Store logo (from selected store)
+   - Company Email: Custom email (from user input)
+   - Company Phone: Custom phone (from user input)
+   - Company Address: Custom address (from user input)
+   - Customer Info: From WooCommerce order billing
+   - Product Info: From WooCommerce order line_items
+
+IMPLEMENTATION PRIORITY
+=======================
+
+1. HIGH PRIORITY (Core Functionality)
+   - Replace localStorage with API calls
+   - Add store selector
+   - Add custom field inputs
+   - Update TemplateCustomization.tsx
+
+2. MEDIUM PRIORITY (Enhanced UX)
+   - Add logo upload functionality
+   - Add form validation
+   - Add loading states
+   - Add error handling
+
+3. LOW PRIORITY (Polish)
+   - Add preview functionality
+   - Add reset to defaults option
+   - Add export/import settings
+   - Add template sharing
+
+TESTING CHECKLIST
+=================
+
+- [ ] Settings load correctly from backend
+- [ ] Settings save correctly to backend
+- [ ] Store selector populates with organization stores
+- [ ] Custom fields save and load correctly
+- [ ] Logo upload works and displays preview
+- [ ] Generated documents use merged company info
+- [ ] Error handling works for API failures
+- [ ] Loading states display during API calls
+- [ ] Form validation prevents invalid data
+
+NOTES FOR FRONTEND DEVELOPER
+============================
+
+1. The backend is already implemented and tested
+2. All API endpoints are documented with Swagger
+3. The templateMergerService handles all the complex merging logic
+4. Focus on the UI/UX - the backend will handle the data processing
+5. Use the existing design system (shadcn/ui components)
+6. Follow the existing code patterns in the Elapix codebase
+7. Test with multiple stores to ensure the selector works correctly
+8. Ensure the form is responsive and user-friendly
+
+The system is designed to be flexible and scalable - organizations can have multiple stores, each with their own branding, while maintaining consistent customization across all their documents.

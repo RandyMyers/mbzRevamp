@@ -266,4 +266,7 @@ router.post('/bulk-generate', protect, invoiceControllers.bulkGenerateInvoices);
 // Store-specific invoice routes
 router.get('/store/:storeId', protect, invoiceControllers.getInvoicesByStore);
 
+// Generate invoice from order
+router.post('/generate-from-order', protect, invoiceControllers.generateOrderInvoice);
+
 module.exports = router; 

@@ -12,6 +12,7 @@ const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const templateMergerService = require('../services/templateMergerService');
 
 /**
  * @swagger
@@ -1297,6 +1298,15 @@ exports.createReceipt = async (req, res) => {
       });
     }
 
+    // Get merged company info from organization template settings
+    let mergedCompanyInfo = null;
+    try {
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, storeId, 'receipt');
+    } catch (error) {
+      console.error('Error getting merged company info:', error);
+      // Continue without merged company info if there's an error
+    }
+
     // Generate receipt number
     const receiptNumber = await Receipt.generateReceiptNumber(organizationId);
 
@@ -1323,11 +1333,15 @@ exports.createReceipt = async (req, res) => {
       description,
       type: type || 'purchase',
       templateId,
-      // Add company info override if provided
-      companyInfo: companyInfo ? {
+      // Use merged company info from organization template settings, with overrides
+      companyInfo: mergedCompanyInfo ? {
+        ...mergedCompanyInfo,
+        ...(companyInfo || {}),
+        ...(logoUrl && { logo: logoUrl })
+      } : (companyInfo ? {
         ...companyInfo,
         ...(logoUrl && { logo: logoUrl })
-      } : (logoUrl ? { logo: logoUrl } : undefined),
+      } : (logoUrl ? { logo: logoUrl } : undefined)),
       createdBy: userId,
       updatedBy: userId
     });
@@ -1860,6 +1874,16 @@ exports.bulkGenerateReceipts = async (req, res) => {
 
     const generatedReceipts = [];
 
+    // Get merged company info for all receipts (same organization and store)
+    let mergedCompanyInfo = null;
+    try {
+      const firstOrder = orders[0];
+      mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, firstOrder.storeId, 'receipt');
+    } catch (error) {
+      console.error('Error getting merged company info for bulk generation:', error);
+      // Continue without merged company info if there's an error
+    }
+
     for (const order of orders) {
       try {
         // Generate receipt number
@@ -1884,6 +1908,8 @@ exports.bulkGenerateReceipts = async (req, res) => {
           transactionId: order.transactionId,
           transactionDate: new Date(),
           type: 'purchase',
+          // Use merged company info from organization template settings
+          companyInfo: mergedCompanyInfo,
           createdBy: userId,
           updatedBy: userId
         });

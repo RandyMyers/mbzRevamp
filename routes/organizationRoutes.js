@@ -195,4 +195,10 @@ router.delete("/delete/:organizationId", organizationController.deleteOrganizati
  */
 router.patch('/logo/:organizationId', organizationController.updateOrganizationLogo);
 
+// Template settings routes
+router.get('/template-settings', organizationController.getTemplateSettings);
+router.put('/template-settings', organizationController.updateTemplateSettings);
+router.get('/stores', organizationController.getOrganizationStores);
+router.post('/template-settings/reset', organizationController.resetTemplateSettings);
+
 module.exports = router;
