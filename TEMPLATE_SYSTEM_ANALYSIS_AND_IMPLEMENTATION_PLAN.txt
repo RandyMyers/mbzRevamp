@@ -1,0 +1,273 @@
+# INVOICE/RECEIPT TEMPLATE SYSTEM - ANALYSIS & IMPLEMENTATION PLAN
+
+## CURRENT SYSTEM ANALYSIS
+
+### ✅ WHAT'S WORKING CORRECTLY:
+
+1. **Template Models**: 
+   - InvoiceTemplate.js and ReceiptTemplate.js have companyInfo fields
+   - Templates are global and accessible to all organizations
+   - System default templates are created during organization registration
+
+2. **Organization Template Assignment**:
+   - Organization model has invoiceSettings and receiptSettings
+   - Default templates are assigned to new organizations
+   - TemplateAssignmentService handles automatic assignment
+
+3. **Order-to-Invoice/Receipt Generation**:
+   - System correctly uses organization's default template during generation
+   - Data mapping from WooCommerce orders to invoice/receipt fields works
+   - Template ID is properly stored in generated documents
+
+### ❌ CRITICAL ISSUES IDENTIFIED:
+
+1. **Frontend Storage Problem**:
+   - Template customizations saved in localStorage (client-side only)
+   - No backend integration for saving organization-specific customizations
+   - Customizations never reach the server
+
+2. **Missing Template Customization Persistence**:
+   - Organization-specific template customizations are not stored server-side
+   - Generated invoices/receipts don't use customized company info
+   - Template's companyInfo is not applied during generation
+
+3. **No Organization-Specific Template Override System**:
+   - No way to store organization-specific template customizations
+   - No API endpoints for saving/loading organization template settings
+   - No integration between frontend customizations and backend generation
+
+## REQUIRED IMPLEMENTATION PLAN
+
+### PHASE 1: BACKEND INFRASTRUCTURE
+
+#### 1.1 Update Organization Model
+```javascript
+// Add to Organization model
+organizationTemplateSettings: {
+  invoiceTemplate: {
+    // STORE-SPECIFIC DATA (from selected store)
+    storeInfo: {
+      name: String,        // Store name (from store.name)
+      website: String,     // Store URL (from store.url)
+      logo: String,        // Store websiteLogo (from store.websiteLogo)
+    },
+    // CUSTOM EMAIL FIELD
+    email: String,         // User input email string
+    // CUSTOM FIELDS (user input)
+    customFields: {
+      phone: String,       // User input phone number
+      address: {           // User input address
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
+      }
+    },
+    design: {
+      primaryColor: String,
+      secondaryColor: String,
+      backgroundColor: String
+    },
+    layout: {
+      logoPosition: String,
+      headerStyle: String,
+      footerStyle: String
+    }
+  },
+  receiptTemplate: {
+    // Same structure as invoiceTemplate
+    storeInfo: { ... },
+    email: String,         // User input email string
+    customFields: { ... },
+    design: { ... },
+    layout: { ... }
+  }
+}
+```
+
+#### 1.2 Create Template Customization API Endpoints
+```javascript
+// New endpoints needed:
+GET /api/organizations/template-settings - Get organization's template customizations
+PUT /api/organizations/template-settings - Save organization's template customizations
+GET /api/organizations/stores - Get organization's stores for selector
+POST /api/organizations/template-settings/reset - Reset to default template
+```
+
+#### 1.3 Update Invoice/Receipt Generation Process
+```javascript
+// Modify generation to apply organization's template customizations:
+1. Get organization's default template
+2. Get organization's template customizations
+3. Get selected store data (name, website, logo)
+4. Get order billing data (customer info from order.billing)
+5. Get order line items (products, quantities, prices from order.line_items)
+6. Merge template with customizations and data sources
+7. Apply merged companyInfo to generated invoice/receipt
+
+// DATA SOURCES FOR GENERATION:
+// Company Info: Store data + organization customizations
+// Customer Info: Order billing data (order.billing.first_name, last_name, email, address_1, etc.)
+// Product Info: Order line items (order.line_items.name, quantity, total, etc.)
+// Amounts: Order totals (order.total, order.total_tax, order.discount_total)
+```
+
+### PHASE 2: FRONTEND INTEGRATION
+
+#### 2.1 Update TemplateContext
+```javascript
+// Replace localStorage with API calls:
+- Load settings from /api/organizations/template-settings
+- Load stores from /api/organizations/stores
+- Save settings to /api/organizations/template-settings
+- Remove localStorage dependency
+```
+
+#### 2.2 Update TemplateCustomization Component
+```javascript
+// Add API integration and new fields:
+- Store selector (dropdown from organization's stores)
+- Custom email input field
+- Custom phone number input
+- Custom address inputs (street, city, state, zip, country)
+- Load organization's current template settings on mount
+- Save changes to backend on save
+- Handle loading states and error handling
+```
+
+### PHASE 3: GENERATION PROCESS ENHANCEMENT
+
+#### 3.1 Create Template Merger Service
+```javascript
+// New service: templateMergerService.js
+- Merge base template with organization customizations
+- Apply store-specific data (name, website, logo)
+- Apply custom fields (phone, address)
+- Apply custom email field
+- Handle design and layout customizations
+- Merge with order data (customer billing, line items, totals)
+```
+
+#### 3.2 Update Generation Controllers
+```javascript
+// Modify invoiceControllers.js and receiptControllers.js:
+1. Get organization's template customizations
+2. Get selected store data (name, website, logo)
+3. Get order billing data (customer info)
+4. Get order line items and totals
+5. Merge base template with customizations and data
+6. Apply merged companyInfo to generated document
+7. Ensure all customizations and data are preserved
+
+// SPECIFIC DATA MAPPING:
+// Company Name: store.name (from selected store)
+// Company Website: store.url (from selected store)  
+// Company Logo: store.websiteLogo (from selected store)
+// Sender Email: custom email string (user input)
+// Company Phone: customFields.phone (user input)
+// Company Address: customFields.address (user input)
+// Customer Name: order.billing.first_name + last_name
+// Customer Email: order.billing.email
+// Customer Address: order.billing.address_1, city, state, postcode, country
+// Products: order.line_items (name, quantity, total)
+// Amounts: order.total, order.total_tax, order.discount_total
+```
+
+## IMPLEMENTATION STEPS
+
+### STEP 1: BACKEND MODEL UPDATES
+1. Update Organization model with organizationTemplateSettings
+2. Create migration script for existing organizations
+3. Add validation for template settings
+
+### STEP 2: API ENDPOINTS
+1. Create organizationTemplateController.js
+2. Add routes for template settings management
+3. Add Swagger documentation
+4. Test endpoints
+
+### STEP 3: TEMPLATE MERGER SERVICE
+1. Create templateMergerService.js
+2. Implement merge logic for companyInfo, design, layout
+3. Handle edge cases and validation
+4. Test with various template combinations
+
+### STEP 4: UPDATE GENERATION PROCESS
+1. Modify invoice generation to use merged template
+2. Modify receipt generation to use merged template
+3. Ensure companyInfo is properly applied
+4. Test generation with customizations
+
+### STEP 5: FRONTEND INTEGRATION
+1. Update TemplateContext to use API calls
+2. Modify TemplateCustomization component
+3. Add loading states and error handling
+4. Test end-to-end flow
+
+### STEP 6: TESTING & VALIDATION
+1. Test template customization saving
+2. Test invoice/receipt generation with customizations
+3. Verify companyInfo is applied correctly
+4. Test with multiple organizations
+
+## FILES THAT NEED MODIFICATION
+
+### BACKEND FILES:
+1. server/models/organization.js - Add organizationTemplateSettings
+2. server/controllers/organizationController.js - Add template settings endpoints
+3. server/routes/organizationRoutes.js - Add new routes
+4. server/controllers/invoiceControllers.js - Update generation process
+5. server/controllers/receiptControllers.js - Update generation process
+6. server/services/templateMergerService.js - NEW FILE
+7. server/services/templateAssignmentService.js - Update for customizations
+
+### FRONTEND FILES:
+1. elapix/src/contexts/TemplateContext.tsx - Replace localStorage with API calls
+2. elapix/src/components/invoices/TemplateCustomization.tsx - Add API integration
+3. elapix/src/lib/api.ts - Add template settings API methods
+
+## EXPECTED OUTCOME
+
+After implementation:
+1. Users can customize their organization's template in "Invoices & Receipts" page
+2. Users can select which store to use for company info (name, website, logo)
+3. Users can input custom email address
+4. Users can input custom phone and address details
+5. Customizations are saved server-side per organization
+6. Generated invoices/receipts from orders use the customized template
+7. Company info comes from selected store + custom fields
+8. Customer info comes from order billing data
+9. Product info comes from order line items
+10. Amounts come from order totals
+11. Each organization has their own customized template
+12. Global templates remain unchanged and available to all organizations
+
+## PRIORITY ORDER
+
+1. **HIGH PRIORITY**: Backend model updates and API endpoints
+2. **HIGH PRIORITY**: Template merger service
+3. **HIGH PRIORITY**: Update generation process
+4. **MEDIUM PRIORITY**: Frontend integration
+5. **LOW PRIORITY**: Advanced customization features
+
+## ESTIMATED EFFORT
+
+- Backend changes: 2-3 days
+- Frontend integration: 1-2 days
+- Testing and validation: 1 day
+- Total: 4-6 days
+
+## RISKS & MITIGATION
+
+1. **Risk**: Breaking existing functionality
+   **Mitigation**: Implement changes incrementally, test thoroughly
+
+2. **Risk**: Data migration issues
+   **Mitigation**: Create proper migration scripts, backup data
+
+3. **Risk**: Performance impact
+   **Mitigation**: Optimize template merging, cache results
+
+4. **Risk**: Frontend/backend sync issues
+   **Mitigation**: Implement proper error handling, loading states
