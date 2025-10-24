@@ -26,7 +26,14 @@ exports.listDepartments = async (req, res, next) => {
   try {
     const items = await Department.find({ isActive: true }).sort({ name: 1 });
     res.status(200).json({ success: true, departments: items });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error listing departments:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to retrieve departments',
+      message: 'An error occurred while fetching department data. Please try again.'
+    });
+  }
 };
 
 /**
@@ -53,10 +60,49 @@ exports.listDepartments = async (req, res, next) => {
 exports.createDepartment = async (req, res, next) => {
   try {
     const { name, description } = req.body;
-    if (!name) throw new BadRequestError('name is required');
+    if (!name) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required field',
+        message: 'Department name is required'
+      });
+    }
+    
+    // Check if department with this name already exists
+    const existingDepartment = await Department.findOne({ name });
+    if (existingDepartment) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'Department already exists',
+        message: 'A department with this name already exists'
+      });
+    }
+    
     const dep = await Department.create({ name, description });
     res.status(201).json({ success: true, department: dep });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error creating department:', err);
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation Error',
+        message: 'Please check the following fields: ' + validationErrors.join(', ')
+      });
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'Duplicate entry',
+        message: 'A department with this name already exists'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create department',
+      message: 'An error occurred while creating the department. Please try again.'
+    });
+  }
 };
 
 /**
@@ -121,13 +167,62 @@ exports.deleteDepartment = async (req, res, next) => {
  *     security:
  *       - bearerAuth: []
  *     responses:
- *       200: { description: OK }
+ *       200: 
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 employees: { type: array }
+ *       400:
+ *         description: Bad Request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *                 message: { type: string }
  */
 exports.listEmployees = async (req, res, next) => {
   try {
     const items = await Employee.find({}).populate('department').sort({ createdAt: -1 });
     res.status(200).json({ success: true, employees: items });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error listing employees:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid employee ID format',
+        message: 'The employee ID provided is not in the correct format'
+      });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation Error',
+        message: err.message 
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to retrieve employees',
+      message: 'An error occurred while fetching employee data. Please try again.'
+    });
+  }
 };
 
 /**
@@ -182,7 +277,23 @@ exports.listEmployees = async (req, res, next) => {
 exports.createEmployee = async (req, res, next) => {
   try {
     const { fullName, email } = req.body;
-    if (!fullName || !email) throw new BadRequestError('fullName and email required');
+    if (!fullName || !email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields',
+        message: 'Full name and email are required to create an employee'
+      });
+    }
+    
+    // Check if employee with this email already exists
+    const existingEmployee = await Employee.findOne({ email });
+    if (existingEmployee) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'Employee already exists',
+        message: 'An employee with this email address already exists'
+      });
+    }
     
     // Generate the next employee ID
     const employeeId = await Employee.generateEmployeeId();
@@ -195,7 +306,29 @@ exports.createEmployee = async (req, res, next) => {
     
     const emp = await Employee.create(employeeData);
     res.status(201).json({ success: true, employee: emp });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error creating employee:', err);
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation Error',
+        message: 'Please check the following fields: ' + validationErrors.join(', ')
+      });
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'Duplicate entry',
+        message: 'An employee with this information already exists'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create employee',
+      message: 'An error occurred while creating the employee. Please try again.'
+    });
+  }
 };
 
 /**
@@ -221,10 +354,50 @@ exports.createEmployee = async (req, res, next) => {
  */
 exports.updateEmployee = async (req, res, next) => {
   try {
-    const emp = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!emp) throw new NotFoundError('employee not found');
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid employee ID',
+        message: 'The employee ID provided is not in the correct format'
+      });
+    }
+    
+    const emp = await Employee.findByIdAndUpdate(id, req.body, { new: true });
+    if (!emp) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Employee not found',
+        message: 'No employee found with the provided ID'
+      });
+    }
+    
     res.status(200).json({ success: true, employee: emp });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error updating employee:', err);
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation Error',
+        message: 'Please check the following fields: ' + validationErrors.join(', ')
+      });
+    }
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid data format',
+        message: 'One or more fields contain invalid data'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update employee',
+      message: 'An error occurred while updating the employee. Please try again.'
+    });
+  }
 };
 
 /**
@@ -245,9 +418,42 @@ exports.updateEmployee = async (req, res, next) => {
  */
 exports.deleteEmployee = async (req, res, next) => {
   try {
-    await Employee.findByIdAndDelete(req.params.id);
-    res.status(200).json({ success: true, message: 'Deleted' });
-  } catch (err) { next(err); }
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid employee ID',
+        message: 'The employee ID provided is not in the correct format'
+      });
+    }
+    
+    const emp = await Employee.findByIdAndDelete(id);
+    if (!emp) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Employee not found',
+        message: 'No employee found with the provided ID'
+      });
+    }
+    
+    res.status(200).json({ success: true, message: 'Employee deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting employee:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid employee ID',
+        message: 'The employee ID provided is not in the correct format'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to delete employee',
+      message: 'An error occurred while deleting the employee. Please try again.'
+    });
+  }
 };
 
 // Attendance
@@ -278,12 +484,46 @@ exports.listAttendance = async (req, res, next) => {
     if (req.query.employee) q.employee = req.query.employee;
     if (req.query.startDate || req.query.endDate) {
       q.date = {};
-      if (req.query.startDate) q.date.$gte = new Date(req.query.startDate);
-      if (req.query.endDate) q.date.$lte = new Date(req.query.endDate);
+      if (req.query.startDate) {
+        const startDate = new Date(req.query.startDate);
+        if (isNaN(startDate.getTime())) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid date format',
+            message: 'Start date must be in a valid date format (YYYY-MM-DD)'
+          });
+        }
+        q.date.$gte = startDate;
+      }
+      if (req.query.endDate) {
+        const endDate = new Date(req.query.endDate);
+        if (isNaN(endDate.getTime())) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid date format',
+            message: 'End date must be in a valid date format (YYYY-MM-DD)'
+          });
+        }
+        q.date.$lte = endDate;
+      }
     }
     const items = await Attendance.find(q).populate('employee').sort({ date: -1 });
     res.status(200).json({ success: true, attendance: items });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error listing attendance:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid employee ID',
+        message: 'The employee ID provided is not in the correct format'
+      });
+    }
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to retrieve attendance records',
+      message: 'An error occurred while fetching attendance data. Please try again.'
+    });
+  }
 };
 
 
