@@ -207,6 +207,49 @@ const UserSchema = new Schema({
         }
       }
     },
+    
+    // STAFF-SPECIFIC FIELDS FOR NEXUSFINAL2
+    employeeId: {
+      type: String,
+      unique: true,
+      sparse: true, // Allows null values but ensures uniqueness when present
+      description: 'Link to Employee model for nexusfinal2 staff'
+    },
+    isStaffAccount: {
+      type: Boolean,
+      default: false,
+      description: 'True if this is a nexusfinal2 staff account'
+    },
+    staffRole: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StaffRole',
+      description: 'Reference to StaffRole for nexusfinal2 staff'
+    },
+    permissions: {
+      type: Object,
+      default: {},
+      description: 'Module permissions for nexusfinal2 access'
+    },
+    lastPasswordReset: {
+      type: Date,
+      default: null
+    },
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockedUntil: {
+      type: Date,
+      default: null
+    },
+    twoFactorSecret: {
+      type: String,
+      default: null
+    },
+    backupCodes: [{
+      type: String
+    }],
+    
     createdAt: {
       type: Date,
       default: Date.now,

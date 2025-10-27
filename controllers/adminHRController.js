@@ -2,6 +2,7 @@ const Department = require('../models/Department');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const { BadRequestError, NotFoundError } = require('../utils/errors');
+const HRFileUploadService = require('../services/hrFileUploadService');
 
 /**
  * @swagger
@@ -31,7 +32,7 @@ exports.listDepartments = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to retrieve departments',
-      message: 'An error occurred while fetching department data. Please try again.'
+      message: `Failed to fetch departments: ${err.message}`
     });
   }
 };
@@ -100,7 +101,7 @@ exports.createDepartment = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to create department',
-      message: 'An error occurred while creating the department. Please try again.'
+      message: `Failed to create department: ${err.message}`
     });
   }
 };
@@ -157,7 +158,7 @@ exports.updateDepartment = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to update department',
-      message: 'An error occurred while updating the department. Please try again.'
+      message: `Failed to update department: ${err.message}`
     });
   }
 };
@@ -201,7 +202,7 @@ exports.deleteDepartment = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to delete department',
-      message: 'An error occurred while deleting the department. Please try again.'
+      message: `Failed to delete department: ${err.message}`
     });
   }
 };
@@ -230,7 +231,7 @@ exports.listEmployees = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to retrieve employees',
-      message: 'An error occurred while fetching employee data. Please try again.'
+      message: `Failed to fetch employees: ${err.message}`
     });
   }
 };
@@ -286,7 +287,7 @@ exports.listEmployees = async (req, res, next) => {
  */
 exports.createEmployee = async (req, res, next) => {
   try {
-    const { fullName, email } = req.body;
+    const { fullName, email, firstName, lastName, phone, jobTitle, department, gender, maritalStatus } = req.body;
     if (!fullName || !email) {
       return res.status(400).json({ 
         success: false, 
@@ -308,9 +309,33 @@ exports.createEmployee = async (req, res, next) => {
     // Generate the next employee ID
     const employeeId = await Employee.generateEmployeeId();
     
-    // Create employee with auto-generated ID
+    // Handle avatar upload if provided
+    let avatarUrl = null;
+    if (req.files && req.files.avatar) {
+      try {
+        const uploadResult = await HRFileUploadService.uploadEmployeeAvatar(req.files.avatar, employeeId);
+        avatarUrl = uploadResult.url;
+      } catch (uploadError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Avatar upload failed',
+          message: uploadError.message
+        });
+      }
+    }
+    
+    // Create employee with auto-generated ID and avatar
     const employeeData = {
-      ...req.body,
+      fullName,
+      email,
+      firstName: firstName || fullName.split(' ')[0],
+      lastName: lastName || fullName.split(' ').slice(1).join(' '),
+      phone,
+      jobTitle,
+      department,
+      gender,
+      maritalStatus,
+      avatar: avatarUrl,
       employeeId: employeeId
     };
     
@@ -336,7 +361,7 @@ exports.createEmployee = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to create employee',
-      message: 'An error occurred while creating the employee. Please try again.'
+      message: `Failed to create employee: ${err.message}`
     });
   }
 };
@@ -375,14 +400,32 @@ exports.updateEmployee = async (req, res, next) => {
       });
     }
     
-    const emp = await Employee.findByIdAndUpdate(id, req.body, { new: true });
-    if (!emp) {
+    // Get current employee to check if avatar exists
+    const currentEmployee = await Employee.findById(id);
+    if (!currentEmployee) {
       return res.status(404).json({ 
         success: false, 
         error: 'Employee not found',
         message: 'No employee found with the provided ID'
       });
     }
+    
+    // Handle avatar upload if provided
+    let updateData = { ...req.body };
+    if (req.files && req.files.avatar) {
+      try {
+        const uploadResult = await HRFileUploadService.uploadEmployeeAvatar(req.files.avatar, currentEmployee.employeeId);
+        updateData.avatar = uploadResult.url;
+      } catch (uploadError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Avatar upload failed',
+          message: uploadError.message
+        });
+      }
+    }
+    
+    const emp = await Employee.findByIdAndUpdate(id, updateData, { new: true });
     
     res.status(200).json({ success: true, employee: emp });
   } catch (err) {
@@ -405,7 +448,7 @@ exports.updateEmployee = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to update employee',
-      message: 'An error occurred while updating the employee. Please try again.'
+      message: `Failed to update employee: ${err.message}`
     });
   }
 };
@@ -461,7 +504,7 @@ exports.deleteEmployee = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to delete employee',
-      message: 'An error occurred while deleting the employee. Please try again.'
+      message: `Failed to delete employee: ${err.message}`
     });
   }
 };
@@ -531,7 +574,7 @@ exports.listAttendance = async (req, res, next) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to retrieve attendance records',
-      message: 'An error occurred while fetching attendance data. Please try again.'
+      message: `Failed to fetch attendance: ${err.message}`
     });
   }
 };

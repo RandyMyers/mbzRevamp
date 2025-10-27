@@ -16,15 +16,24 @@ const adminWeeklyReports = require('../controllers/adminWeeklyReportsController'
 const adminTraining = require('../controllers/adminTrainingController');
 const adminPerformance = require('../controllers/adminPerformanceController');
 const adminSurveys = require('../controllers/adminSurveyController');
-const adminDocuments = require('../controllers/adminDocumentsController');
 const adminBilling = require('../controllers/adminBillingController');
 const adminInvoices = require('../controllers/adminInvoicesController');
 const adminAffiliateMgmt = require('../controllers/adminAffiliateMgmtController');
-const adminStaff = require('../controllers/adminStaffController');
 const adminSessions = require('../controllers/adminSessionsController');
 const adminSystem = require('../controllers/adminSystemController');
 const adminProjects = require('../controllers/adminProjectsController');
 const adminMeetings = require('../controllers/adminMeetingsController');
+const adminRecruitment = require('../controllers/adminRecruitmentController');
+const adminOnboarding = require('../controllers/adminOnboardingController');
+const adminPayroll = require('../controllers/adminPayrollController');
+const adminBenefits = require('../controllers/adminBenefitsController');
+const adminOffboarding = require('../controllers/adminOffboardingController');
+const adminCompliance = require('../controllers/adminComplianceController');
+const adminReporting = require('../controllers/adminReportingController');
+const workflowAutomation = require('../controllers/workflowAutomationController');
+const documentManagement = require('../controllers/documentManagementController');
+const adminStaff = require('../controllers/adminStaffController');
+const adminStaffRole = require('../controllers/adminStaffRoleController');
 
 // Guard all admin routes
 router.use(protect);
@@ -465,78 +474,6 @@ router.get('/affiliate/payouts/pending', adminAffiliateMgmt.listPendingPayouts);
 router.post('/affiliate/payouts/:id/process', adminAffiliateMgmt.processPayout);
 router.post('/affiliate/payouts/:id/complete', adminAffiliateMgmt.completePayout);
 router.post('/affiliate/payouts/:id/fail', adminAffiliateMgmt.failPayout);
-
-// Admin Staff
-/**
- * @swagger
- * /api/admin/staff/users:
- *   get:
- *     summary: List staff users
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Staff users list
- */
-router.get('/staff/users', adminStaff.listStaff);
-/**
- * @swagger
- * /api/admin/staff/users/{id}/status:
- *   post:
- *     summary: Update staff user status (activate/suspend/deactivate)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Status updated
- */
-router.post('/staff/users/:id/status', adminStaff.updateStatus);
-/**
- * @swagger
- * /api/admin/staff/users/{id}/set-password:
- *   post:
- *     summary: Set or reset staff password
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Password updated
- */
-router.post('/staff/users/:id/set-password', adminStaff.setPassword);
-/**
- * @swagger
- * /api/admin/staff/users/{id}/twofactor:
- *   post:
- *     summary: Enable or disable 2FA for a staff user
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: 2FA toggled
- */
-router.post('/staff/users/:id/twofactor', adminStaff.toggleTwoFactor);
 
 // Admin Sessions & System
 /**
@@ -1010,11 +947,170 @@ router.get('/hr/surveys/:id/responses/export', adminSurveys.exportSurveyResponse
  *       200:
  *         description: Documents list
  */
-router.get('/hr/documents', adminDocuments.listDocuments);
-router.post('/hr/documents', adminDocuments.createDocument);
-router.patch('/hr/documents/:id', adminDocuments.updateDocument);
-router.delete('/hr/documents/:id', adminDocuments.deleteDocument);
-router.post('/hr/documents/:id/assign', adminDocuments.assignDocument);
+
+// Admin Recruitment Routes
+/**
+ * @swagger
+ * /api/admin/recruitment/job-postings:
+ *   get:
+ *     summary: List job postings
+ *     tags: [Admin Recruitment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Job postings list
+ */
+router.get('/recruitment/job-postings', adminRecruitment.listJobPostings);
+router.post('/recruitment/job-postings', adminRecruitment.createJobPosting);
+router.get('/recruitment/job-postings/:id', adminRecruitment.getJobPostingById);
+router.put('/recruitment/job-postings/:id', adminRecruitment.updateJobPosting);
+router.delete('/recruitment/job-postings/:id', adminRecruitment.deleteJobPosting);
+
+router.get('/recruitment/applicants', adminRecruitment.listApplicants);
+router.post('/recruitment/applicants', adminRecruitment.createApplicant);
+router.patch('/recruitment/applicants/:id/status', adminRecruitment.updateApplicantStatus);
+router.post('/recruitment/applicants/:id/interview', adminRecruitment.scheduleInterview);
+router.post('/recruitment/applicants/:id/offer', adminRecruitment.makeOffer);
+
+// Admin Onboarding Routes
+/**
+ * @swagger
+ * /api/admin/onboarding/tasks:
+ *   get:
+ *     summary: List onboarding tasks
+ *     tags: [Admin Onboarding]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Onboarding tasks list
+ */
+router.get('/onboarding/tasks', adminOnboarding.listOnboardingTasks);
+router.post('/onboarding/tasks', adminOnboarding.createOnboardingTask);
+router.get('/onboarding/tasks/:id', adminOnboarding.getOnboardingTaskById);
+router.patch('/onboarding/tasks/:id/start', adminOnboarding.startTask);
+router.patch('/onboarding/tasks/:id/complete', adminOnboarding.completeTask);
+router.post('/onboarding/tasks/:id/comment', adminOnboarding.addComment);
+router.patch('/onboarding/tasks/:id/approve', adminOnboarding.approveTask);
+router.get('/onboarding/analytics', adminOnboarding.getOnboardingAnalytics);
+
+// Admin Payroll Routes
+/**
+ * @swagger
+ * /api/admin/payroll:
+ *   get:
+ *     summary: Get payroll information
+ *     tags: [Admin Payroll]
+ */
+router.use('/payroll', require('./adminPayrollRoutes'));
+
+// Admin Benefits Routes
+/**
+ * @swagger
+ * /api/admin/benefits:
+ *   get:
+ *     summary: Get benefits information
+ *     tags: [Admin Benefits]
+ */
+router.use('/benefits', require('./adminBenefitsRoutes'));
+
+// Admin Offboarding Routes
+/**
+ * @swagger
+ * /api/admin/offboarding:
+ *   get:
+ *     summary: Get offboarding information
+ *     tags: [Admin Offboarding]
+ */
+router.use('/offboarding', require('./adminOffboardingRoutes'));
+
+// Admin Compliance Routes
+/**
+ * @swagger
+ * /api/admin/compliance:
+ *   get:
+ *     summary: Get compliance information
+ *     tags: [Admin Compliance]
+ */
+router.use('/compliance', require('./adminComplianceRoutes'));
+
+// Admin Reporting Routes
+/**
+ * @swagger
+ * /api/admin/reports:
+ *   get:
+ *     summary: Get HR reports
+ *     tags: [Admin Reporting]
+ */
+router.use('/reports', require('./adminReportingRoutes'));
+
+// Training Routes
+/**
+ * @swagger
+ * tags:
+ *   - name: Admin Training
+ *     description: Training management operations
+ */
+router.use('/training', require('./adminTrainingRoutes'));
+
+// Recruitment Routes
+/**
+ * @swagger
+ * tags:
+ *   - name: Admin Recruitment
+ *     description: Recruitment management operations
+ */
+router.use('/recruitment', require('./adminRecruitmentRoutes'));
+
+// Onboarding Routes
+/**
+ * @swagger
+ * tags:
+ *   - name: Admin Onboarding
+ *     description: Onboarding management operations
+ */
+router.use('/onboarding', require('./adminOnboardingRoutes'));
+
+// Workflow Automation Routes
+/**
+ * @swagger
+ * /api/admin/workflow:
+ *   get:
+ *     summary: Get workflow information
+ *     tags: [Workflow Automation]
+ */
+router.use('/workflow', require('./workflowAutomationRoutes'));
+
+// Document Management Routes
+/**
+ * @swagger
+ * /api/admin/documents:
+ *   get:
+ *     summary: Get document information
+ *     tags: [Document Management]
+ */
+router.use('/documents', require('./documentManagementRoutes'));
+
+// Staff Management Routes
+/**
+ * @swagger
+ * /api/admin/staff:
+ *   get:
+ *     summary: Get staff accounts
+ *     tags: [Admin Staff]
+ */
+router.use('/staff', require('./adminStaffRoutes'));
+
+// Staff Role Management Routes
+/**
+ * @swagger
+ * /api/admin/staff-roles:
+ *   get:
+ *     summary: Get staff roles
+ *     tags: [Admin Staff Roles]
+ */
+router.use('/staff-roles', require('./adminStaffRoleRoutes'));
 
 module.exports = router;
 

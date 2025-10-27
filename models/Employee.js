@@ -9,6 +9,7 @@ const employeeSchema = new mongoose.Schema(
 		roleTitle: { type: String, default: '' },
 		status: { type: String, enum: ['active', 'suspended', 'terminated'], default: 'active' },
 		salary: { type: Number, default: 0 },
+		
 		// Auto-generated employee ID (e.g., Mb001Z, Mb002Z, etc.)
 		employeeId: {
 			type: String,
@@ -16,18 +17,90 @@ const employeeSchema = new mongoose.Schema(
 			sparse: true, // Allows null values but ensures uniqueness when present
 			description: 'Auto-generated employee ID for staff (e.g., Mb001Z, Mb002Z)'
 		},
-		// Tax state/province for employees (any country)
-		taxState: {
-			type: String,
-			trim: true,
-			description: 'Tax state/province for staff members (any country)'
+		
+		// NEW FIELDS FROM NEXUSFINAL2 ANALYSIS:
+		firstName: { type: String, required: true },
+		lastName: { type: String, required: true },
+		phone: { type: String, trim: true },
+		jobTitle: { type: String, trim: true },
+		startDate: { type: Date, default: Date.now },
+		gender: { type: String, enum: ['Male', 'Female', 'Other'], trim: true },
+		maritalStatus: { type: String, enum: ['Single', 'Married', 'Divorced', 'Widowed'], trim: true },
+		avatar: { type: String, trim: true },
+		
+		// Enhanced Emergency Contact
+		emergencyContact: {
+			name: { type: String, trim: true },
+			relationship: { type: String, trim: true },
+			phone: { type: String, trim: true },
+			address: { type: String, trim: true }
 		},
+		
+		// Enhanced Bank Details
 		bankDetails: {
-			bankName: String,
-			accountNumber: String,
-			accountName: String,
+			bankName: { type: String, trim: true },
+			accountName: { type: String, trim: true },
+			accountNumber: { type: String, trim: true },
+			accountType: { type: String, trim: true },
+			taxId: { type: String, trim: true },
+			taxState: { type: String, trim: true },
+			pensionNumber: { type: String, trim: true }
 		},
+		
+		// Additional profile fields from nexusfinal2
+		country: { type: String, trim: true, default: 'Nigeria' },
+		employmentType: { 
+			type: String, 
+			enum: ['Permanent', 'Contract', 'Intern', 'Part-time'], 
+			default: 'Permanent' 
+		},
+		
+		// Legacy fields for backward compatibility
 		emergencyContacts: [{ name: String, phone: String, relationship: String }],
+		address: { street: String, city: String, state: String, zipCode: String, country: String },
+		workSchedule: { type: String, enum: ['full-time', 'part-time', 'contract', 'shift'], default: 'full-time' },
+		reportingManager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+		skills: [String],
+		notes: String,
+		
+		// Document management
+		documents: [{
+			name: { type: String, required: true },
+			category: { 
+				type: String, 
+				enum: ['personal', 'employment', 'training', 'performance', 'other'],
+				required: true 
+			},
+			description: { type: String, default: '' },
+			url: { type: String, required: true },
+			uploadedAt: { type: Date, default: Date.now },
+			uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+		}],
+		
+		// Employee settings and preferences
+		settings: {
+			notifications: {
+				email: { type: Boolean, default: true },
+				push: { type: Boolean, default: true },
+				sms: { type: Boolean, default: false },
+				leaveReminders: { type: Boolean, default: true },
+				trainingReminders: { type: Boolean, default: true },
+				performanceReviews: { type: Boolean, default: true },
+				surveys: { type: Boolean, default: true }
+			},
+			privacy: {
+				showProfile: { type: Boolean, default: true },
+				showContactInfo: { type: Boolean, default: true },
+				showDepartment: { type: Boolean, default: true }
+			},
+			preferences: {
+				language: { type: String, default: 'en' },
+				timezone: { type: String, default: 'UTC' },
+				dateFormat: { type: String, default: 'MM/DD/YYYY' },
+				theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'light' }
+			}
+		},
+		
 		metadata: { type: Object, default: {} },
 	},
 	{ timestamps: true }

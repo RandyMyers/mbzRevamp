@@ -368,3 +368,5 @@ This is a **CRITICAL** issue that affects:
 **Immediate action required** to fix currency conversion during sync and when users change their currency preferences.
 
 
+
+

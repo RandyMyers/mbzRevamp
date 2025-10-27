@@ -1,99 +1,117 @@
-const mongoose = require('mongoose');  
+const mongoose = require('mongoose');
 
-const salaryRequestSchema = new mongoose.Schema({
-  employeeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const salaryRequestSchema = new mongoose.Schema(
+  {
+    employee: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Employee',
+      required: true
+    },
+    requestType: {
+      type: String,
+      required: true,
+      enum: ['Adjustment', 'Advance']
+    },
+    title: {
+      type: String,
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    currentSalary: {
+      type: Number,
+      required: true
+    },
+    requestedAmount: {
+      type: Number,
+      required: true
+    },
+    currency: {
+      type: String,
+      default: 'USD'
+    },
+    justification: {
+      type: String,
+      required: true
+    },
+    requestDate: {
+      type: Date,
+      default: Date.now
+    },
+    status: {
+      type: String,
+      enum: ['Draft', 'Submitted', 'Under Review', 'Approved', 'Rejected', 'Processed'],
+      default: 'Draft'
+    },
+    submittedDate: {
+      type: Date
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reviewedDate: {
+      type: Date
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    approvedDate: {
+      type: Date
+    },
+    processedDate: {
+      type: Date
+    },
+    rejectionReason: {
+      type: String
+    },
+    // For salary advance requests
+    repaymentPlan: {
+      installments: {
+        type: Number,
+        default: 1
+      },
+      monthlyAmount: {
+        type: Number
+      },
+      startDate: {
+        type: Date
+      },
+      endDate: {
+        type: Date
+      }
+    },
+    comments: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      comment: String,
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    attachments: [{
+      name: String,
+      url: String,
+      uploadedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
   },
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: true
-  },
-  requestType: {
-    type: String,
-    required: true,
-    enum: ['adjustment', 'advance', 'bonus', 'overtime', 'other']
-  },
-  currentSalary: {
-    type: Number,
-    required: true
-  },
-  requestedAmount: {
-    type: Number,
-    required: true
-  },
-  reason: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'cancelled'],
-    default: 'pending'
-  },
-  submittedDate: {
-    type: Date,
-    default: Date.now
-  },
-  approvedDate: {
-    type: Date
-  },
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  rejectionReason: {
-    type: String
-  },
-  approvedAmount: {
-    type: Number
-  },
-  effectiveDate: {
-    type: Date
-  },
-  notes: {
-    type: String
-  },
-  attachments: [{
-    filename: String,
-    originalName: String,
-    mimeType: String,
-    size: Number,
-    url: String
-  }],
-  // For advance requests
-  repaymentPlan: {
-    type: String,
-    enum: ['lump_sum', 'monthly', 'quarterly', 'custom']
-  },
-  repaymentPeriod: {
-    type: Number // in months
-  },
-  monthlyDeduction: {
-    type: Number
-  }
-}, {
-  timestamps: true
-});
+  { timestamps: true }
+);
 
-// Indexes
-salaryRequestSchema.index({ employeeId: 1, organizationId: 1 });
-salaryRequestSchema.index({ status: 1, organizationId: 1 });
-salaryRequestSchema.index({ submittedDate: -1 });
-salaryRequestSchema.index({ requestType: 1 });
+salaryRequestSchema.index({ employee: 1, requestType: 1, status: 1 });
+salaryRequestSchema.index({ requestDate: -1 });
 
 module.exports = mongoose.model('SalaryRequest', salaryRequestSchema);
-
-
-

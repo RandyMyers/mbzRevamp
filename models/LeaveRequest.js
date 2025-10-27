@@ -10,6 +10,9 @@ const leaveRequestSchema = new mongoose.Schema(
 		status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
 		reviewComment: { type: String, default: '' },
 		reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+		// Additional fields from nexusfinal2
+		emergencyContact: { type: String, trim: true },
+		address: { type: String, trim: true },
 	},
 	{ timestamps: true }
 );

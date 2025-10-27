@@ -1,120 +1,140 @@
 const mongoose = require('mongoose');
 
 const jobPostingSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: true
+  title: { 
+    type: String, 
+    required: true,
+    trim: true,
+    description: 'Job title (e.g., Senior Frontend Developer)'
   },
-  title: {
-    type: String,
-    required: true
+  department: { 
+    type: String, 
+    required: true,
+    trim: true,
+    description: 'Department name (e.g., Engineering, Design)'
   },
-  department: {
-    type: String,
-    required: true
+  location: { 
+    type: String, 
+    enum: ['Remote', 'Hybrid', 'On-site'], 
+    required: true,
+    description: 'Work location type'
   },
-  location: {
-    type: String,
-    required: true
+  type: { 
+    type: String, 
+    enum: ['Full-time', 'Part-time', 'Contract', 'Internship'], 
+    required: true,
+    description: 'Employment type'
   },
-  employmentType: {
+  description: { 
+    type: String, 
+    required: true,
+    description: 'Detailed job description'
+  },
+  requirements: [{
     type: String,
-    enum: ['full_time', 'part_time', 'contract', 'internship', 'temporary'],
-    required: true
+    trim: true,
+    description: 'Job requirements and qualifications'
+  }],
+  responsibilities: [{
+    type: String,
+    trim: true,
+    description: 'Job responsibilities and duties'
+  }],
+  salaryRange: {
+    min: { type: Number, description: 'Minimum salary' },
+    max: { type: Number, description: 'Maximum salary' },
+    currency: { type: String, default: 'NGN', description: 'Salary currency' }
+  },
+  deadline: { 
+    type: Date, 
+    required: true,
+    description: 'Application deadline'
+  },
+  status: { 
+    type: String, 
+    enum: ['Draft', 'Open', 'Closed'], 
+    default: 'Draft',
+    description: 'Job posting status'
+  },
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true,
+    description: 'User who created the job posting'
+  },
+  applicants: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Applicant',
+    description: 'List of applicants for this job'
+  }],
+  tags: [{
+    type: String,
+    trim: true,
+    description: 'Job tags for categorization'
+  }],
+  isUrgent: { 
+    type: Boolean, 
+    default: false,
+    description: 'Whether this is an urgent hiring'
   },
   experienceLevel: {
     type: String,
-    enum: ['entry', 'mid', 'senior', 'executive'],
-    required: true
+    enum: ['Entry Level', 'Mid Level', 'Senior Level', 'Executive'],
+    default: 'Mid Level',
+    description: 'Required experience level'
   },
-  description: {
+  workSchedule: {
     type: String,
-    required: true
-  },
-  requirements: [String],
-  responsibilities: [String],
-  benefits: [String],
-  skills: [String],
-  salaryRange: {
-    min: Number,
-    max: Number,
-    currency: {
-      type: String,
-      default: 'NGN'
-    }
-  },
-  status: {
-    type: String,
-    enum: ['draft', 'published', 'closed', 'cancelled'],
-    default: 'draft'
-  },
-  publishedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  publishedAt: {
-    type: Date
-  },
-  applicationDeadline: {
-    type: Date
-  },
-  startDate: {
-    type: Date
-  },
-  applicationCount: {
-    type: Number,
-    default: 0
-  },
-  viewCount: {
-    type: Number,
-    default: 0
-  },
-  applications: [{
-    candidateId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    appliedAt: {
-      type: Date,
-      default: Date.now
-    },
-    status: {
-      type: String,
-      enum: ['applied', 'reviewed', 'shortlisted', 'interviewed', 'rejected', 'hired'],
-      default: 'applied'
-    },
-    resume: {
-      filename: String,
-      originalName: String,
-      url: String
-    },
-    coverLetter: String,
-    notes: String
-  }],
-  isRemote: {
-    type: Boolean,
-    default: false
-  },
-  isUrgent: {
-    type: Boolean,
-    default: false
-  },
-  tags: [String]
-}, {
-  timestamps: true
+    enum: ['Full-time', 'Part-time', 'Flexible', 'Shift'],
+    default: 'Full-time',
+    description: 'Work schedule type'
+  }
+}, { 
+  timestamps: true,
+  description: 'Job postings for recruitment'
 });
 
-// Indexes
-jobPostingSchema.index({ organizationId: 1, status: 1 });
-jobPostingSchema.index({ publishedAt: -1 });
-jobPostingSchema.index({ department: 1, organizationId: 1 });
-jobPostingSchema.index({ employmentType: 1, organizationId: 1 });
-jobPostingSchema.index({ experienceLevel: 1, organizationId: 1 });
-jobPostingSchema.index({ tags: 1 });
+// Indexes for better query performance
+jobPostingSchema.index({ status: 1, department: 1 });
+jobPostingSchema.index({ deadline: 1 });
+jobPostingSchema.index({ createdBy: 1 });
+jobPostingSchema.index({ title: 'text', description: 'text' });
 
-module.exports = mongoose.model('JobPosting', jobPostingSchema);
+// Virtual for applicant count
+jobPostingSchema.virtual('applicantCount').get(function() {
+  return this.applicants ? this.applicants.length : 0;
+});
 
+// Virtual for days until deadline
+jobPostingSchema.virtual('daysUntilDeadline').get(function() {
+  if (!this.deadline) return null;
+  const now = new Date();
+  const deadline = new Date(this.deadline);
+  const diffTime = deadline - now;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+});
 
+// Method to check if job is still accepting applications
+jobPostingSchema.methods.isAcceptingApplications = function() {
+  return this.status === 'Open' && new Date() <= this.deadline;
+};
 
+// Method to get active applicants
+jobPostingSchema.methods.getActiveApplicants = function() {
+  return this.applicants.filter(applicant => 
+    applicant.status !== 'Rejected' && applicant.status !== 'Hired'
+  );
+};
+
+// Pre-save middleware to validate deadline
+jobPostingSchema.pre('save', function(next) {
+  if (this.deadline && this.deadline < new Date()) {
+    this.status = 'Closed';
+  }
+  next();
+});
+
+const JobPosting = mongoose.model('JobPosting', jobPostingSchema);
+
+module.exports = JobPosting;

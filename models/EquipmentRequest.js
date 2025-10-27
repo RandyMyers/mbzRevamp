@@ -1,78 +1,83 @@
 const mongoose = require('mongoose');
 
-const equipmentRequestSchema = new mongoose.Schema({
-  employeeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const equipmentRequestSchema = new mongoose.Schema(
+  {
+    employee: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Employee',
+      required: true
+    },
+    equipmentType: {
+      type: String,
+      required: true,
+      enum: ['Laptop', 'Desktop', 'Monitor', 'Keyboard', 'Mouse', 'Headset', 'Phone', 'Tablet', 'Other']
+    },
+    equipmentName: {
+      type: String,
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'High', 'Urgent'],
+      default: 'Medium'
+    },
+    requestDate: {
+      type: Date,
+      default: Date.now
+    },
+    expectedReturnDate: {
+      type: Date
+    },
+    status: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected', 'Issued', 'Returned', 'Overdue'],
+      default: 'Pending'
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    approvedDate: {
+      type: Date
+    },
+    issuedDate: {
+      type: Date
+    },
+    returnedDate: {
+      type: Date
+    },
+    comments: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      comment: String,
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    attachments: [{
+      name: String,
+      url: String,
+      uploadedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
   },
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: true
-  },
-  equipmentType: {
-    type: String,
-    required: true,
-    enum: ['laptop', 'desktop', 'monitor', 'keyboard', 'mouse', 'headset', 'phone', 'tablet', 'other']
-  },
-  equipmentName: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  reason: {
-    type: String,
-    required: true
-  },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'],
-    default: 'pending'
-  },
-  requestedDate: {
-    type: Date,
-    default: Date.now
-  },
-  approvedDate: {
-    type: Date
-  },
-  fulfilledDate: {
-    type: Date
-  },
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  rejectionReason: {
-    type: String
-  },
-  notes: {
-    type: String
-  },
-  attachments: [{
-    filename: String,
-    originalName: String,
-    mimeType: String,
-    size: Number,
-    url: String
-  }]
-}, {
-  timestamps: true
-});
+  { timestamps: true }
+);
 
-// Indexes
-equipmentRequestSchema.index({ employeeId: 1, organizationId: 1 });
-equipmentRequestSchema.index({ status: 1, organizationId: 1 });
-equipmentRequestSchema.index({ requestedDate: -1 });
+equipmentRequestSchema.index({ employee: 1, status: 1 });
+equipmentRequestSchema.index({ requestDate: -1 });
 
 module.exports = mongoose.model('EquipmentRequest', equipmentRequestSchema);
-

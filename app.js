@@ -382,6 +382,10 @@ console.log('Mounted notificationSettingsRoutes');
 app.use('/api/admin', adminRoutes);
 console.log('Mounted adminRoutes');
 
+// Employee self-service routes
+app.use('/api/employee', require('./routes/employeeSelfServiceRoutes'));
+console.log('Mounted employeeSelfServiceRoutes');
+
 // Onboarding routes
 app.use('/api/onboarding', onboardingRoutes);
 
