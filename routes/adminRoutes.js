@@ -35,6 +35,148 @@ const documentManagement = require('../controllers/documentManagementController'
 const adminStaff = require('../controllers/adminStaffController');
 const adminStaffRole = require('../controllers/adminStaffRoleController');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Employee:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Employee ID
+ *         employeeId:
+ *           type: string
+ *           description: Employee ID (e.g., Mb001Z)
+ *         firstName:
+ *           type: string
+ *           description: Employee first name
+ *         lastName:
+ *           type: string
+ *           description: Employee last name
+ *         fullName:
+ *           type: string
+ *           description: Employee full name
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Employee email address
+ *         phone:
+ *           type: string
+ *           description: Employee phone number
+ *         department:
+ *           type: object
+ *           description: Department information
+ *           properties:
+ *             _id:
+ *               type: string
+ *             name:
+ *               type: string
+ *         jobTitle:
+ *           type: string
+ *           description: Employee job title
+ *         startDate:
+ *           type: string
+ *           format: date
+ *           description: Employment start date
+ *         status:
+ *           type: string
+ *           enum: [active, inactive, suspended, terminated]
+ *           description: Employee status
+ *         gender:
+ *           type: string
+ *           enum: [Male, Female, Other]
+ *           description: Employee gender
+ *         maritalStatus:
+ *           type: string
+ *           enum: [Single, Married, Divorced, Widowed]
+ *           description: Marital status
+ *         avatar:
+ *           type: string
+ *           description: Employee avatar URL
+ *         emergencyContact:
+ *           type: object
+ *           description: Emergency contact information
+ *           properties:
+ *             name:
+ *               type: string
+ *               description: Emergency contact name
+ *               example: "Jane Doe"
+ *             relationship:
+ *               type: string
+ *               description: Relationship to employee
+ *               example: "Spouse"
+ *             phone:
+ *               type: string
+ *               description: Emergency contact phone number
+ *               example: "+1234567891"
+ *             address:
+ *               type: string
+ *               description: Emergency contact address
+ *               example: "123 Main St, City, State 12345"
+ *         bankDetails:
+ *           type: object
+ *           description: Bank details for payroll
+ *           properties:
+ *             bankName:
+ *               type: string
+ *               description: Name of the bank
+ *               example: "Chase Bank"
+ *             accountName:
+ *               type: string
+ *               description: Account holder name
+ *               example: "John Doe"
+ *             accountNumber:
+ *               type: string
+ *               description: Bank account number
+ *               example: "1234567890"
+ *             accountType:
+ *               type: string
+ *               description: Type of bank account
+ *               enum: [Checking, Savings, Business]
+ *               example: "Checking"
+ *             taxId:
+ *               type: string
+ *               description: Tax identification number (SSN/EIN)
+ *               example: "123-45-6789"
+ *             taxState:
+ *               type: string
+ *               description: State for tax purposes
+ *               example: "CA"
+ *             pensionNumber:
+ *               type: string
+ *               description: Pension/retirement account number
+ *               example: "PEN123456"
+ *         country:
+ *           type: string
+ *           description: Employee country
+ *         employmentType:
+ *           type: string
+ *           enum: [Permanent, Contract, Intern, Part-time, Temporary]
+ *           description: Employment type
+ *         salary:
+ *           type: number
+ *           description: Employee salary
+ *         reportingManager:
+ *           type: object
+ *           description: Reporting manager information
+ *           properties:
+ *             _id:
+ *               type: string
+ *             fullName:
+ *               type: string
+ *             email:
+ *               type: string
+ *             employeeId:
+ *               type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
 // Guard all admin routes
 router.use(protect);
 router.use(restrictTo('super-admin', 'staff'));
@@ -754,13 +896,189 @@ router.get('/hr/employees', adminHR.listEmployees);
  * @swagger
  * /api/admin/hr/employees:
  *   post:
- *     summary: Create an employee record
- *     tags: [Users]
+ *     summary: Create new employee
+ *     description: Create a new employee with all required information including personal details, emergency contact, and bank details
+ *     tags: [Admin HR]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [firstName, lastName, email, department, jobTitle]
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 description: Employee first name
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 description: Employee last name
+ *                 example: "Doe"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Employee email address
+ *                 example: "john.doe@company.com"
+ *               phone:
+ *                 type: string
+ *                 description: Employee phone number
+ *                 example: "+1234567890"
+ *               jobTitle:
+ *                 type: string
+ *                 description: Employee job title
+ *                 example: "Software Developer"
+ *               department:
+ *                 type: string
+ *                 description: Department ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Employment start date
+ *                 example: "2024-01-15"
+ *               gender:
+ *                 type: string
+ *                 enum: [Male, Female, Other]
+ *                 description: Employee gender
+ *                 example: "Male"
+ *               maritalStatus:
+ *                 type: string
+ *                 enum: [Single, Married, Divorced, Widowed]
+ *                 description: Marital status
+ *                 example: "Single"
+ *               country:
+ *                 type: string
+ *                 description: Employee country
+ *                 example: "United States"
+ *               employmentType:
+ *                 type: string
+ *                 enum: [Permanent, Contract, Intern, Part-time, Temporary]
+ *                 description: Employment type
+ *                 example: "Permanent"
+ *               salary:
+ *                 type: number
+ *                 description: Employee salary
+ *                 example: 75000
+ *               emergencyContact:
+ *                 type: object
+ *                 description: Emergency contact information
+ *                 required: [name, relationship, phone]
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: Emergency contact name
+ *                     example: "Jane Doe"
+ *                   relationship:
+ *                     type: string
+ *                     description: Relationship to employee
+ *                     example: "Spouse"
+ *                   phone:
+ *                     type: string
+ *                     description: Emergency contact phone number
+ *                     example: "+1234567891"
+ *                   address:
+ *                     type: string
+ *                     description: Emergency contact address
+ *                     example: "123 Main St, City, State 12345"
+ *               bankDetails:
+ *                 type: object
+ *                 description: Bank details for payroll
+ *                 required: [bankName, accountName, accountNumber]
+ *                 properties:
+ *                   bankName:
+ *                     type: string
+ *                     description: Name of the bank
+ *                     example: "Chase Bank"
+ *                   accountName:
+ *                     type: string
+ *                     description: Account holder name
+ *                     example: "John Doe"
+ *                   accountNumber:
+ *                     type: string
+ *                     description: Bank account number
+ *                     example: "1234567890"
+ *                   accountType:
+ *                     type: string
+ *                     description: Type of bank account
+ *                     enum: [Checking, Savings, Business]
+ *                     example: "Checking"
+ *                   taxId:
+ *                     type: string
+ *                     description: Tax identification number (SSN/EIN)
+ *                     example: "123-45-6789"
+ *                   taxState:
+ *                     type: string
+ *                     description: State for tax purposes
+ *                     example: "CA"
+ *                   pensionNumber:
+ *                     type: string
+ *                     description: Pension/retirement account number
+ *                     example: "PEN123456"
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Employee avatar image file
  *     responses:
  *       201:
- *         description: Employee created
+ *         description: Employee created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Employee'
+ *                 message:
+ *                   type: string
+ *                   example: "Employee created successfully"
+ *       400:
+ *         description: Bad request - validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       409:
+ *         description: Conflict - employee already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
  */
 router.post('/hr/employees', adminHR.createEmployee);
 router.patch('/hr/employees/:id', adminHR.updateEmployee);
@@ -780,6 +1098,231 @@ router.delete('/hr/employees/:id', adminHR.deleteEmployee);
  *         description: Attendance list
  */
 router.get('/hr/attendance', adminHR.listAttendance);
+
+/**
+ * @swagger
+ * /api/admin/hr/attendance/calendar:
+ *   get:
+ *     summary: Get attendance calendar data
+ *     description: Retrieve attendance data for calendar view by month
+ *     tags: [Admin HR]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *         description: Year for calendar data
+ *         example: 2024
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: integer
+ *         description: Month for calendar data (1-12)
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Calendar data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     year:
+ *                       type: integer
+ *                       example: 2024
+ *                     month:
+ *                       type: integer
+ *                       example: 5
+ *                     days:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           date:
+ *                             type: string
+ *                             format: date
+ *                           present:
+ *                             type: number
+ *                           absent:
+ *                             type: number
+ *                           late:
+ *                             type: number
+ *                           onLeave:
+ *                             type: number
+ *                           remote:
+ *                             type: number
+ *                           halfDay:
+ *                             type: number
+ *                 message:
+ *                   type: string
+ *                   example: "Calendar data retrieved successfully"
+ */
+router.get('/hr/attendance/calendar', adminHR.getAttendanceCalendar);
+
+/**
+ * @swagger
+ * /api/admin/hr/attendance/export-csv:
+ *   get:
+ *     summary: Export attendance data to CSV
+ *     description: Export attendance records to CSV format with filtering options
+ *     tags: [Admin HR]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for export (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for export (YYYY-MM-DD)
+ *         example: "2024-01-31"
+ *       - in: query
+ *         name: department
+ *         schema:
+ *           type: string
+ *         description: Department filter
+ *         example: "engineering"
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [present, absent, late, remote, half-day]
+ *         description: Status filter
+ *     responses:
+ *       200:
+ *         description: CSV file generated successfully
+ *         content:
+ *           application/octet-stream:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Bad request - invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ */
+router.get('/hr/attendance/export-csv', adminHR.exportAttendanceCSV);
+
+// HR - Dashboard
+/**
+ * @swagger
+ * /api/admin/hr/dashboard:
+ *   get:
+ *     summary: Get HR dashboard overview
+ *     description: Retrieve comprehensive HR dashboard statistics and recent activities
+ *     tags: [Admin HR]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     statistics:
+ *                       type: object
+ *                       properties:
+ *                         totalEmployees:
+ *                           type: number
+ *                           example: 47
+ *                         onLeave:
+ *                           type: number
+ *                           example: 3
+ *                         pendingRequests:
+ *                           type: number
+ *                           example: 8
+ *                         newHires:
+ *                           type: number
+ *                           example: 2
+ *                         payrollStatus:
+ *                           type: string
+ *                           example: "In Progress"
+ *                         performanceReviews:
+ *                           type: number
+ *                           example: 5
+ *                         averageAttendance:
+ *                           type: number
+ *                           example: 95
+ *                     activities:
+ *                       type: object
+ *                       properties:
+ *                         leaveRequests:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               description:
+ *                                 type: string
+ *                               status:
+ *                                 type: string
+ *                               statusColor:
+ *                                 type: string
+ *                         upcomingReviews:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               description:
+ *                                 type: string
+ *                               status:
+ *                                 type: string
+ *                               statusColor:
+ *                                 type: string
+ *                         recentHires:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               description:
+ *                                 type: string
+ *                               status:
+ *                                 type: string
+ *                               statusColor:
+ *                                 type: string
+ *                 message:
+ *                   type: string
+ *                   example: "Dashboard data retrieved successfully"
+ */
+router.get('/hr/dashboard', adminHR.getDashboardOverview);
 
 // HR - Leave
 /**

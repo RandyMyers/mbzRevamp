@@ -1006,7 +1006,7 @@ exports.uploadDocument = async (req, res, next) => {
 exports.checkIn = async (req, res, next) => {
   try {
     const employeeId = req.user.employeeId || req.user.id;
-    const { location, notes } = req.body;
+    const { location, notes, workLocation = 'office', latitude, longitude } = req.body;
 
     // Check if already checked in today
     const today = new Date();
@@ -1019,7 +1019,7 @@ exports.checkIn = async (req, res, next) => {
       date: { $gte: today, $lt: tomorrow }
     });
 
-    if (existingAttendance && existingAttendance.checkIn) {
+    if (existingAttendance && existingAttendance.checkInAt) {
       return res.status(409).json({
         success: false,
         error: 'Already checked in',
@@ -1027,36 +1027,54 @@ exports.checkIn = async (req, res, next) => {
       });
     }
 
+    const now = new Date();
+    const checkInHour = now.getHours();
+    const checkInMinute = now.getMinutes();
+    
+    // Determine if late (after 9:15 AM)
+    let status = 'present';
+    if (workLocation === 'remote') {
+      status = 'remote';
+    } else if (checkInHour > 9 || (checkInHour === 9 && checkInMinute > 15)) {
+      status = 'late';
+    }
+
     const attendanceData = {
       employee: employeeId,
       date: today,
-      checkIn: new Date(),
-      location: location || 'Office',
-      notes: notes || ''
+      checkInAt: now,
+      workLocation,
+      location: location || '',
+      latitude: latitude || null,
+      longitude: longitude || null,
+      notes: notes || '',
+      status,
+      breakDuration: 0,
+      workHours: 0
     };
 
+    let attendance;
     if (existingAttendance) {
-      // Update existing record
-      existingAttendance.checkIn = attendanceData.checkIn;
-      existingAttendance.location = attendanceData.location;
-      existingAttendance.notes = attendanceData.notes;
-      await existingAttendance.save();
+      attendance = await Attendance.findByIdAndUpdate(
+        existingAttendance._id,
+        attendanceData,
+        { new: true }
+      );
     } else {
-      // Create new record
-      await Attendance.create(attendanceData);
+      attendance = await Attendance.create(attendanceData);
     }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      data: attendanceData,
-      message: 'Check-in successful'
+      data: attendance,
+      message: 'Check-in recorded successfully'
     });
   } catch (err) {
-    console.error('Error checking in:', err);
+    console.error('Error recording check-in:', err);
     res.status(500).json({
       success: false,
-      error: 'Failed to check in',
-      message: `Failed to check in: ${err.message}`
+      error: 'Failed to record check-in',
+      message: `Failed to record check-in: ${err.message}`
     });
   }
 };
@@ -1085,6 +1103,131 @@ exports.checkIn = async (req, res, next) => {
 exports.checkOut = async (req, res, next) => {
   try {
     const employeeId = req.user.employeeId || req.user.id;
+    const { notes, overtime = 0 } = req.body;
+
+    // Find today's attendance record
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: today, $lt: tomorrow }
+    });
+
+    if (!attendance || !attendance.checkInAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Not checked in',
+        message: 'You must check in before checking out'
+      });
+    }
+
+    if (attendance.checkOutAt) {
+      return res.status(409).json({
+        success: false,
+        error: 'Already checked out',
+        message: 'You have already checked out today'
+      });
+    }
+
+    // End any active break
+    if (attendance.breakStartAt && !attendance.breakEndAt) {
+      const breakEndTime = new Date();
+      const breakDuration = Math.round((breakEndTime - attendance.breakStartAt) / (1000 * 60)); // in minutes
+      attendance.breakEndAt = breakEndTime;
+      attendance.breakDuration += breakDuration;
+      attendance.status = 'present'; // Change from 'on-break' to 'present'
+    }
+
+    const now = new Date();
+    attendance.checkOutAt = now;
+    
+    // Calculate work hours (total time minus break duration)
+    const totalMinutes = Math.round((now - attendance.checkInAt) / (1000 * 60));
+    const workMinutes = totalMinutes - attendance.breakDuration;
+    attendance.workHours = Math.round((workMinutes / 60) * 10) / 10; // Round to 1 decimal place
+    
+    // Determine if half-day (less than 4 hours)
+    if (attendance.workHours < 4 && attendance.status === 'present') {
+      attendance.status = 'half-day';
+    }
+    
+    attendance.overtime = overtime;
+    if (notes) attendance.notes += ` | Check-out: ${notes}`;
+    
+    await attendance.save();
+
+    res.status(200).json({
+      success: true,
+      data: attendance,
+      message: 'Check-out recorded successfully'
+    });
+  } catch (err) {
+    console.error('Error recording check-out:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to record check-out',
+      message: `Failed to record check-out: ${err.message}`
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/employee/attendance/break-start:
+ *   post:
+ *     summary: Start break
+ *     description: Record employee break start time
+ *     tags: [Employee Self-Service]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *                 description: Break notes
+ *                 example: "Lunch break"
+ *     responses:
+ *       200:
+ *         description: Break started successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Attendance'
+ *                 message:
+ *                   type: string
+ *                   example: "Break started successfully"
+ *       400:
+ *         description: Bad request - not checked in or already on break
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ */
+exports.startBreak = async (req, res, next) => {
+  try {
+    const employeeId = req.user.employeeId || req.user.id;
     const { notes } = req.body;
 
     // Find today's attendance record
@@ -1098,39 +1241,157 @@ exports.checkOut = async (req, res, next) => {
       date: { $gte: today, $lt: tomorrow }
     });
 
-    if (!attendance || !attendance.checkIn) {
+    if (!attendance || !attendance.checkInAt) {
       return res.status(400).json({
         success: false,
         error: 'Not checked in',
-        message: 'You must check in before checking out'
+        message: 'You must check in before starting a break'
       });
     }
 
-    if (attendance.checkOut) {
-      return res.status(409).json({
+    if (attendance.checkOutAt) {
+      return res.status(400).json({
         success: false,
         error: 'Already checked out',
-        message: 'You have already checked out today'
+        message: 'Cannot start break after checking out'
       });
     }
 
-    attendance.checkOut = new Date();
-    attendance.totalHours = (attendance.checkOut - attendance.checkIn) / (1000 * 60 * 60); // Convert to hours
-    if (notes) attendance.notes += ` | Check-out: ${notes}`;
+    if (attendance.breakStartAt && !attendance.breakEndAt) {
+      return res.status(409).json({
+        success: false,
+        error: 'Already on break',
+        message: 'You are already on a break'
+      });
+    }
+
+    const now = new Date();
+    attendance.breakStartAt = now;
+    attendance.status = 'on-break';
+    if (notes) attendance.notes += ` | Break start: ${notes}`;
     
     await attendance.save();
 
     res.status(200).json({
       success: true,
       data: attendance,
-      message: 'Check-out successful'
+      message: 'Break started successfully'
     });
   } catch (err) {
-    console.error('Error checking out:', err);
+    console.error('Error starting break:', err);
     res.status(500).json({
       success: false,
-      error: 'Failed to check out',
-      message: `Failed to check out: ${err.message}`
+      error: 'Failed to start break',
+      message: `Failed to start break: ${err.message}`
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/employee/attendance/break-end:
+ *   post:
+ *     summary: End break
+ *     description: Record employee break end time
+ *     tags: [Employee Self-Service]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *                 description: Break end notes
+ *                 example: "Back from lunch"
+ *     responses:
+ *       200:
+ *         description: Break ended successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Attendance'
+ *                 message:
+ *                   type: string
+ *                   example: "Break ended successfully"
+ *       400:
+ *         description: Bad request - not on break
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ */
+exports.endBreak = async (req, res, next) => {
+  try {
+    const employeeId = req.user.employeeId || req.user.id;
+    const { notes } = req.body;
+
+    // Find today's attendance record
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: today, $lt: tomorrow }
+    });
+
+    if (!attendance || !attendance.checkInAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Not checked in',
+        message: 'You must check in before ending a break'
+      });
+    }
+
+    if (!attendance.breakStartAt || attendance.breakEndAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Not on break',
+        message: 'You are not currently on a break'
+      });
+    }
+
+    const now = new Date();
+    const breakDuration = Math.round((now - attendance.breakStartAt) / (1000 * 60)); // in minutes
+    
+    attendance.breakEndAt = now;
+    attendance.breakDuration += breakDuration;
+    attendance.status = 'present'; // Change from 'on-break' to 'present'
+    
+    if (notes) attendance.notes += ` | Break end: ${notes}`;
+    
+    await attendance.save();
+
+    res.status(200).json({
+      success: true,
+      data: attendance,
+      message: 'Break ended successfully'
+    });
+  } catch (err) {
+    console.error('Error ending break:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to end break',
+      message: `Failed to end break: ${err.message}`
     });
   }
 };
@@ -1184,8 +1445,9 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
     // Calculate summary statistics
     const totalDays = attendance.length;
-    const presentDays = attendance.filter(record => record.checkIn).length;
-    const totalHours = attendance.reduce((sum, record) => sum + (record.totalHours || 0), 0);
+    const presentDays = attendance.filter(record => record.checkInAt).length;
+    const totalHours = attendance.reduce((sum, record) => sum + (record.workHours || 0), 0);
+    const totalBreakTime = attendance.reduce((sum, record) => sum + (record.breakDuration || 0), 0);
     const averageHours = totalDays > 0 ? totalHours / totalDays : 0;
 
     res.status(200).json({
@@ -1197,6 +1459,7 @@ exports.getAttendanceHistory = async (req, res, next) => {
           presentDays,
           absentDays: totalDays - presentDays,
           totalHours: Math.round(totalHours * 100) / 100,
+          totalBreakTime: Math.round(totalBreakTime),
           averageHours: Math.round(averageHours * 100) / 100
         }
       },
