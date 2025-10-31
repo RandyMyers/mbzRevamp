@@ -533,4 +533,130 @@ router.get('/defaults/invoice', templateControllers.getAllDefaultInvoiceTemplate
  */
 router.get('/defaults/receipt', templateControllers.getAllDefaultReceiptTemplates);
 
+// ==================== ORGANIZATION-SPECIFIC TEMPLATE ROUTES ====================
+
+// GET organization's default invoice template with customizations
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/:organizationId/default:
+ *   get:
+ *     summary: Get organization's default template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/organization/:organizationId/default', templateControllers.getOrganizationDefaultTemplate);
+
+// UPDATE organization's template customizations (company info, colors, etc.)
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/:organizationId/settings:
+ *   put:
+ *     summary: Update organization's template settings
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/organization/:organizationId/settings', templateControllers.updateOrganizationTemplateSettings);
+
+// SET organization's default invoice template
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/:organizationId/set-default/:templateId:
+ *   put:
+ *     summary: Set organization's default template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/organization/:organizationId/set-default/:templateId', templateControllers.setOrganizationDefaultTemplate);
+
+// UPLOAD logo for organization's invoice template
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/:organizationId/upload-logo:
+ *   post:
+ *     summary: Upload logo for organization's template
+ *     tags: [Invoice Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/organization/:organizationId/upload-logo', templateControllers.uploadOrganizationTemplateLogo);
+
 module.exports = router;

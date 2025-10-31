@@ -2,6 +2,11 @@ const InvoiceTemplate = require('../models/InvoiceTemplate');
 const ReceiptTemplate = require('../models/ReceiptTemplate');
 const Organization = require('../models/organization');
 const { createAuditLog } = require('../helpers/auditLogHelper');
+const cloudinary = require('cloudinary').v2;
+const cloudinaryConfig = require('../config/cloudinary');
+
+// Configure Cloudinary
+cloudinary.config(cloudinaryConfig);
 
 /**
  * @swagger
@@ -1782,4 +1787,583 @@ exports.getAllDefaultReceiptTemplates = async (req, res) => {
       error: error.message
     });
   }
-}; 
+};
+
+// ==================== ORGANIZATION TEMPLATE ENDPOINTS ====================
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/{organizationId}/default:
+ *   get:
+ *     summary: Get organization's default invoice template with customizations
+ *     tags: [Invoice Templates]
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: Organization's default template retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 template:
+ *                   type: object
+ *                   description: Base template merged with organization customizations
+ *                 organizationSettings:
+ *                   type: object
+ *                   description: Organization-specific customizations
+ *       404:
+ *         description: Organization or template not found
+ *       500:
+ *         description: Server error
+ */
+exports.getOrganizationDefaultTemplate = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+
+    // Fetch organization with template reference
+    const organization = await Organization.findById(organizationId);
+
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Check if organization has a default invoice template set
+    const templateId = organization.invoiceSettings?.defaultInvoiceTemplate;
+
+    if (!templateId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization has no default invoice template set'
+      });
+    }
+
+    // Fetch the base template
+    const baseTemplate = await InvoiceTemplate.findById(templateId);
+
+    if (!baseTemplate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Default template not found'
+      });
+    }
+
+    // Get organization-specific customizations
+    const orgSettings = organization.organizationTemplateSettings?.invoiceTemplate || {};
+
+    // Merge base template with organization customizations
+    const mergedTemplate = {
+      _id: baseTemplate._id,
+      name: baseTemplate.name,
+      templateType: baseTemplate.templateType,
+      isDefault: true,
+
+      // Merge company info - org customizations override base template
+      companyInfo: {
+        name: orgSettings.storeInfo?.name || baseTemplate.companyInfo?.name,
+        email: orgSettings.email || baseTemplate.companyInfo?.email,
+        phone: orgSettings.customFields?.phone || baseTemplate.companyInfo?.phone,
+        website: orgSettings.storeInfo?.website || baseTemplate.companyInfo?.website,
+        logo: orgSettings.storeInfo?.logo || baseTemplate.companyInfo?.logo,
+        address: {
+          street: orgSettings.customFields?.address?.street || baseTemplate.companyInfo?.address?.street,
+          city: orgSettings.customFields?.address?.city || baseTemplate.companyInfo?.address?.city,
+          state: orgSettings.customFields?.address?.state || baseTemplate.companyInfo?.address?.state,
+          zipCode: orgSettings.customFields?.address?.zipCode || baseTemplate.companyInfo?.address?.zipCode,
+          country: orgSettings.customFields?.address?.country || baseTemplate.companyInfo?.address?.country
+        }
+      },
+
+      // Merge design settings - org customizations override base template
+      design: {
+        ...baseTemplate.design,
+        primaryColor: orgSettings.design?.primaryColor || baseTemplate.design?.primaryColor,
+        secondaryColor: orgSettings.design?.secondaryColor || baseTemplate.design?.secondaryColor,
+        backgroundColor: orgSettings.design?.backgroundColor || baseTemplate.design?.backgroundColor
+      },
+
+      // Merge layout settings - org customizations override base template
+      layout: {
+        ...baseTemplate.layout,
+        logoPosition: orgSettings.layout?.logoPosition || baseTemplate.layout?.logoPosition
+      },
+
+      // Keep base template content and fields as-is
+      content: baseTemplate.content,
+      fields: baseTemplate.fields
+    };
+
+    res.status(200).json({
+      success: true,
+      template: mergedTemplate,
+      organizationSettings: orgSettings
+    });
+
+  } catch (error) {
+    console.error('Error fetching organization default template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching organization default template',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/{organizationId}/settings:
+ *   put:
+ *     summary: Update organization's template customizations (company info, colors, etc.)
+ *     tags: [Invoice Templates]
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 required: true
+ *                 description: User ID making the update
+ *               companyName:
+ *                 type: string
+ *                 description: Company name
+ *               email:
+ *                 type: string
+ *                 description: Company email
+ *               phone:
+ *                 type: string
+ *                 description: Company phone
+ *               address:
+ *                 type: object
+ *                 description: Company address
+ *               website:
+ *                 type: string
+ *                 description: Company website
+ *               logo:
+ *                 type: string
+ *                 description: Company logo URL
+ *               primaryColor:
+ *                 type: string
+ *                 description: Primary brand color (hex)
+ *               secondaryColor:
+ *                 type: string
+ *                 description: Secondary brand color (hex)
+ *               logoPosition:
+ *                 type: string
+ *                 enum: [top-left, top-right, top-center]
+ *                 description: Logo position
+ *     responses:
+ *       200:
+ *         description: Organization template settings updated successfully
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Server error
+ */
+exports.updateOrganizationTemplateSettings = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    const {
+      userId,
+      companyName,
+      email,
+      phone,
+      address,
+      website,
+      logo,
+      primaryColor,
+      secondaryColor,
+      logoPosition
+    } = req.body;
+
+    // Fetch organization
+    const organization = await Organization.findById(organizationId);
+
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Initialize organizationTemplateSettings if it doesn't exist
+    if (!organization.organizationTemplateSettings) {
+      organization.organizationTemplateSettings = {};
+    }
+    if (!organization.organizationTemplateSettings.invoiceTemplate) {
+      organization.organizationTemplateSettings.invoiceTemplate = {};
+    }
+
+    const invoiceSettings = organization.organizationTemplateSettings.invoiceTemplate;
+
+    // Update store info (company name, website, logo)
+    if (!invoiceSettings.storeInfo) {
+      invoiceSettings.storeInfo = {};
+    }
+    if (companyName !== undefined) invoiceSettings.storeInfo.name = companyName;
+    if (website !== undefined) invoiceSettings.storeInfo.website = website;
+    if (logo !== undefined) invoiceSettings.storeInfo.logo = logo;
+
+    // Update email
+    if (email !== undefined) {
+      invoiceSettings.email = email;
+    }
+
+    // Update custom fields (phone, address)
+    if (!invoiceSettings.customFields) {
+      invoiceSettings.customFields = {};
+    }
+    if (phone !== undefined) {
+      invoiceSettings.customFields.phone = phone;
+    }
+    if (address !== undefined) {
+      invoiceSettings.customFields.address = {
+        street: address.street || '',
+        city: address.city || '',
+        state: address.state || '',
+        zipCode: address.zipCode || '',
+        country: address.country || ''
+      };
+    }
+
+    // Update design settings (colors)
+    if (!invoiceSettings.design) {
+      invoiceSettings.design = {};
+    }
+    if (primaryColor !== undefined) invoiceSettings.design.primaryColor = primaryColor;
+    if (secondaryColor !== undefined) invoiceSettings.design.secondaryColor = secondaryColor;
+
+    // Update layout settings
+    if (!invoiceSettings.layout) {
+      invoiceSettings.layout = {};
+    }
+    if (logoPosition !== undefined) invoiceSettings.layout.logoPosition = logoPosition;
+
+    // Save organization
+    organization.organizationTemplateSettings.invoiceTemplate = invoiceSettings;
+    organization.updatedAt = Date.now();
+    await organization.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'ORGANIZATION_TEMPLATE_SETTINGS_UPDATED',
+      user: userId,
+      resource: 'Organization',
+      resourceId: organization._id,
+      details: {
+        organizationName: organization.name,
+        updatedSettings: {
+          companyName,
+          email,
+          phone,
+          address,
+          website,
+          logo,
+          primaryColor,
+          secondaryColor,
+          logoPosition
+        }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Organization template settings updated successfully',
+      settings: organization.organizationTemplateSettings.invoiceTemplate
+    });
+
+  } catch (error) {
+    console.error('Error updating organization template settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating organization template settings',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/{organizationId}/set-default/{templateId}:
+ *   put:
+ *     summary: Set organization's default invoice template
+ *     tags: [Invoice Templates]
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *       - in: path
+ *         name: templateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Template ID to set as default
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID making the update
+ *     responses:
+ *       200:
+ *         description: Default template set successfully
+ *       404:
+ *         description: Organization or template not found
+ *       500:
+ *         description: Server error
+ */
+exports.setOrganizationDefaultTemplate = async (req, res) => {
+  try {
+    const { organizationId, templateId } = req.params;
+    const { userId } = req.body;
+
+    // Validate template exists
+    const template = await InvoiceTemplate.findById(templateId);
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found'
+      });
+    }
+
+    // Fetch organization
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Initialize invoiceSettings if it doesn't exist
+    if (!organization.invoiceSettings) {
+      organization.invoiceSettings = {};
+    }
+
+    // Set the default invoice template reference
+    organization.invoiceSettings.defaultInvoiceTemplate = templateId;
+    organization.updatedAt = Date.now();
+    await organization.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'ORGANIZATION_DEFAULT_TEMPLATE_SET',
+      user: userId,
+      resource: 'Organization',
+      resourceId: organization._id,
+      details: {
+        organizationName: organization.name,
+        templateId: templateId,
+        templateName: template.name,
+        templateType: template.templateType
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Default invoice template set successfully',
+      organization: {
+        _id: organization._id,
+        name: organization.name,
+        defaultTemplateId: templateId
+      },
+      template: {
+        _id: template._id,
+        name: template.name,
+        templateType: template.templateType
+      }
+    });
+
+  } catch (error) {
+    console.error('Error setting organization default template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error setting organization default template',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/invoice/templates/organization/{organizationId}/upload-logo:
+ *   post:
+ *     summary: Upload logo for organization's invoice template
+ *     tags: [Invoice Templates]
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - logo
+ *               - userId
+ *             properties:
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Logo image file (PNG, JPG, JPEG, SVG)
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID uploading the logo
+ *     responses:
+ *       200:
+ *         description: Logo uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Logo uploaded successfully"
+ *                 logoUrl:
+ *                   type: string
+ *                   example: "https://res.cloudinary.com/xxx/invoice_template_logos/logo.png"
+ *       400:
+ *         description: No logo file uploaded or invalid file type
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Server error
+ */
+exports.uploadOrganizationTemplateLogo = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+    const { userId } = req.body;
+
+    // Check if logo file was uploaded
+    if (!req.files || !req.files.logo) {
+      return res.status(400).json({
+        success: false,
+        message: 'No logo file uploaded'
+      });
+    }
+
+    const logoFile = req.files.logo;
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/svg+xml'];
+    if (!allowedTypes.includes(logoFile.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PNG, JPG, JPEG, and SVG files are allowed'
+      });
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (logoFile.size > maxSize) {
+      return res.status(400).json({
+        success: false,
+        message: 'File size exceeds 5MB limit'
+      });
+    }
+
+    // Fetch organization
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    // Upload logo to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(logoFile.tempFilePath, {
+      folder: 'invoice_template_logos',
+      resource_type: 'auto'
+    });
+
+    // Initialize organizationTemplateSettings if needed
+    if (!organization.organizationTemplateSettings) {
+      organization.organizationTemplateSettings = {};
+    }
+    if (!organization.organizationTemplateSettings.invoiceTemplate) {
+      organization.organizationTemplateSettings.invoiceTemplate = {};
+    }
+    if (!organization.organizationTemplateSettings.invoiceTemplate.storeInfo) {
+      organization.organizationTemplateSettings.invoiceTemplate.storeInfo = {};
+    }
+
+    // Update logo URL
+    organization.organizationTemplateSettings.invoiceTemplate.storeInfo.logo = uploadResult.secure_url;
+    organization.updatedAt = Date.now();
+    await organization.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'ORGANIZATION_TEMPLATE_LOGO_UPLOADED',
+      user: userId,
+      resource: 'Organization',
+      resourceId: organization._id,
+      details: {
+        organizationName: organization.name,
+        logoUrl: uploadResult.secure_url
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Logo uploaded successfully',
+      logoUrl: uploadResult.secure_url
+    });
+
+  } catch (error) {
+    console.error('Error uploading organization template logo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading logo',
+      error: error.message
+    });
+  }
+};
