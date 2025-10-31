@@ -8,7 +8,8 @@
       "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/**)",
       "Bash(git add src/components/dashboard/orders/GenerateInvoiceDialog.tsx src/components/dashboard/orders/GenerateReceiptDialog.tsx src/lib/api.ts)",
       "Bash(git commit -m \"$(cat <<''EOF''\nImplement invoice and receipt download from orders using organization templates\n\n- Add generateInvoiceFromOrder and generateReceiptFromOrder API methods\n- Update GenerateInvoiceDialog to use new order-specific endpoint\n- Update GenerateReceiptDialog to use new order-specific endpoint\n- Both dialogs now properly handle WooCommerce order structure\n- Use organization''s default template with customizations automatically\n- Simplified dialog implementation (no template selection needed)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push origin omales_implementation)"
+      "Bash(git push origin omales_implementation)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix undefined defaultTemplate variable references\n\n- Remove all templateId: defaultTemplate assignments\n- The templateMergerService already provides all template data in mergedCompanyInfo\n- Fixes 500 error: \"defaultTemplate is not defined\"\n- Applies to both createInvoice, createReceipt, generateOrderInvoice, and generateOrderReceipt\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
