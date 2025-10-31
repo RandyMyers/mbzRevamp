@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/lib/**)"
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/lib/**)",
+      "Bash(git add controllers/invoiceControllers.js controllers/receiptControllers.js)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRemove unnecessary default template checks in invoice/receipt generation\n\n- Both invoices and receipts now use the same organizationTemplateSettings system\n- The templateMergerService handles template lookup and customizations automatically\n- Removes blocking checks for receiptSettings.defaultOrderTemplate (didn''t exist)\n- Removes blocking checks for invoiceSettings.defaultInvoiceTemplate (unnecessary)\n- Allows invoice/receipt generation to work with shared template system\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push origin omale)",
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/**)",
+      "Bash(git add src/components/dashboard/orders/GenerateInvoiceDialog.tsx src/components/dashboard/orders/GenerateReceiptDialog.tsx src/lib/api.ts)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplement invoice and receipt download from orders using organization templates\n\n- Add generateInvoiceFromOrder and generateReceiptFromOrder API methods\n- Update GenerateInvoiceDialog to use new order-specific endpoint\n- Update GenerateReceiptDialog to use new order-specific endpoint\n- Both dialogs now properly handle WooCommerce order structure\n- Use organization''s default template with customizations automatically\n- Simplified dialog implementation (no template selection needed)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push origin omales_implementation)"
     ],
     "deny": [],
     "ask": []
