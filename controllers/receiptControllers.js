@@ -2065,7 +2065,21 @@ exports.generateOrderReceipt = async (req, res) => {
     });
 
     newReceipt.calculateTotals();
+
+    console.log('📤 generateOrderReceipt - Saving receipt:', {
+      receiptNumber,
+      organizationId,
+      customerId,
+      totalAmount: newReceipt.totalAmount
+    });
+
     const savedReceipt = await newReceipt.save();
+
+    console.log('📤 generateOrderReceipt - Receipt saved:', {
+      _id: savedReceipt._id,
+      receiptNumber: savedReceipt.receiptNumber,
+      organizationId: savedReceipt.organizationId
+    });
 
     // Create audit log
     await createAuditLog({
