@@ -2031,9 +2031,12 @@ exports.generateOrderInvoice = async (req, res) => {
     const invoiceNumber = await Invoice.generateInvoiceNumber(organizationId);
 
     // Create invoice from order using organization defaults
+    // For WooCommerce orders, use the userId as customerId since WC customer_id is not a MongoDB ObjectId
+    const customerId = order.userId?._id || userId;
+
     const newInvoice = new Invoice({
       invoiceNumber,
-      customerId: order.customerId || order.customer_id || order.userId?._id || userId, // WooCommerce orders use customer_id
+      customerId: customerId,
       storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
