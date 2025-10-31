@@ -274,7 +274,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     filter: true,
     deepLinking: true,
     url: '/api-docs/swagger.json',
-    validatorUrl: null
+    validatorUrl: null,
+    docExpansion: 'none',           // Collapse all sections by default
+    defaultModelsExpandDepth: -1    // Collapse models section
   }
 }));
 
