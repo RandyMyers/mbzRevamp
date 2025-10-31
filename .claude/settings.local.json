@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/lib/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
