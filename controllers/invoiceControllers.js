@@ -877,7 +877,6 @@ exports.getInvoiceById = async (req, res) => {
       .populate('storeId', 'name url')
       .populate('createdBy', 'fullName email')
       .populate('updatedBy', 'fullName email')
-      .populate('templateId');
 
     if (!invoice) {
       return res.status(404).json({
@@ -1299,7 +1298,6 @@ exports.downloadInvoice = async (req, res) => {
     const invoice = await Invoice.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')
       .populate('storeId', 'name')
-      .populate('templateId');
 
     if (!invoice) {
       return res.status(404).json({

@@ -1509,7 +1509,6 @@ exports.getReceiptById = async (req, res) => {
       .populate('storeId', 'name url')
       .populate('createdBy', 'fullName email')
       .populate('updatedBy', 'fullName email')
-      .populate('templateId');
 
     if (!receipt) {
       return res.status(404).json({
@@ -1670,7 +1669,6 @@ exports.downloadReceipt = async (req, res) => {
     const receipt = await Receipt.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')
       .populate('storeId', 'name')
-      .populate('templateId');
 
     if (!receipt) {
       return res.status(404).json({
@@ -2403,7 +2401,6 @@ exports.generateReceiptPDF = async (req, res) => {
       .populate('storeId', 'name url')
       .populate('subscriptionId', 'billingInterval startDate endDate')
       .populate('paymentId', 'reference gateway amount currency')
-      .populate('templateId');
 
     if (!receipt) {
       return res.status(404).json({
@@ -3245,7 +3242,6 @@ exports.getReceiptById = async (req, res) => {
 
       .populate('updatedBy', 'fullName email')
 
-      .populate('templateId');
 
 
 
@@ -3567,7 +3563,6 @@ exports.downloadReceipt = async (req, res) => {
 
       .populate('storeId', 'name')
 
-      .populate('templateId');
 
 
 
@@ -4747,7 +4742,6 @@ exports.getReceiptById = async (req, res) => {
 
       .populate('updatedBy', 'fullName email')
 
-      .populate('templateId');
 
 
 
@@ -5069,7 +5063,6 @@ exports.downloadReceipt = async (req, res) => {
 
       .populate('storeId', 'name')
 
-      .populate('templateId');
 
 
 
@@ -6249,7 +6242,6 @@ exports.getReceiptById = async (req, res) => {
 
       .populate('updatedBy', 'fullName email')
 
-      .populate('templateId');
 
 
 
@@ -6571,7 +6563,6 @@ exports.downloadReceipt = async (req, res) => {
 
       .populate('storeId', 'name')
 
-      .populate('templateId');
 
 
 
