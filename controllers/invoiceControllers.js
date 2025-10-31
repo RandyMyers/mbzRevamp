@@ -518,8 +518,7 @@ exports.createInvoice = async (req, res) => {
       notes,
       terms,
       type: type || 'one_time',
-      templateId: defaultTemplate, // Use organization's default template
-      // Use merged company info from organization template settings
+      // Use merged company info from organization template settings (includes template data)
       companyInfo: mergedCompanyInfo ? {
         ...mergedCompanyInfo,
         ...(logoUrl && { logo: logoUrl })
@@ -2064,8 +2063,7 @@ exports.generateOrderInvoice = async (req, res) => {
       notes: order.customer_note || '',
       terms: 'Payment is due within 30 days.',
       type: 'one_time',
-      templateId: defaultTemplate, // Use organization's default template
-      // Use merged company info from organization template settings
+      // Use merged company info from organization template settings (includes template data)
       companyInfo: mergedCompanyInfo,
       createdBy: userId,
       updatedBy: userId

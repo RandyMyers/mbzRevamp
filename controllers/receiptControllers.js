@@ -1348,8 +1348,7 @@ exports.createReceipt = async (req, res) => {
       transactionDate: transactionDate || new Date(),
       description,
       type: type || 'purchase',
-      templateId: defaultTemplate, // Use organization's default template
-      // Use merged company info from organization template settings
+      // Use merged company info from organization template settings (includes template data)
       companyInfo: mergedCompanyInfo ? {
         ...mergedCompanyInfo,
         ...(logoUrl && { logo: logoUrl })
@@ -2045,8 +2044,7 @@ exports.generateOrderReceipt = async (req, res) => {
       description: order.customer_note || '',
       type: 'purchase',
       scenario: 'woocommerce_order',
-      templateId: defaultTemplate, // Use organization's default template
-      // Use merged company info from organization template settings
+      // Use merged company info from organization template settings (includes template data)
       companyInfo: mergedCompanyInfo,
       createdBy: userId,
       updatedBy: userId
