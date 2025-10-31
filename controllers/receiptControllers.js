@@ -2012,11 +2012,11 @@ exports.generateOrderReceipt = async (req, res) => {
     // Create receipt from order using organization defaults
     const newReceipt = new Receipt({
       receiptNumber,
-      customerId: order.customerId,
+      customerId: order.customerId || order.customer_id || order.userId?._id || userId, // WooCommerce orders use customer_id
       storeId: defaultStore._id, // Use organization's default store
       organizationId,
       userId,
-      customerName: order.billing?.first_name || 'Customer',
+      customerName: `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim() || 'Customer',
       customerEmail: order.billing?.email || 'customer@example.com',
       customerAddress: {
         street: order.billing?.address_1 || '',
@@ -2075,6 +2075,17 @@ exports.generateOrderReceipt = async (req, res) => {
 
   } catch (error) {
     console.error('Error generating order receipt:', error);
+
+    // Handle validation errors with 400 status
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed: ' + Object.values(error.errors).map(e => e.message).join(', '),
+        error: error.message
+      });
+    }
+
+    // Handle other errors with 500 status
     res.status(500).json({
       success: false,
       message: 'Error generating order receipt',
