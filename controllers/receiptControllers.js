@@ -1659,6 +1659,8 @@ exports.downloadReceipt = async (req, res) => {
     const userId = req.user._id;
     const organizationId = req.user.organization;
 
+    console.log('📥 downloadReceipt - Request:', { receiptId: id, organizationId, userId });
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -1668,12 +1670,23 @@ exports.downloadReceipt = async (req, res) => {
 
     const receipt = await Receipt.findOne({ _id: id, organizationId })
       .populate('customerId', 'name email phone address')
-      .populate('storeId', 'name')
+      .populate('storeId', 'name');
+
+    console.log('📥 downloadReceipt - Receipt found:', receipt ? `YES (${receipt.receiptNumber})` : 'NO');
 
     if (!receipt) {
+      // Try without organizationId to see if receipt exists
+      const anyReceipt = await Receipt.findById(id);
+      console.log('📥 downloadReceipt - Receipt exists without org filter:', anyReceipt ? `YES (org: ${anyReceipt.organizationId})` : 'NO');
+
       return res.status(404).json({
         success: false,
-        message: 'Receipt not found'
+        message: 'Receipt not found',
+        debug: {
+          receiptId: id,
+          requestedOrgId: organizationId,
+          actualOrgId: anyReceipt?.organizationId
+        }
       });
     }
 
