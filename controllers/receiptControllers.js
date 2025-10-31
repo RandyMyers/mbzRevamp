@@ -1313,16 +1313,8 @@ exports.createReceipt = async (req, res) => {
       });
     }
 
-    // Get organization's default receipt template
-    const defaultTemplate = organization.receiptSettings?.defaultOrderTemplate;
-    if (!defaultTemplate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No default receipt template set for this organization. Please configure template settings.' 
-      });
-    }
-
     // Get merged company info from organization template settings using default store
+    // Note: Receipts use the same template system as invoices (organizationTemplateSettings)
     let mergedCompanyInfo = null;
     try {
       mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'receipt');
@@ -2005,16 +1997,8 @@ exports.generateOrderReceipt = async (req, res) => {
       });
     }
 
-    // Get organization's default receipt template
-    const defaultTemplate = organization.receiptSettings?.defaultOrderTemplate;
-    if (!defaultTemplate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No default receipt template set for this organization. Please configure template settings.' 
-      });
-    }
-
     // Get merged company info from organization template settings using default store
+    // Note: Receipts use the same template system as invoices (organizationTemplateSettings)
     let mergedCompanyInfo = null;
     try {
       mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'receipt');

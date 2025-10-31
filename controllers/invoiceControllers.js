@@ -2018,16 +2018,8 @@ exports.generateOrderInvoice = async (req, res) => {
       });
     }
 
-    // Get organization's default invoice template
-    const defaultTemplate = organization.invoiceSettings?.defaultInvoiceTemplate;
-    if (!defaultTemplate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No default invoice template set for this organization. Please configure template settings.' 
-      });
-    }
-
     // Get merged company info from organization template settings using default store
+    // Note: The templateMergerService handles default template lookup from organizationTemplateSettings
     let mergedCompanyInfo = null;
     try {
       mergedCompanyInfo = await templateMergerService.getMergedCompanyInfoForGeneration(organizationId, defaultStore._id, 'invoice');
