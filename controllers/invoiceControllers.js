@@ -1287,6 +1287,8 @@ exports.downloadInvoice = async (req, res) => {
     const userId = req.user._id;
     const organizationId = req.user.organization;
 
+    console.log('📥 downloadInvoice - Request:', { invoiceId: id, organizationId, userId, role: req.user.role });
+
     // Validate user is authenticated
     if (!userId) {
       return res.status(401).json({
@@ -1295,9 +1297,19 @@ exports.downloadInvoice = async (req, res) => {
       });
     }
 
-    const invoice = await Invoice.findOne({ _id: id, organizationId })
+    // Build query - only filter by organizationId if user has one (not super-admin)
+    const query = { _id: id };
+    if (organizationId) {
+      query.organizationId = organizationId;
+    }
+
+    console.log('📥 downloadInvoice - Query:', query);
+
+    const invoice = await Invoice.findOne(query)
       .populate('customerId', 'name email phone address')
-      .populate('storeId', 'name')
+      .populate('storeId', 'name');
+
+    console.log('📥 downloadInvoice - Invoice found:', invoice ? `YES (${invoice.invoiceNumber})` : 'NO');
 
     if (!invoice) {
       return res.status(404).json({

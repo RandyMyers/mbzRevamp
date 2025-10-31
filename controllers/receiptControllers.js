@@ -1659,7 +1659,7 @@ exports.downloadReceipt = async (req, res) => {
     const userId = req.user._id;
     const organizationId = req.user.organization;
 
-    console.log('📥 downloadReceipt - Request:', { receiptId: id, organizationId, userId });
+    console.log('📥 downloadReceipt - Request:', { receiptId: id, organizationId, userId, role: req.user.role });
 
     if (!userId) {
       return res.status(401).json({
@@ -1668,7 +1668,15 @@ exports.downloadReceipt = async (req, res) => {
       });
     }
 
-    const receipt = await Receipt.findOne({ _id: id, organizationId })
+    // Build query - only filter by organizationId if user has one (not super-admin)
+    const query = { _id: id };
+    if (organizationId) {
+      query.organizationId = organizationId;
+    }
+
+    console.log('📥 downloadReceipt - Query:', query);
+
+    const receipt = await Receipt.findOne(query)
       .populate('customerId', 'name email phone address')
       .populate('storeId', 'name');
 
