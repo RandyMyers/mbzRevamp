@@ -840,8 +840,8 @@ exports.createInvitation = async (req, res) => {
       });
     }
     
-    // ✅ Hardcoded baseUrl for invitation links
-    const baseUrl = 'https://crm.mbztechnology.com';
+    // ✅ Get baseUrl from environment variable or use default
+    const baseUrl = process.env.FRONTEND_URL || 'https://crm.mbztechnology.com';
     
     // ✅ DEBUG: Log user data for troubleshooting
     console.log('🔍 DEBUG: req.user data:', {
@@ -1345,8 +1345,8 @@ exports.getInvitationById = async (req, res) => {
 exports.resendInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
-    // ✅ Hardcoded baseUrl for invitation links
-    const baseUrl = 'https://crm.mbztechnology.com';
+    // ✅ Get baseUrl from environment variable or use default
+    const baseUrl = process.env.FRONTEND_URL || 'https://crm.mbztechnology.com';
     const invitedBy = req.user._id;
 
     // ✅ VALIDATION 1: Check if user is authorized
