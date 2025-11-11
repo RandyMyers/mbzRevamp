@@ -5,45 +5,39 @@ const Notification = require('../models/notification');
 const NotificationTemplate = require('../models/notificationTemplates');
 const User = require('../models/users');
 const { createAuditLog } = require('../helpers/auditLogHelper');
+const SendGridService = require('./sendGridService');
 
-// Send email notification using nodemailer
+// Send email notification using SendGrid
 const sendEmailNotification = async (notification, user) => {
   try {
-    // Import nodemailer dynamically to avoid issues if not installed
-    const nodemailer = require('nodemailer');
-    
-    // Create transporter - Using Elapix SMTP settings
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'mbztechnology.com',
-      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 465,
-      secure: true, // SSL for port 465
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
+    console.log(`📧 Sending email notification to ${user.email}: ${notification.subject}`);
 
-    // Send email
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"Elapix" <${process.env.SMTP_USER}>`,
+    // Send email via SendGrid
+    const result = await SendGridService.sendEmail({
       to: user.email,
       subject: notification.subject,
       html: notification.body,
-      text: notification.body.replace(/<[^>]*>/g, '') // Strip HTML for text version
+      text: notification.body.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+      userId: user._id,
+      organizationId: notification.organization
     });
 
-    // Update notification status
-    notification.status = 'sent';
-    notification.deliveryStatus = 'success';
-    notification.sentAt = new Date();
-    notification.deliveryAttemptCount += 1;
-    await notification.save();
+    if (result.success) {
+      // Update notification status
+      notification.status = 'sent';
+      notification.deliveryStatus = 'success';
+      notification.sentAt = new Date();
+      notification.deliveryAttemptCount += 1;
+      await notification.save();
 
-    console.log(`✅ Email notification sent to ${user.email}: ${notification.subject}`);
-    return { success: true, messageId: info.messageId };
+      console.log(`✅ Email notification sent to ${user.email}: ${notification.subject}`);
+      return { success: true, messageId: result.messageId };
+    } else {
+      throw new Error(result.error || 'Failed to send email');
+    }
   } catch (error) {
     console.error(`❌ Failed to send email notification to ${user.email}:`, error.message);
-    
+
     // Update notification status
     notification.status = 'failed';
     notification.deliveryStatus = 'failure';

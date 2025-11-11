@@ -286,20 +286,20 @@ exports.createTask = async (req, res) => {
       organization: req.user.organization
     });
 
-    // ✅ SEND NOTIFICATIONS
+    // ✅ SEND NOTIFICATIONS (non-blocking)
     if (savedTask.assignedTo && savedTask.assignedTo.length > 0) {
-      try {
-        await notifyTaskCreated(
-          savedTask,
-          savedTask.createdBy,
-          savedTask.assignedTo,
-          organizationId
-        );
+      // Send notifications in background without blocking response
+      notifyTaskCreated(
+        savedTask,
+        savedTask.createdBy,
+        savedTask.assignedTo,
+        organizationId
+      ).then(() => {
         console.log('✅ Task creation notifications sent');
-      } catch (notificationError) {
+      }).catch((notificationError) => {
         console.error('⚠️ Failed to send task notifications:', notificationError);
         // Don't fail the request if notifications fail
-      }
+      });
     }
 
     res.status(201).json({
@@ -655,22 +655,21 @@ exports.updateTask = async (req, res) => {
       organization: req.user.organization
     });
 
-    // ✅ SEND NOTIFICATIONS
+    // ✅ SEND NOTIFICATIONS (non-blocking)
     // Notify if status changed
     if (oldTask.status !== updatedTask.status && updatedTask.assignedTo && updatedTask.assignedTo.length > 0) {
-      try {
-        await notifyTaskStatusUpdated(
-          updatedTask,
-          req.user._id,
-          updatedTask.assignedTo,
-          oldTask.status,
-          updatedTask.status,
-          updatedTask.organization
-        );
+      notifyTaskStatusUpdated(
+        updatedTask,
+        req.user._id,
+        updatedTask.assignedTo,
+        oldTask.status,
+        updatedTask.status,
+        updatedTask.organization
+      ).then(() => {
         console.log('✅ Task status change notifications sent');
-      } catch (notificationError) {
+      }).catch((notificationError) => {
         console.error('⚠️ Failed to send task status notifications:', notificationError);
-      }
+      });
     }
 
     // Notify if new users were assigned
@@ -678,17 +677,16 @@ exports.updateTask = async (req, res) => {
       userId => !oldTask.assignedTo.some(oldUserId => oldUserId.toString() === userId.toString())
     );
     if (newlyAssignedUsers.length > 0) {
-      try {
-        await notifyTaskAssigned(
-          updatedTask,
-          req.user._id,
-          newlyAssignedUsers,
-          updatedTask.organization
-        );
+      notifyTaskAssigned(
+        updatedTask,
+        req.user._id,
+        newlyAssignedUsers,
+        updatedTask.organization
+      ).then(() => {
         console.log('✅ Task assignment notifications sent');
-      } catch (notificationError) {
+      }).catch((notificationError) => {
         console.error('⚠️ Failed to send task assignment notifications:', notificationError);
-      }
+      });
     }
 
     res.status(200).json({ success: true, task: updatedTask });
@@ -1175,20 +1173,19 @@ exports.updateSubtask = async (req, res) => {
 
     const updatedTask = await task.save();
 
-    // ✅ SEND NOTIFICATIONS
+    // ✅ SEND NOTIFICATIONS (non-blocking)
     // Notify if subtask was completed
     if (oldStatus !== 'completed' && subtask.status === 'completed') {
-      try {
-        await notifySubtaskCompleted(
-          updatedTask,
-          subtask,
-          req.user._id,
-          updatedTask.organization
-        );
+      notifySubtaskCompleted(
+        updatedTask,
+        subtask,
+        req.user._id,
+        updatedTask.organization
+      ).then(() => {
         console.log('✅ Subtask completion notifications sent');
-      } catch (notificationError) {
+      }).catch((notificationError) => {
         console.error('⚠️ Failed to send subtask completion notifications:', notificationError);
-      }
+      });
     }
 
     res.status(200).json({
@@ -1688,19 +1685,18 @@ exports.addComment = async (req, res) => {
       organization: req.user.organization
     });
 
-    // ✅ SEND NOTIFICATIONS
-    try {
-      const comment = updatedTask.comments[updatedTask.comments.length - 1]; // Get the newly added comment
-      await notifyTaskCommentAdded(
-        updatedTask,
-        comment,
-        userId,
-        updatedTask.organization
-      );
+    // ✅ SEND NOTIFICATIONS (non-blocking)
+    const comment = updatedTask.comments[updatedTask.comments.length - 1]; // Get the newly added comment
+    notifyTaskCommentAdded(
+      updatedTask,
+      comment,
+      userId,
+      updatedTask.organization
+    ).then(() => {
       console.log('✅ Comment added notifications sent');
-    } catch (notificationError) {
+    }).catch((notificationError) => {
       console.error('⚠️ Failed to send comment notifications:', notificationError);
-    }
+    });
 
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
@@ -2428,18 +2424,17 @@ exports.assignSubtask = async (req, res) => {
 
     const updatedTask = await task.save();
 
-    // ✅ SEND NOTIFICATIONS
-    try {
-      await notifyTaskAssigned(
-        updatedTask,
-        req.user._id,
-        [userId],
-        updatedTask.organization
-      );
+    // ✅ SEND NOTIFICATIONS (non-blocking)
+    notifyTaskAssigned(
+      updatedTask,
+      req.user._id,
+      [userId],
+      updatedTask.organization
+    ).then(() => {
       console.log('✅ Subtask assignment notifications sent');
-    } catch (notificationError) {
+    }).catch((notificationError) => {
       console.error('⚠️ Failed to send subtask assignment notifications:', notificationError);
-    }
+    });
 
     res.status(200).json({
       success: true,
