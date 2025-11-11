@@ -1577,11 +1577,30 @@ exports.acceptInvitation = async (req, res) => {
       role: invitation.role || null,
       department: invitation.department || null,
       organization: invitation.organization._id,
-      status: 'active',
+      status: 'pending-verification', // User needs to verify email first
+      emailVerified: false,
       lastLogin: new Date()
     });
 
     await newUser.save();
+
+    // ✅ SEND EMAIL VERIFICATION CODE
+    const EmailVerificationService = require('../services/emailVerificationService');
+    console.log(`📧 [INVITATION] Sending verification email to new user: ${newUser.email}`);
+
+    try {
+      const verificationResult = await EmailVerificationService.sendVerificationCode(newUser, req);
+
+      if (!verificationResult.success) {
+        console.error('❌ [INVITATION] Failed to send verification email:', verificationResult.error);
+        // Don't fail invitation acceptance if email fails, but log it
+      } else {
+        console.log('✅ [INVITATION] Email verification code sent successfully');
+      }
+    } catch (emailError) {
+      console.error('❌ [INVITATION] Email verification error:', emailError);
+      // Continue with invitation acceptance even if email fails
+    }
 
     // ✅ UPDATE INVITATION STATUS
     invitation.status = 'accepted';
