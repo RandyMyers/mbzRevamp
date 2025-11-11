@@ -1574,9 +1574,11 @@ exports.acceptInvitation = async (req, res) => {
       fullName: fullName,
       username: username || null,
       password: hashedPassword,
-      role: invitation.role || null,
+      role: invitation.role ? invitation.role.name : null, // Role name for backward compatibility
+      roleId: invitation.role ? invitation.role._id : null, // Role ID for new system
       department: invitation.department || null,
       organization: invitation.organization._id,
+      organizationCode: invitation.organization.organizationCode, // Required for login and organization linkage
       status: 'pending-verification', // User needs to verify email first
       emailVerified: false,
       lastLogin: new Date()

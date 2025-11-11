@@ -1881,7 +1881,8 @@ exports.registerUser = async (req, res) => {
       fullName: `${firstName} ${lastName}`,
       email,
       password: hashedPassword,
-      role: adminRole._id, // Use the ObjectId of the role
+      role: adminRole.name, // Role name for backward compatibility
+      roleId: adminRole._id, // Role ID for new system
       organization: newOrganization._id, // Use the ObjectId of the organization
       organizationCode: newOrganization.organizationCode,
       status: 'pending-verification', // User needs to verify email first
