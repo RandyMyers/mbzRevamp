@@ -124,7 +124,7 @@ class SendGridService {
         throw new Error('Inviter data is missing or invalid');
       }
 
-      const baseUrl = 'https://api.elapix.store';
+      const baseUrl = process.env.FRONTEND_URL || 'https://elapix.store';
       const invitationUrl = `${baseUrl}/accept-invitation?token=${invitation.token}`;
 
       const htmlContent = `
