@@ -3,6 +3,13 @@ const User = require("../models/users");
 const Organization = require("../models/organization");
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { handleFileUpload, deleteFile, getFileInfo } = require('../utils/attachmentHelper');
+const {
+  notifyTaskCreated,
+  notifyTaskAssigned,
+  notifyTaskStatusUpdated,
+  notifySubtaskCompleted,
+  notifyTaskCommentAdded
+} = require('../helpers/taskNotificationHelper');
 
 /**
  * @swagger
@@ -263,24 +270,40 @@ exports.createTask = async (req, res) => {
     });
 
     const savedTask = await newTask.save();
-    
+
     // ✅ LOG EVENT
     await createAuditLog({
       action: 'create_task',
       user: req.user._id,
       resource: 'Task',
       resourceId: savedTask._id,
-      details: { 
-        title: savedTask.title, 
+      details: {
+        title: savedTask.title,
         status: savedTask.status,
         assignedToCount: savedTask.assignedTo.length,
         subtasksCount: savedTask.subtasks.length
       },
       organization: req.user.organization
     });
-    
-    res.status(201).json({ 
-      success: true, 
+
+    // ✅ SEND NOTIFICATIONS
+    if (savedTask.assignedTo && savedTask.assignedTo.length > 0) {
+      try {
+        await notifyTaskCreated(
+          savedTask,
+          savedTask.createdBy,
+          savedTask.assignedTo,
+          organizationId
+        );
+        console.log('✅ Task creation notifications sent');
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send task notifications:', notificationError);
+        // Don't fail the request if notifications fail
+      }
+    }
+
+    res.status(201).json({
+      success: true,
       task: savedTask,
       message: "Task created successfully"
     });
@@ -631,6 +654,43 @@ exports.updateTask = async (req, res) => {
       details: { before: oldTask, after: updatedTask },
       organization: req.user.organization
     });
+
+    // ✅ SEND NOTIFICATIONS
+    // Notify if status changed
+    if (oldTask.status !== updatedTask.status && updatedTask.assignedTo && updatedTask.assignedTo.length > 0) {
+      try {
+        await notifyTaskStatusUpdated(
+          updatedTask,
+          req.user._id,
+          updatedTask.assignedTo,
+          oldTask.status,
+          updatedTask.status,
+          updatedTask.organization
+        );
+        console.log('✅ Task status change notifications sent');
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send task status notifications:', notificationError);
+      }
+    }
+
+    // Notify if new users were assigned
+    const newlyAssignedUsers = updatedTask.assignedTo.filter(
+      userId => !oldTask.assignedTo.some(oldUserId => oldUserId.toString() === userId.toString())
+    );
+    if (newlyAssignedUsers.length > 0) {
+      try {
+        await notifyTaskAssigned(
+          updatedTask,
+          req.user._id,
+          newlyAssignedUsers,
+          updatedTask.organization
+        );
+        console.log('✅ Task assignment notifications sent');
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send task assignment notifications:', notificationError);
+      }
+    }
+
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
     console.error(error);
@@ -1086,6 +1146,8 @@ exports.updateSubtask = async (req, res) => {
       return res.status(404).json({ success: false, message: "Subtask not found" });
     }
 
+    const oldStatus = subtask.status;
+
     // Update title if provided
     if (title !== undefined) {
       subtask.title = title;
@@ -1096,9 +1158,9 @@ exports.updateSubtask = async (req, res) => {
       if (['pending', 'completed'].includes(status)) {
         subtask.status = status;
       } else {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Invalid status value. Must be 'pending' or 'completed'" 
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status value. Must be 'pending' or 'completed'"
         });
       }
     }
@@ -1112,15 +1174,32 @@ exports.updateSubtask = async (req, res) => {
     }
 
     const updatedTask = await task.save();
-    res.status(200).json({ 
-      success: true, 
+
+    // ✅ SEND NOTIFICATIONS
+    // Notify if subtask was completed
+    if (oldStatus !== 'completed' && subtask.status === 'completed') {
+      try {
+        await notifySubtaskCompleted(
+          updatedTask,
+          subtask,
+          req.user._id,
+          updatedTask.organization
+        );
+        console.log('✅ Subtask completion notifications sent');
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send subtask completion notifications:', notificationError);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
       task: updatedTask,
       message: "Subtask updated successfully"
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to update subtask",
       error: error.message 
     });
@@ -1602,12 +1681,26 @@ exports.addComment = async (req, res) => {
       user: userId,
       resource: 'Task',
       resourceId: task._id,
-      details: { 
+      details: {
         taskTitle: task.title,
         commentText: text.trim().substring(0, 100) // Log first 100 chars
       },
       organization: req.user.organization
     });
+
+    // ✅ SEND NOTIFICATIONS
+    try {
+      const comment = updatedTask.comments[updatedTask.comments.length - 1]; // Get the newly added comment
+      await notifyTaskCommentAdded(
+        updatedTask,
+        comment,
+        userId,
+        updatedTask.organization
+      );
+      console.log('✅ Comment added notifications sent');
+    } catch (notificationError) {
+      console.error('⚠️ Failed to send comment notifications:', notificationError);
+    }
 
     res.status(200).json({ success: true, task: updatedTask });
   } catch (error) {
@@ -2240,9 +2333,9 @@ exports.getAvailableUsersForAssignment = async (req, res) => {
   const { organizationId } = req.params;
 
   try {
-    const users = await User.find({ 
+    const users = await User.find({
       organization: organizationId,
-      isActive: true 
+      isActive: true
     }).select('name email role');
 
     if (!users || users.length === 0) {
@@ -2253,5 +2346,178 @@ exports.getAvailableUsersForAssignment = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to retrieve available users" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/tasks/{taskId}/subtasks/{subtaskId}/assign:
+ *   patch:
+ *     summary: Assign a user to a subtask
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *       - in: path
+ *         name: subtaskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Subtask ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: User ID to assign
+ *     responses:
+ *       200:
+ *         description: Subtask assigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Subtask assigned successfully"
+ */
+exports.assignSubtask = async (req, res) => {
+  const { taskId, subtaskId } = req.params;
+  const { userId } = req.body;
+
+  try {
+    // Validate user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    const subtask = task.subtasks.id(subtaskId);
+    if (!subtask) {
+      return res.status(404).json({ success: false, message: "Subtask not found" });
+    }
+
+    // Assign user to subtask
+    subtask.assignedTo = userId;
+
+    const updatedTask = await task.save();
+
+    // ✅ SEND NOTIFICATIONS
+    try {
+      await notifyTaskAssigned(
+        updatedTask,
+        req.user._id,
+        [userId],
+        updatedTask.organization
+      );
+      console.log('✅ Subtask assignment notifications sent');
+    } catch (notificationError) {
+      console.error('⚠️ Failed to send subtask assignment notifications:', notificationError);
+    }
+
+    res.status(200).json({
+      success: true,
+      task: updatedTask,
+      message: "Subtask assigned successfully"
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to assign subtask" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/tasks/{taskId}/subtasks/{subtaskId}/unassign:
+ *   patch:
+ *     summary: Unassign a user from a subtask
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Task ID
+ *       - in: path
+ *         name: subtaskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Subtask ID
+ *     responses:
+ *       200:
+ *         description: Subtask unassigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 task:
+ *                   $ref: '#/components/schemas/Task'
+ *                 message:
+ *                   type: string
+ *                   example: "Subtask unassigned successfully"
+ */
+exports.unassignSubtask = async (req, res) => {
+  const { taskId, subtaskId } = req.params;
+
+  try {
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    const subtask = task.subtasks.id(subtaskId);
+    if (!subtask) {
+      return res.status(404).json({ success: false, message: "Subtask not found" });
+    }
+
+    // Remove assignment
+    subtask.assignedTo = undefined;
+
+    const updatedTask = await task.save();
+
+    res.status(200).json({
+      success: true,
+      task: updatedTask,
+      message: "Subtask unassigned successfully"
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to unassign subtask" });
   }
 };

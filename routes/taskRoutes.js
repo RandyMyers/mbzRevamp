@@ -286,6 +286,10 @@ router.patch("/:taskId/subtasks/update/:subtaskId", protect, taskController.upda
  */
 router.delete("/:taskId/subtasks/delete/:subtaskId", protect, taskController.deleteSubtask);
 
+// Subtask assignment routes
+router.patch("/:taskId/subtasks/:subtaskId/assign", protect, taskController.assignSubtask);
+router.patch("/:taskId/subtasks/:subtaskId/unassign", protect, taskController.unassignSubtask);
+
 // Comment routes
 
 /**
