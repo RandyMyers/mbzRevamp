@@ -45,7 +45,12 @@ const notificationSchema = new mongoose.Schema(
     errorMessage: {
       type: String, // Error message in case of failure (e.g., if sending email fails)
     },
-    
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization', // Reference to the Organization model
+      required: false,
+    },
+
     createdAt: {
       type: Date,
       default: Date.now, // Timestamp when the notification record was created
