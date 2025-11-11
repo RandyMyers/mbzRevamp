@@ -16,6 +16,7 @@ const {
   updateInvitation,
   deleteInvitation,
   resendInvitation,
+  cancelInvitation,
   // testEmailConfig,
   acceptInvitation
 } = require('../controllers/invitationController');
@@ -258,5 +259,34 @@ router.delete('/:id', deleteInvitation);
  *         description: Server error
  */
 router.post('/:id/resend', resendInvitation);
+
+/**
+ * @swagger
+ * /api/invitations/:id/cancel:
+ *   post:
+ *     summary: Cancel invitation
+ *     tags: [Invitations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/cancel', cancelInvitation);
 
 module.exports = router; 

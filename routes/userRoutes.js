@@ -175,4 +175,8 @@ router.delete('/:userId/sessions/:sessionId', userController.terminateSession);
 // Update user role route (no protect middleware as requested)
 //router.patch('/:userId/role', userController.updateUserRole);
 
+// Generic delete user route (MUST be last to avoid conflicts with specific routes)
+// Supports frontend calling DELETE /api/users/:userId directly
+router.delete('/:userId', userController.deleteUser);
+
 module.exports = router;
