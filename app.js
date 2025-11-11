@@ -161,12 +161,12 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:8800',
       'http://localhost:3000',
-      'http://localhost:3001', 
+      'http://localhost:3001',
       'http://localhost:8080',
       'http://localhost:8081',
       'https://api.elapix.store',
       'https://elapix.store',
-      'https://elapix.store'
+      'https://elapix.mbztechnology.com'
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
