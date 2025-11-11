@@ -667,9 +667,26 @@ exports.loginOrganizationUser = async (req, res) => {
 
     // Check if email is verified
     if (!user.emailVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Please verify your email address before logging in. Check your email for a verification code.",
+      // Automatically send verification email
+      const EmailVerificationService = require('../services/emailVerificationService');
+      console.log(`📧 [LOGIN] Sending verification email to unverified user: ${user.email}`);
+
+      // Send email in non-blocking manner
+      EmailVerificationService.sendVerificationCode(user, req)
+        .then((result) => {
+          if (result.success) {
+            console.log('✅ [LOGIN] Verification email sent successfully');
+          } else {
+            console.error('❌ [LOGIN] Failed to send verification email:', result.error);
+          }
+        })
+        .catch((error) => {
+          console.error('❌ [LOGIN] Error sending verification email:', error);
+        });
+
+      return res.status(400).json({
+        success: false,
+        message: "Please verify your email address before logging in. A verification code has been sent to your email.",
         emailVerified: false,
         email: user.email
       });

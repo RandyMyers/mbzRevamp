@@ -219,7 +219,7 @@ class SendGridService {
     try {
       const emailData = {
         to: user.email,
-        subject: 'Verify Your Email Address - MBZ Technology',
+        subject: 'Verify Your Email Address - Elapix Platform',
         html: `
           <!DOCTYPE html>
           <html>
@@ -230,43 +230,52 @@ class SendGridService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+              .header { background: #800020; color: white; padding: 20px; text-align: center; }
               .content { padding: 20px; background: #f9f9f9; }
-              .verification-code { 
-                background: #007bff; 
-                color: white; 
-                padding: 15px; 
-                text-align: center; 
-                font-size: 24px; 
-                font-weight: bold; 
-                margin: 20px 0; 
+              .verification-code {
+                background: white;
+                color: #800020;
+                padding: 20px;
+                text-align: center;
+                font-size: 32px;
+                font-weight: bold;
+                margin: 20px 0;
                 border-radius: 5px;
-                letter-spacing: 3px;
+                letter-spacing: 5px;
+                border: 2px solid #800020;
               }
+              .details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
               .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
             </style>
           </head>
           <body>
             <div class="container">
               <div class="header">
-                <h1>Welcome to MBZ Technology!</h1>
+                <h1>🔐 Verify Your Email</h1>
               </div>
               <div class="content">
-                <h2>Hello ${user.fullName || user.email}!</h2>
-                <p>Thank you for registering with MBZ Technology. To complete your registration, please verify your email address using the code below:</p>
-                
+                <h2>Hello ${user.fullName || 'there'}!</h2>
+                <p>Welcome to Elapix Platform! To complete your registration and activate your account, please verify your email address using the code below:</p>
+
                 <div class="verification-code">
                   ${verificationCode}
                 </div>
-                
-                <p>This verification code will expire in 15 minutes for security reasons.</p>
-                
-                <p>If you didn't create an account with us, please ignore this email.</p>
-                
-                <p>Best regards,<br>The MBZ Technology Team</p>
+
+                <div class="details">
+                  <h3>Important Information:</h3>
+                  <ul>
+                    <li>This verification code will expire in <strong>15 minutes</strong></li>
+                    <li>Never share this code with anyone</li>
+                    <li>If you didn't create an account, please ignore this email</li>
+                  </ul>
+                </div>
+
+                <p>Once verified, you'll have full access to your dashboard and can start managing your business operations.</p>
+
+                <p>Best regards,<br><strong>The Elapix Team</strong></p>
               </div>
               <div class="footer">
-                <p>This email was sent from MBZ Technology Platform</p>
+                <p>This email was sent from Elapix Platform</p>
                 <p>If you have any questions, please contact our support team.</p>
               </div>
             </div>
@@ -276,9 +285,9 @@ class SendGridService {
         userId: user._id,
         organizationId: user.organization
       };
-      
+
       return await this.sendEmail(emailData);
-      
+
     } catch (error) {
       console.error('❌ [SENDGRID] Failed to send verification email:', error);
       return {
