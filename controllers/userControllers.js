@@ -635,8 +635,16 @@ exports.createUser = async (req, res) => {
 // Get all users in an organization
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().populate("organization");
-    res.status(200).json({ success: true, users });
+    const users = await User.find().populate("organization").populate("roleId");
+
+    // Map users to include role as roleId for frontend compatibility
+    const usersWithRole = users.map(user => {
+      const userObj = user.toObject();
+      userObj.role = userObj.roleId; // Frontend expects 'role' not 'roleId'
+      return userObj;
+    });
+
+    res.status(200).json({ success: true, users: usersWithRole });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -1021,23 +1029,30 @@ exports.getUsersByOrganization = async (req, res) => {
 
   try {
     // Fetch all users belonging to the specified organization
-    const users = await User.find({ organization: organizationId }).populate("organization");
+    const users = await User.find({ organization: organizationId }).populate("organization").populate("roleId");
 
     console.log('users for the organization', users);
     if (!users.length) {
       return res.status(404).json({ success: false, message: "No users found for this organization." });
     }
 
+    // Map users to include role as roleId for frontend compatibility
+    const usersWithRole = users.map(user => {
+      const userObj = user.toObject();
+      userObj.role = userObj.roleId; // Frontend expects 'role' not 'roleId'
+      return userObj;
+    });
+
     // Count users by role
-    const roleCounts = users.reduce((counts, user) => {
-      const role = user.role; // Assuming `role` is the field in the User schema
+    const roleCounts = usersWithRole.reduce((counts, user) => {
+      const role = user.role?.name || user.role; // Use role name if available
       counts[role] = counts[role] ? counts[role] + 1 : 1;
       return counts;
     }, {});
 
     console.log(roleCounts);
 
-    res.status(200).json({ success: true, users, roleCounts });
+    res.status(200).json({ success: true, users: usersWithRole, roleCounts });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -1128,8 +1143,8 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Delete the user
-    await user.remove();
+    // Delete the user (use deleteOne instead of deprecated remove)
+    await user.deleteOne();
 
     await logEvent({
       action: 'delete_user',

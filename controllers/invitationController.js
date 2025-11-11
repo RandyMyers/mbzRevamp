@@ -1350,10 +1350,15 @@ exports.resendInvitation = async (req, res) => {
     const invitedBy = req.user._id;
 
     // ✅ VALIDATION 1: Check if user is authorized
-    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You are not authorized to resend invitations' 
+    // Check both role string and roleId for proper authorization
+    const userRole = req.user.role || req.userRoleName;
+    const isAuthorized = userRole === 'admin' || userRole === 'super-admin' ||
+                         userRole === 'Admin' || userRole === 'Super Admin';
+
+    if (!req.user || !isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to resend invitations'
       });
     }
 
