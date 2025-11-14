@@ -1421,7 +1421,7 @@ exports.resendInvitation = async (req, res) => {
         throw new Error('Missing required invitation data for resend');
       }
 
-      const emailResult = await sendInvitationEmail(invitation);
+      const emailResult = await SendGridService.sendInvitationEmail(invitation);
       if (!emailResult.success) {
         console.error('❌ Resend email failed:', emailResult.error);
         throw new Error(`Failed to resend invitation email: ${emailResult.error}`);
