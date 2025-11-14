@@ -147,9 +147,11 @@ router.get('/get/:userId', userController.getUserById);
 
 // Update user details (admin and above)
 router.patch('/update/:userId', userController.updateUser);
+router.put('/:userId', userController.updateUser); // Alias for frontend compatibility
 
 // Update user status (admin and super-admin)
 router.patch('/change/:userId/status', userController.updateUserStatus);
+router.patch('/:userId/status', userController.updateUserStatus); // Alias for frontend compatibility
 
 // Get users by organization
 router.get('/organization/:organizationId', userController.getUsersByOrganization);
