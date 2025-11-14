@@ -1,9 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/**)",
-      "Bash(git add src/lib/api.ts src/components/billing/management/UserManagementSection.tsx)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate Create User form for email-based activation flow\n\nChanges:\n- Removed password field from Create User form schema\n- Removed password input field from Create User dialog\n- Updated API createUser() to not require password\n- Added verifyActivationToken() and activateAccount() API methods\n- Updated success message to mention activation email sent\n\nUser Flow:\n1. Admin creates user without password\n2. User receives activation email\n3. User sets own password during activation\n4. User is auto-logged in after activation\n\nNote: Activation page still needs to be created on frontend\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git add services/sendGridService.js)",
+      "Bash(git commit -m \"Update email template logo to use MBZ Technology logo from elapix.store\n\n- Changed logo URL from placeholder to https://elapix.store/logo-round.png\n- Logo will now display correctly in all emails\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git push origin omale)",
+      "Bash(pm2 restart all)",
+      "Bash(git add src/hooks/useUserManagement.ts src/types/user.ts)",
+      "Bash(git commit -m \"Fix role display issue in User Management table\n\nChanges:\n- Updated UserCreateRequest type to match new API (removed password, changed role to roleId)\n- Fixed createUser hook to refresh users list after creation\n- This ensures newly created users show their assigned role correctly\n- Simplified user creation flow by fetching fresh data from backend\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git push origin omales_implementation)",
+      "Bash(npm run build)",
+      "Bash(git add src/pages/ActivateAccount.tsx src/App.tsx)",
+      "Bash(git commit -m \"Create account activation page for user password setup\n\nAdded:\n- ActivateAccount.tsx page component\n- Token validation on page load\n- Beautiful UI matching MBZ branding (#800020)\n- Password strength validation (min 8 characters)\n- Password confirmation field\n- Show/hide password toggles\n- Account info display (email, organization, role)\n- Auto-login after activation with JWT token\n- Error states for invalid/expired tokens\n- Loading states during validation and activation\n\nFlow:\n1. User clicks activation link from email\n2. Token is validated with backend\n3. User sees their account details\n4. User sets password (min 8 chars)\n5. Account activated and email verified\n6. Auto-logged in and redirected to dashboard\n\nRoute: /activate-account?token={activationToken}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git add src/pages/ActivateAccount.tsx)",
+      "Bash(git commit -m \"Fix redirect after account activation to properly load user session\n\nChanges:\n- Clear localStorage before setting new session to prevent conflicts\n- Use window.location.replace() with full URL instead of href\n- Forces full page reload so AuthGuard properly picks up session\n- Prevents instant logout after activation\n\nThis ensures users stay logged in after activating their account.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []
