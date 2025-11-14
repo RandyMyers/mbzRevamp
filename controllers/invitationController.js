@@ -1352,7 +1352,15 @@ exports.getInvitationById = async (req, res) => {
 // Resend invitation (reset token and expiresAt)
 exports.resendInvitation = async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const invitationId = req.params.id || req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation ID is required'
+      });
+    }
+
     // ✅ Get baseUrl from environment variable or use default
     const baseUrl = process.env.FRONTEND_URL || 'https://crm.mbztechnology.com';
     const invitedBy = req.user._id;
@@ -1509,17 +1517,39 @@ exports.resendInvitation = async (req, res) => {
 // Cancel invitation
 exports.cancelInvitation = async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const invitationId = req.params.id || req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation ID is required'
+      });
+    }
+
     const invitation = await Invitation.findByIdAndUpdate(
       invitationId,
       { status: 'cancelled' },
       { new: true }
     );
-    if (!invitation) return res.status(404).json({ success: false, message: 'Invitation not found' });
-    res.status(200).json({ success: true, invitation });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invitation not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Invitation cancelled successfully',
+      invitation
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to cancel invitation' });
+    console.error('Error cancelling invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel invitation'
+    });
   }
 };
 
