@@ -6,7 +6,10 @@
       "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/hooks/**)",
       "Bash(git add controllers/userControllers.js)",
       "Bash(git commit -m \"Fix user name display: use fullName field instead of name in createUser\n\nChanges:\n- Changed userData.name to userData.fullName to match User schema\n- This ensures newly created users display their name correctly in User Management table\n- Previously users showed email instead of name because ''name'' field doesn''t exist in schema\n- Updated console.log to reflect the change\n\nFixes issue where user table showed email in place of user''s name.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git push origin omale)"
+      "Bash(git push origin omale)",
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/lib/**)",
+      "Bash(git add routes/userRoutes.js)",
+      "Bash(git commit -m \"Add route aliases for Edit User and Disable User actions\n\nChanges:\n- Added PUT /:userId as alias for PATCH /update/:userId\n- Added PATCH /:userId/status as alias for PATCH /change/:userId/status\n- These match what frontend is calling from api.ts\n- Fixes Edit User and Disable User actions not working in User Management\n\nFrontend was calling:\n- PUT /users/{userId} (now works)\n- PATCH /users/{userId}/status (now works)\n\nBackend already had:\n- PATCH /users/update/{userId}\n- PATCH /users/change/{userId}/status\n\nNow both routes work for backwards compatibility.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []
