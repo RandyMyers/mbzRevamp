@@ -859,8 +859,8 @@ exports.getUserById = async (req, res) => {
 // Update user details (e.g., name, email, role)
 exports.updateUser = async (req, res) => {
   const { userId } = req.params;
-  const { name, username, email, department, role, status, profilePicture } = req.body;
-  console.log(req.body);
+  const { fullName, username, email, department, role, status, profilePicture } = req.body;
+  console.log('📝 Update user request:', req.body);
 
   try {
     const user = await User.findById(userId);
@@ -869,13 +869,22 @@ exports.updateUser = async (req, res) => {
     }
 
     // Update user fields
-    user.name = name || user.name;
-    user.username = username || user.username;
-    user.department = department || user.department;
-    user.email = email || user.email;
-    user.role = role || user.role;
-    user.status = status || user.status;
-    user.profilePicture = profilePicture || user.profilePicture;
+    if (fullName !== undefined) user.fullName = fullName;
+    if (username !== undefined) user.username = username;
+    if (department !== undefined) user.department = department;
+    if (email !== undefined) user.email = email;
+    if (status !== undefined) user.status = status;
+    if (profilePicture !== undefined) user.profilePicture = profilePicture;
+
+    // Update role if provided (role is the roleId from frontend)
+    if (role !== undefined) {
+      user.roleId = role;
+      // Also get the role name for backward compatibility
+      const roleDoc = await require('../models/role').findById(role);
+      if (roleDoc) {
+        user.role = roleDoc.name;
+      }
+    }
 
     // Save updated user
     await user.save();
@@ -885,11 +894,16 @@ exports.updateUser = async (req, res) => {
       user: user._id,
       resource: 'User',
       resourceId: user._id,
-      details: { name, username, email, department, role, status, profilePicture },
+      details: { fullName, username, email, department, role, status, profilePicture },
       organization: user.organization
     });
 
-    res.status(200).json({ success: true, message: "User updated successfully", user });
+    // Populate roleId before returning
+    await user.populate('roleId');
+    const userResponse = user.toObject();
+    userResponse.role = userResponse.roleId; // Frontend expects 'role' not 'roleId'
+
+    res.status(200).json({ success: true, message: "User updated successfully", user: userResponse });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
