@@ -12,7 +12,7 @@ class SendGridService {
    * @returns {string} HTML email template
    */
   static generateEmailTemplate({ title, heading, content, buttonText, buttonUrl, footer }) {
-    const logoUrl = 'https://i.ibb.co/9gZ8QJf/mbz-logo.png'; // You can update this URL later
+    const logoUrl = 'https://elapix.store/logo-round.png'; // MBZ Technology logo
     const primaryColor = '#800020'; // Burgundy
 
     return `
