@@ -214,4 +214,8 @@ router.get('/otp-settings', protect, authController.getOTPSettings);
 // Verify JWT token validity (no authentication required)
 router.post('/verify-token', authController.verifyToken);
 
+// Account activation routes (for admin-created users)
+router.post('/verify-activation-token', authController.verifyActivationToken);
+router.post('/activate-account', authController.activateAccount);
+
 module.exports = router;

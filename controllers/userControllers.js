@@ -164,7 +164,8 @@ const logEvent = require('../helper/logEvent');
 // Create a new user within the same organization as the admin
 
 exports.createUser = async (req, res) => {
-  const { userId, name, email, password, roleId, department } = req.body;
+  const { userId, name, email, roleId, department } = req.body;
+  // Note: Password is NO LONGER required - user will set it during activation
   
 
   try {
@@ -312,7 +313,10 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ✅ Generate activation token for user to set password
+    const crypto = require('crypto');
+    const activationToken = crypto.randomBytes(32).toString('hex');
+    const activationTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     let profilePictureUrl = null;
 
@@ -406,13 +410,16 @@ exports.createUser = async (req, res) => {
     const userData = {
       name: name || 'New User',
       email: email,
-      password: hashedPassword,
+      password: 'temporary_will_be_set_on_activation', // Temporary placeholder
       roleId: validatedRoleId, // ✅ Validated roleId (can be null)
       role: roleName, // ✅ Set role name for backward compatibility
       department: validatedDepartment, // ✅ Validated department
       organization: organizationId, // ✅ Use organizationId from fallback
       profilePicture: profilePictureUrl,
-      status: 'active'
+      status: 'pending-activation', // ✅ User must activate account and set password
+      activationToken: activationToken, // ✅ Secure token for activation link
+      activationTokenExpires: activationTokenExpires, // ✅ Token expires in 7 days
+      emailVerified: false // Will be verified when they activate
     };
     
     console.log('🔍 Creating user with data:', {
@@ -455,7 +462,29 @@ exports.createUser = async (req, res) => {
       // Don't fail user creation if audit log fails
     }
 
-    // ✅ ROBUST NOTIFICATION WITH FALLBACK
+    // ✅ SEND ACCOUNT ACTIVATION EMAIL
+    try {
+      const SendGridService = require('../services/sendGridService');
+      const emailResult = await SendGridService.sendAccountActivationEmail({
+        email: newUser.email,
+        name: newUser.name || newUser.fullName || 'New User',
+        activationToken: activationToken,
+        organizationName: organization.name || 'MBZ Tech',
+        roleName: roleName,
+        createdBy: admin.fullName || admin.name || admin.email
+      });
+
+      if (emailResult.success) {
+        console.log('✅ Account activation email sent successfully');
+      } else {
+        console.error('❌ Account activation email failed:', emailResult.error);
+      }
+    } catch (emailErr) {
+      console.error('❌ Account activation email failed (non-critical):', emailErr.message);
+      // Don't fail user creation if email fails
+    }
+
+    // ✅ SEND IN-APP NOTIFICATION
     try {
       await notificationGenerationService.generateFromTemplate(
         'invitation_sent',
@@ -470,9 +499,9 @@ exports.createUser = async (req, res) => {
           organization: organizationId
         }
       );
-      console.log('✅ Notification sent successfully');
+      console.log('✅ In-app notification sent successfully');
     } catch (notifyErr) {
-      console.error('❌ User invitation notification failed (non-critical):', notifyErr.message);
+      console.error('❌ In-app notification failed (non-critical):', notifyErr.message);
       // Don't fail user creation if notification fails
     }
 

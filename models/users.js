@@ -20,7 +20,10 @@ const UserSchema = new Schema({
     },
     password: {
       type: String,
-      required: true,
+      required: function() {
+        // Password required unless user is pending activation (will set during activation)
+        return this.status !== 'pending-activation';
+      },
     },
     role: {
       type: String
@@ -73,18 +76,35 @@ const UserSchema = new Schema({
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'pending-verification'],
+      enum: ['active', 'inactive', 'pending-verification', 'pending-activation'],
       default: 'pending-verification',
     },
-    
+
     // Email verification status
     emailVerified: {
       type: Boolean,
       default: false,
       index: true
     },
-    
+
     emailVerifiedAt: {
+      type: Date,
+      default: null
+    },
+
+    // Account activation (for admin-created users)
+    activationToken: {
+      type: String,
+      default: null,
+      index: true
+    },
+
+    activationTokenExpires: {
+      type: Date,
+      default: null
+    },
+
+    activatedAt: {
       type: Date,
       default: null
     },

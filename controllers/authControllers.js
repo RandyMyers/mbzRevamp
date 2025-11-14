@@ -2989,3 +2989,171 @@ exports.verifyToken = async (req, res) => {
   }
 };
 
+/**
+ * Verify account activation token
+ * @route POST /api/auth/verify-activation-token
+ */
+exports.verifyActivationToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Activation token is required'
+      });
+    }
+
+    // Find user by activation token
+    const user = await User.findOne({
+      activationToken: token,
+      activationTokenExpires: { $gt: new Date() }, // Token not expired
+      status: 'pending-activation'
+    }).populate('organization roleId');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired activation token'
+      });
+    }
+
+    // Return user info (without password)
+    res.status(200).json({
+      success: true,
+      message: 'Activation token is valid',
+      user: {
+        email: user.email,
+        name: user.name || user.fullName,
+        organization: user.organization?.name,
+        role: user.roleId?.name || user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error verifying activation token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during activation token verification'
+    });
+  }
+};
+
+/**
+ * Activate account and set password
+ * @route POST /api/auth/activate-account
+ */
+exports.activateAccount = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    // Validate inputs
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Activation token and password are required'
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // Find user by activation token
+    const user = await User.findOne({
+      activationToken: token,
+      activationTokenExpires: { $gt: new Date() }, // Token not expired
+      status: 'pending-activation'
+    }).populate('organization roleId');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired activation token'
+      });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update user: set password, activate account, clear activation token
+    user.password = hashedPassword;
+    user.status = 'active';
+    user.emailVerified = true; // Auto-verify email on activation
+    user.emailVerifiedAt = new Date();
+    user.activationToken = null;
+    user.activationTokenExpires = null;
+    user.activatedAt = new Date();
+
+    await user.save();
+
+    console.log(`✅ Account activated successfully for user: ${user.email}`);
+
+    // Create audit log
+    try {
+      const { createAuditLog } = require('../helpers/auditLogHelper');
+      await createAuditLog({
+        action: 'Account Activated',
+        user: user._id,
+        resource: 'user',
+        resourceId: user._id,
+        details: {
+          email: user.email,
+          activationMethod: 'admin_created_user',
+          organization: user.organization?._id
+        },
+        organization: user.organization?._id,
+        severity: 'info',
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+    } catch (auditError) {
+      console.error('❌ Audit log failed (non-critical):', auditError.message);
+    }
+
+    // Generate JWT token for automatic login
+    const token_jwt = jwt.sign(
+      {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        roleId: user.roleId?._id,
+        organization: user.organization?._id,
+        organizationCode: user.organizationCode
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return success with token for auto-login
+    res.status(200).json({
+      success: true,
+      message: 'Account activated successfully! You can now log in.',
+      token: token_jwt,
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name || user.fullName,
+        organization: user.organization?.name,
+        organizationId: user.organization?._id,
+        organizationCode: user.organizationCode,
+        role: user.roleId?.name || user.role,
+        roleId: user.roleId?._id,
+        profilePicture: user.profilePicture,
+        status: user.status
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error activating account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during account activation'
+    });
+  }
+};
+
