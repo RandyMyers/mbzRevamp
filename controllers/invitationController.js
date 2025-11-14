@@ -1331,12 +1331,20 @@ exports.getInvitations = async (req, res) => {
 // Get an invitation by ID
 exports.getInvitationById = async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const invitationId = req.params.id || req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({ success: false, message: 'Invitation ID is required' });
+    }
+
     const invitation = await Invitation.findById(invitationId).populate('invitedBy organization');
-    if (!invitation) return res.status(404).json({ success: false, message: 'Invitation not found' });
+    if (!invitation) {
+      return res.status(404).json({ success: false, message: 'Invitation not found' });
+    }
+
     res.status(200).json({ success: true, invitation });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching invitation:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch invitation' });
   }
 };
@@ -1684,12 +1692,20 @@ exports.acceptInvitation = async (req, res) => {
 // Delete invitation
 exports.deleteInvitation = async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const invitationId = req.params.id || req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({ success: false, message: 'Invitation ID is required' });
+    }
+
     const invitation = await Invitation.findByIdAndDelete(invitationId);
-    if (!invitation) return res.status(404).json({ success: false, message: 'Invitation not found' });
-    res.status(200).json({ success: true, message: 'Invitation deleted' });
+    if (!invitation) {
+      return res.status(404).json({ success: false, message: 'Invitation not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Invitation deleted successfully' });
   } catch (error) {
-    console.error(error);
+    console.error('Error deleting invitation:', error);
     res.status(500).json({ success: false, message: 'Failed to delete invitation' });
   }
 }; 
@@ -1697,15 +1713,15 @@ exports.deleteInvitation = async (req, res) => {
 // Update invitation
 exports.updateInvitation = async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const invitationId = req.params.id || req.params.invitationId;
     const { status, role, department, message, expiresAt } = req.body;
     const userId = req.user._id;
 
     // Validate invitation ID
     if (!invitationId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invitation ID is required" 
+      return res.status(400).json({
+        success: false,
+        message: "Invitation ID is required"
       });
     }
 
