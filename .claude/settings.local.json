@@ -1,18 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add services/sendGridService.js)",
-      "Bash(git commit -m \"Update email template logo to use MBZ Technology logo from elapix.store\n\n- Changed logo URL from placeholder to https://elapix.store/logo-round.png\n- Logo will now display correctly in all emails\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git push origin omale)",
-      "Bash(pm2 restart all)",
-      "Bash(git add src/hooks/useUserManagement.ts src/types/user.ts)",
-      "Bash(git commit -m \"Fix role display issue in User Management table\n\nChanges:\n- Updated UserCreateRequest type to match new API (removed password, changed role to roleId)\n- Fixed createUser hook to refresh users list after creation\n- This ensures newly created users show their assigned role correctly\n- Simplified user creation flow by fetching fresh data from backend\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git push origin omales_implementation)",
-      "Bash(npm run build)",
-      "Bash(git add src/pages/ActivateAccount.tsx src/App.tsx)",
-      "Bash(git commit -m \"Create account activation page for user password setup\n\nAdded:\n- ActivateAccount.tsx page component\n- Token validation on page load\n- Beautiful UI matching MBZ branding (#800020)\n- Password strength validation (min 8 characters)\n- Password confirmation field\n- Show/hide password toggles\n- Account info display (email, organization, role)\n- Auto-login after activation with JWT token\n- Error states for invalid/expired tokens\n- Loading states during validation and activation\n\nFlow:\n1. User clicks activation link from email\n2. Token is validated with backend\n3. User sees their account details\n4. User sets password (min 8 chars)\n5. Account activated and email verified\n6. Auto-logged in and redirected to dashboard\n\nRoute: /activate-account?token={activationToken}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git add src/pages/ActivateAccount.tsx)",
-      "Bash(git commit -m \"Fix redirect after account activation to properly load user session\n\nChanges:\n- Clear localStorage before setting new session to prevent conflicts\n- Use window.location.replace() with full URL instead of href\n- Forces full page reload so AuthGuard properly picks up session\n- Prevents instant logout after activation\n\nThis ensures users stay logged in after activating their account.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(git commit -m \"Redirect to login page after account activation instead of auto-login\n\nChanges:\n- Simplified activation flow to redirect to landing page login\n- User activates account → redirected to login page\n- User can then log in with their new credentials\n- Avoids session/AuthGuard conflicts\n- Cleaner UX: users see confirmation and can login manually\n\nThis is a more reliable approach that avoids authentication timing issues.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/components/billing/management/**)",
+      "Read(//Users/maleo/Documents/Work/elapix-customer-dashboard/src/hooks/**)",
+      "Bash(git add controllers/userControllers.js)",
+      "Bash(git commit -m \"Fix user name display: use fullName field instead of name in createUser\n\nChanges:\n- Changed userData.name to userData.fullName to match User schema\n- This ensures newly created users display their name correctly in User Management table\n- Previously users showed email instead of name because ''name'' field doesn''t exist in schema\n- Updated console.log to reflect the change\n\nFixes issue where user table showed email in place of user''s name.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git push origin omale)"
     ],
     "deny": [],
     "ask": []
