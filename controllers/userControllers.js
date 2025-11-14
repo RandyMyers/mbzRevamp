@@ -408,7 +408,7 @@ exports.createUser = async (req, res) => {
 
     // ✅ ROBUST USER CREATION WITH FALLBACKS
     const userData = {
-      name: name || 'New User',
+      fullName: name || 'New User', // Use fullName to match schema
       email: email,
       password: 'temporary_will_be_set_on_activation', // Temporary placeholder
       roleId: validatedRoleId, // ✅ Validated roleId (can be null)
@@ -423,7 +423,7 @@ exports.createUser = async (req, res) => {
     };
     
     console.log('🔍 Creating user with data:', {
-      name: userData.name,
+      fullName: userData.fullName,
       email: userData.email,
       roleId: userData.roleId,
       role: userData.role,
