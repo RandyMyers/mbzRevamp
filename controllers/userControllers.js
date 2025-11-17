@@ -1464,46 +1464,41 @@ exports.updateUserRegionalSettings = async (req, res) => {
     const { userId } = req.params;
     const { language, timezone, dateFormat, timeFormat } = req.body;
 
-    // Validate inputs
+    // Basic validation - let the User model handle detailed validation
     const validLanguages = ['en', 'es', 'fr'];
-    const validTimezones = ['UTC', 'EST', 'PST', 'GMT', 'CET'];
     const validDateFormats = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
     const validTimeFormats = ['12', '24'];
 
     if (language && !validLanguages.includes(language)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid language. Must be one of: en, es, fr" 
+      return res.status(400).json({
+        success: false,
+        message: "Invalid language. Must be one of: en, es, fr"
       });
     }
 
-    if (timezone && !validTimezones.includes(timezone)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid timezone. Must be one of: UTC, EST, PST, GMT, CET" 
-      });
-    }
+    // Timezone validation is handled by the User model using moment-timezone
+    // This allows any valid IANA timezone identifier (e.g., America/New_York, Europe/London, Africa/Lagos, Asia/Dubai)
 
     if (dateFormat && !validDateFormats.includes(dateFormat)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid date format. Must be one of: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD" 
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Must be one of: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD"
       });
     }
 
     if (timeFormat && !validTimeFormats.includes(timeFormat)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid time format. Must be 12 or 24" 
+      return res.status(400).json({
+        success: false,
+        message: "Invalid time format. Must be 12 or 24"
       });
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { 
-        language, 
-        timezone, 
-        dateFormat, 
+      {
+        language,
+        timezone,
+        dateFormat,
         timeFormat,
         updatedAt: Date.now()
       },
@@ -1514,8 +1509,8 @@ exports.updateUserRegionalSettings = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: "Regional settings updated successfully",
       data: {
         language: updatedUser.language,
@@ -1526,6 +1521,16 @@ exports.updateUserRegionalSettings = async (req, res) => {
     });
   } catch (error) {
     console.error('Update User Regional Settings Error:', error);
+
+    // Check if it's a validation error from the model
+    if (error.name === 'ValidationError') {
+      const errorMessages = Object.values(error.errors).map(err => err.message).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: errorMessages
+      });
+    }
+
     res.status(500).json({ success: false, message: "Failed to update regional settings" });
   }
 };
