@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
 const currencyUtils = require('../utils/currencyUtils');
-const { createAuditLog, logCRUDOperation, logStatusChange } = require('../helpers/auditLogHelper');
+const { createAuditLog, logCRUDOperation, logStatusChange, logFinancialEvent } = require('../helpers/auditLogHelper');
 const { notifyOrderCreated, notifyOrderStatusUpdated, notifyOrderCancelled } = require('../helpers/notificationHelper');
 const { orderNotificationHelper } = require('../helpers/orderNotificationHelper');
 
@@ -1354,14 +1354,33 @@ exports.deleteAllOrdersByStore = async (req, res) => {
       user: req.user?._id,
       resource: 'Order',
       resourceId: storeId,
-      details: { 
-        storeId, 
+      details: {
+        storeId,
         deletedCount: result.deletedCount,
         totalOrders: orders.length,
         syncToWooCommerce,
         wooCommerceSyncResults
       },
       organization: req.user?.organization
+    });
+
+    // AUDIT LOG: Bulk Orders Deleted
+    await createAuditLog({
+      action: 'Bulk Orders Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'order',
+      resourceId: storeId,
+      details: {
+        storeId,
+        deletedCount: result.deletedCount,
+        totalOrders: orders.length,
+        syncToWooCommerce,
+        wooCommerceSyncResults
+      },
+      organization: req.user?.organization,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     const response = {
@@ -3191,6 +3210,26 @@ exports.cancelOrder = async (req, res) => {
       organization: req.user.organization
     });
 
+    // AUDIT LOG: Order Cancelled
+    await createAuditLog({
+      action: 'Order Cancelled',
+      user: req.user?._id || req.user?.userId,
+      resource: 'order',
+      resourceId: order._id,
+      details: {
+        orderNumber: order.number,
+        total: order.total,
+        status: order.status,
+        customerId: order.customer_id,
+        storeId: order.storeId,
+        organizationId: order.organizationId
+      },
+      organization: req.user?.organization || order.organizationId,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, order: order });
   } catch (error) {
     console.error(error);
@@ -3219,6 +3258,29 @@ exports.refundOrder = async (req, res) => {
       resourceId: order._id,
       details: { refundAmount, reason },
       organization: req.user.organization
+    });
+
+    // AUDIT LOG: Order Refunded (Financial Event)
+    await logFinancialEvent({
+      action: 'Order Refunded',
+      user: req.user?._id || req.user?.userId,
+      resource: 'order',
+      resourceId: order._id,
+      details: {
+        orderNumber: order.number,
+        originalTotal: order.total,
+        refundAmount: refundAmount,
+        reason: reason,
+        status: order.status,
+        customerId: order.customer_id,
+        storeId: order.storeId,
+        organizationId: order.organizationId,
+        currency: order.currency
+      },
+      organization: req.user?.organization || order.organizationId,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, order: order });

@@ -649,9 +649,22 @@ exports.createStore = async (req, res) => {
       }, 1000); // Small delay to ensure store is fully saved
     }
     
-    res.status(201).json({ 
-      success: true, 
-      message: 'Store created successfully', 
+    // Audit log for store creation
+    await createAuditLog({
+      action: 'Store Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'store',
+      resourceId: savedStore._id,
+      details: { name: savedStore.name, url: savedStore.url, platform: savedStore.platformType },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Store created successfully',
       store: savedStore,
       webhookCreation: webhookResults,
       autoSync: platformType === 'woocommerce' && url && apiKey && secretKey ? {
@@ -874,6 +887,20 @@ exports.updateStore = async (req, res) => {
     if (!updatedStore) {
       return res.status(404).json({ success: false, message: 'Store not found' });
     }
+
+    // Audit log for store update
+    await createAuditLog({
+      action: 'Store Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'store',
+      resourceId: updatedStore._id,
+      details: { name: updatedStore.name, url: updatedStore.url, platform: updatedStore.platformType },
+      organization: req.user?.organization || updatedStore.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: 'Store updated successfully', store: updatedStore });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error updating store', error: error.message });
@@ -954,6 +981,20 @@ exports.deleteStore = async (req, res) => {
     if (!deletedStore) {
       return res.status(404).json({ success: false, message: 'Store not found' });
     }
+
+    // Audit log for store deletion
+    await createAuditLog({
+      action: 'Store Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'store',
+      resourceId: deletedStore._id,
+      details: { name: deletedStore.name, url: deletedStore.url, platform: deletedStore.platformType },
+      organization: req.user?.organization || deletedStore.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: 'Store deleted successfully', store: deletedStore });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error deleting store', error: error.message });
@@ -1199,6 +1240,19 @@ exports.syncStoreWithWooCommerce = async (req, res) => {
     store.lastSyncDate = new Date();
     await store.save();
 
+    // Audit log for store sync
+    await createAuditLog({
+      action: 'Store Synced',
+      user: req.user?._id || req.user?.userId,
+      resource: 'store',
+      resourceId: store._id,
+      details: { name: store.name, url: store.url, platform: store.platformType },
+      organization: req.user?.organization || store.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     return res.status(200).json({
       success: true,
       message: 'Store sync started (categories, products, customers, orders)',
@@ -1344,7 +1398,20 @@ exports.createStoreWebhooks = async (req, res) => {
 
     // Create webhooks
     const webhookResults = await createDefaultWebhooks(store, userId, topics);
-    
+
+    // Audit log for webhook creation
+    await createAuditLog({
+      action: 'Store Webhooks Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'store',
+      resourceId: store._id,
+      details: { name: store.name, url: store.url, platform: store.platformType, webhookTopics: topics },
+      organization: req.user?.organization || store.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       message: "Webhooks created successfully",

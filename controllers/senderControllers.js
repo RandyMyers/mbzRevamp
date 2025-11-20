@@ -117,6 +117,7 @@ const Sender = require("../models/sender"); // Import the Sender model
 const Organization = require("../models/organization"); // If needed to check organization
 const User = require("../models/users"); // If needed to check user
 const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 // CREATE a new sender
 exports.createSender = async (req, res) => {
@@ -137,6 +138,19 @@ exports.createSender = async (req, res) => {
     });
 
     const savedSender = await newSender.save();
+
+    await createAuditLog({
+      action: 'Sender Email Added',
+      user: req.user?._id || req.user?.userId,
+      resource: 'sender',
+      resourceId: savedSender._id,
+      details: { email: savedSender.email, name: savedSender.name, isVerified: savedSender.isVerified },
+      organization: req.user?.organization || savedSender.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json({ success: true, sender: savedSender });
   } catch (error) {
     console.error(error);
@@ -276,6 +290,18 @@ exports.updateSender = async (req, res) => {
       return res.status(404).json({ success: false, message: "Sender not found" });
     }
 
+    await createAuditLog({
+      action: 'Sender Email Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'sender',
+      resourceId: updatedSender._id,
+      details: { email: updatedSender.email, name: updatedSender.name, isVerified: updatedSender.isVerified },
+      organization: req.user?.organization || updatedSender.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, sender: updatedSender });
   } catch (error) {
     console.error(error);
@@ -299,6 +325,18 @@ exports.deleteSender = async (req, res) => {
     if (!deletedSender) {
       return res.status(404).json({ success: false, message: "Sender not found" });
     }
+
+    await createAuditLog({
+      action: 'Sender Email Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'sender',
+      resourceId: deletedSender._id,
+      details: { email: deletedSender.email, name: deletedSender.name, isVerified: deletedSender.isVerified },
+      organization: req.user?.organization || deletedSender.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({ success: true, message: "Sender deleted successfully" });
   } catch (error) {
@@ -325,6 +363,19 @@ exports.resetDailyLimit = async (req, res) => {
     }
 
     await sender.resetDailyLimit();
+
+    await createAuditLog({
+      action: 'Sender Daily Limit Reset',
+      user: req.user?._id || req.user?.userId,
+      resource: 'sender',
+      resourceId: sender._id,
+      details: { email: sender.email, name: sender.name, isVerified: sender.isVerified },
+      organization: req.user?.organization || sender.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: "Daily email limit reset successfully" });
   } catch (error) {
     console.error(error);

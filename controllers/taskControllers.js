@@ -273,9 +273,9 @@ exports.createTask = async (req, res) => {
 
     // ✅ LOG EVENT
     await createAuditLog({
-      action: 'create_task',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: savedTask._id,
       details: {
         title: savedTask.title,
@@ -283,7 +283,10 @@ exports.createTask = async (req, res) => {
         assignedToCount: savedTask.assignedTo.length,
         subtasksCount: savedTask.subtasks.length
       },
-      organization: req.user.organization
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     // ✅ SEND NOTIFICATIONS (non-blocking)
@@ -647,12 +650,19 @@ exports.updateTask = async (req, res) => {
 
     const updatedTask = await task.save();
     await createAuditLog({
-      action: 'update_task',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
-      details: { before: oldTask, after: updatedTask },
-      organization: req.user.organization
+      details: {
+        title: updatedTask.title,
+        before: oldTask,
+        after: updatedTask
+      },
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     // ✅ SEND NOTIFICATIONS (non-blocking)
@@ -869,17 +879,21 @@ exports.uploadAttachment = async (req, res) => {
     
     // Log the attachment upload
     await createAuditLog({
-      action: 'upload_attachment',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Attachment Uploaded',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
       details: {
+        title: task.title,
         filename: fileInfo.filename,
         storageType: fileInfo.storageType,
         size: fileInfo.size,
         category: fileInfo.category
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
     
     res.status(200).json({ 
@@ -1420,19 +1434,22 @@ exports.updateTaskStatus = async (req, res) => {
     task.status = status;
 
     const updatedTask = await task.save();
-    
+
     // Log the status change
     await createAuditLog({
-      action: 'update_task_status',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Status Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
-      details: { 
-        before: oldStatus, 
-        after: status,
-        taskTitle: task.title 
+      details: {
+        title: task.title,
+        previousStatus: oldStatus,
+        newStatus: status
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, task: updatedTask });
@@ -1514,18 +1531,21 @@ exports.deleteTask = async (req, res) => {
     }
 
     await Task.findByIdAndDelete(taskId);
-    
+
     // Log the task deletion
     await createAuditLog({
-      action: 'delete_task',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: taskId,
-      details: { 
-        taskTitle: task.title,
-        taskStatus: task.status 
+      details: {
+        title: task.title,
+        taskStatus: task.status
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, message: "Task deleted successfully" });
@@ -1674,15 +1694,18 @@ exports.addComment = async (req, res) => {
 
     // Log the comment addition
     await createAuditLog({
-      action: 'add_task_comment',
-      user: userId,
-      resource: 'Task',
+      action: 'Task Comment Added',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
       details: {
-        taskTitle: task.title,
+        title: task.title,
         commentText: text.trim().substring(0, 100) // Log first 100 chars
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     // ✅ SEND NOTIFICATIONS (non-blocking)
@@ -1849,15 +1872,18 @@ exports.updateComment = async (req, res) => {
 
     // Log the comment update
     await createAuditLog({
-      action: 'update_task_comment',
-      user: userId,
-      resource: 'Task',
+      action: 'Task Comment Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
-      details: { 
-        taskTitle: task.title,
+      details: {
+        title: task.title,
         commentText: text.trim().substring(0, 100)
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, task: updatedTask });
@@ -1973,15 +1999,18 @@ exports.deleteComment = async (req, res) => {
 
     // Log the comment deletion
     await createAuditLog({
-      action: 'delete_task_comment',
-      user: userId,
-      resource: 'Task',
+      action: 'Task Comment Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
-      details: { 
-        taskTitle: task.title,
+      details: {
+        title: task.title,
         commentText: comment.text.substring(0, 100)
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, task: updatedTask });
@@ -2225,16 +2254,20 @@ exports.updateTaskAssignments = async (req, res) => {
     const updatedTask = await task.save();
     
     await createAuditLog({
-      action: 'update_task_assignments',
-      user: req.user._id,
-      resource: 'Task',
+      action: 'Task Assignments Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'task',
       resourceId: task._id,
-      details: { 
-        before: oldAssignments, 
-        after: task.assignedTo,
-        action: action 
+      details: {
+        title: task.title,
+        previousAssignments: oldAssignments,
+        newAssignments: task.assignedTo,
+        assignmentAction: action
       },
-      organization: req.user.organization
+      organization: req.user?.organization || task.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ 

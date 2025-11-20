@@ -109,6 +109,7 @@
 const Organization = require("../models/organization"); // Import the Organization model
 const Store = require("../models/store");
 const cloudinary = require('cloudinary').v2;
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 // CREATE a new organization
 exports.createOrganization = async (req, res) => {
@@ -125,6 +126,19 @@ exports.createOrganization = async (req, res) => {
     });
 
     const savedOrganization = await newOrganization.save();
+
+    await createAuditLog({
+      action: 'Organization Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: savedOrganization._id,
+      details: { name: savedOrganization.name, email: savedOrganization.email, businessType: savedOrganization.businessType },
+      organization: savedOrganization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json({ success: true, organization: savedOrganization });
   } catch (error) {
     console.error(error);
@@ -301,14 +315,33 @@ exports.updateOrganizationTemplates = async (req, res) => {
      .populate('receiptSettings.defaultSubscriptionTemplate', 'name templateType design layout content companyInfo isDefault isActive scenario');
     
     if (!organization) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Organization not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found"
       });
     }
-    
-    res.status(200).json({ 
-      success: true, 
+
+    await createAuditLog({
+      action: 'Organization Templates Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: organization._id,
+      details: {
+        name: organization.name,
+        invoiceTemplateId,
+        receiptTemplateId,
+        storeId,
+        primaryColor,
+        secondaryColor
+      },
+      organization: organization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
       message: "Organization templates and personalization updated successfully",
       organization,
       templateDetails: {
@@ -325,10 +358,10 @@ exports.updateOrganizationTemplates = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating organization templates:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to update organization templates",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -349,6 +382,18 @@ exports.updateOrganization = async (req, res) => {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
 
+    await createAuditLog({
+      action: 'Organization Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: updatedOrganization._id,
+      details: { name: updatedOrganization.name, updatedFields: Object.keys(updateData) },
+      organization: updatedOrganization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, organization: updatedOrganization });
   } catch (error) {
     console.error(error);
@@ -364,6 +409,19 @@ exports.deleteOrganization = async (req, res) => {
     if (!deletedOrganization) {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
+
+    await createAuditLog({
+      action: 'Organization Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: deletedOrganization._id,
+      details: { name: deletedOrganization.name, email: deletedOrganization.email },
+      organization: deletedOrganization._id,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: "Organization deleted successfully" });
   } catch (error) {
     console.error(error);
@@ -397,6 +455,18 @@ exports.updateOrganizationLogo = async (req, res) => {
     if (!updatedOrganization) {
       return res.status(404).json({ success: false, message: "Organization not found" });
     }
+
+    await createAuditLog({
+      action: 'Organization Logo Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: updatedOrganization._id,
+      details: { name: updatedOrganization.name, logoUrl: uploadResult.secure_url },
+      organization: updatedOrganization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({ success: true, organization: updatedOrganization });
   } catch (error) {
@@ -518,6 +588,19 @@ exports.updateTemplateSettings = async (req, res) => {
       organization.organizationTemplateSettings.receiptTemplate = receiptTemplate;
     }
     await organization.save();
+
+    await createAuditLog({
+      action: 'Organization Template Settings Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: organization._id,
+      details: { name: organization.name, hasInvoiceTemplate: !!invoiceTemplate, hasReceiptTemplate: !!receiptTemplate },
+      organization: organization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: 'Template settings updated successfully', data: organization.organizationTemplateSettings });
   } catch (error) {
     console.error('Error updating template settings:', error);
@@ -654,6 +737,19 @@ exports.resetTemplateSettings = async (req, res) => {
     }
     organization.organizationTemplateSettings = {}; // Reset to empty object
     await organization.save();
+
+    await createAuditLog({
+      action: 'Organization Template Settings Reset',
+      user: req.user?._id || req.user?.userId,
+      resource: 'organization',
+      resourceId: organization._id,
+      details: { name: organization.name },
+      organization: organization._id,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: 'Template settings reset successfully', data: {} });
   } catch (error) {
     console.error('Error resetting template settings:', error);

@@ -1539,6 +1539,24 @@ exports.cancelInvitation = async (req, res) => {
       });
     }
 
+    // ✅ AUDIT LOG: Invitation Cancelled
+    await createAuditLog({
+      action: 'Invitation Cancelled',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invitation',
+      resourceId: invitation._id,
+      details: {
+        inviteeEmail: invitation.email,
+        previousStatus: 'pending',
+        newStatus: 'cancelled',
+        organization: invitation.organization
+      },
+      organization: req.user?.organization || invitation.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       message: 'Invitation cancelled successfully',
@@ -1732,6 +1750,24 @@ exports.deleteInvitation = async (req, res) => {
     if (!invitation) {
       return res.status(404).json({ success: false, message: 'Invitation not found' });
     }
+
+    // ✅ AUDIT LOG: Invitation Deleted
+    await createAuditLog({
+      action: 'Invitation Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invitation',
+      resourceId: invitation._id,
+      details: {
+        inviteeEmail: invitation.email,
+        invitationStatus: invitation.status,
+        organization: invitation.organization,
+        deletedAt: new Date().toISOString()
+      },
+      organization: req.user?.organization || invitation.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({ success: true, message: 'Invitation deleted successfully' });
   } catch (error) {

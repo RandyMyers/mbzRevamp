@@ -639,18 +639,22 @@ exports.loginOrganizationUser = async (req, res) => {
   try {
     // Find the user by email
     const user = await User.findOne({ email });
+    console.log('🔍 User found:', user ? 'YES' : 'NO', user ? `(${user.email})` : '');
     if (!user) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "User not found" 
+      console.log('❌ User not found for email:', email);
+      return res.status(400).json({
+        success: false,
+        message: "User not found"
       });
     }
 
+    console.log('✅ User organization:', user.organization ? 'YES' : 'NO');
     // Check if user belongs to an organization (not super admin)
     if (!user.organization) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid user type" 
+      console.log('❌ User has no organization');
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user type"
       });
     }
 
@@ -692,6 +696,23 @@ exports.loginOrganizationUser = async (req, res) => {
       });
     }
 
+    // Check if account is scheduled for deletion
+    if (user.deletionScheduledAt) {
+      const deletionDate = new Date(user.deletionScheduledAt).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      return res.status(403).json({
+        success: false,
+        message: `Your account is scheduled for deletion on ${deletionDate}. If you want to cancel this request, please contact support@elapix.store.`,
+        accountScheduledForDeletion: true,
+        deletionDate: user.deletionScheduledAt
+      });
+    }
+
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -715,18 +736,39 @@ exports.loginOrganizationUser = async (req, res) => {
       });
     }
 
-    // Check if user has OTP enabled
+    // Check if user has OTP enabled (Two-Factor Authentication)
     if (user.otpEnabled) {
-      // If OTP is enabled, don't generate token yet - send OTP code
-      const OTPService = require('../services/otpService');
-      
-      // Generate and send OTP code
-      const otpResult = await OTPService.generateLoginOTP(user._id, organization._id, req);
-      
-      if (!otpResult.success) {
+      const EmailVerification = require('../models/EmailVerification');
+      const SendGridService = require('../services/sendGridService');
+
+      // Invalidate any existing unverified codes for this email
+      await EmailVerification.updateMany(
+        { email: user.email, isVerified: false },
+        { $set: { invalidatedAt: new Date() } }
+      );
+
+      // Generate new 6-digit verification code
+      const verificationCode = EmailVerification.generateVerificationCode();
+
+      // Create new verification record
+      const emailVerification = new EmailVerification({
+        userId: user._id,
+        email: user.email,
+        verificationCode,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent') || 'Unknown',
+        organizationId: organization._id
+      });
+
+      await emailVerification.save();
+
+      // Send login verification email (not email verification)
+      const emailResult = await SendGridService.sendLoginVerificationEmail(user, verificationCode, organization);
+
+      if (!emailResult.success) {
         return res.status(400).json({
           success: false,
-          message: otpResult.error
+          message: 'Failed to send verification code'
         });
       }
 
@@ -737,7 +779,7 @@ exports.loginOrganizationUser = async (req, res) => {
         requiresOTP: true,
         userId: user._id,
         email: user.email,
-        expiresAt: otpResult.data.expiresAt
+        expiresAt: emailVerification.expiresAt
       });
     }
 
@@ -1179,9 +1221,17 @@ exports.changePassword = async (req, res) => {
     user.passwordChangedAt = new Date();
     await user.save();
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Password updated successfully' 
+    // Generate a new token for seamless user experience
+    const newToken = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully',
+      token: newToken
     });
   } catch (error) {
     console.error('Change password error:', error);
@@ -2003,31 +2053,31 @@ exports.validateOTP = async (req, res) => {
     }
 
     // Find the organization
-    const organization = await Organization.findOne({ 
-      organizationCode: user.organizationCode 
+    const organization = await Organization.findOne({
+      organizationCode: user.organizationCode
     });
     if (!organization) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Organization not found" 
+      return res.status(400).json({
+        success: false,
+        message: "Organization not found"
       });
     }
 
-    // Validate OTP code
-    const OTPService = require('../services/otpService');
-    const otpResult = await OTPService.validateLoginOTP(userId, code, organization._id, req);
+    // Validate OTP code using email verification service
+    const EmailVerificationService = require('../services/emailVerificationService');
+    const otpResult = await EmailVerificationService.verifyCode(user.email, code, req);
 
     if (!otpResult.success) {
       return res.status(400).json({
         success: false,
-        message: otpResult.error
+        message: otpResult.message || 'Invalid or expired verification code'
       });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role }, 
-      process.env.JWT_SECRET, 
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -2108,8 +2158,8 @@ exports.validateOTP = async (req, res) => {
  */
 exports.enableOTP = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const organizationId = req.user.organizationId;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
 
     const OTPService = require('../services/otpService');
     const result = await OTPService.enableOTP(userId, organizationId, req);
@@ -2146,8 +2196,8 @@ exports.enableOTP = async (req, res) => {
  */
 exports.disableOTP = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const organizationId = req.user.organizationId;
+    const userId = req.user._id;
+    const organizationId = req.user.organization;
 
     const OTPService = require('../services/otpService');
     const result = await OTPService.disableOTP(userId, organizationId, req);
@@ -2183,7 +2233,7 @@ exports.disableOTP = async (req, res) => {
  */
 exports.getOTPSettings = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const OTPService = require('../services/otpService');
     const result = await OTPService.getUserOTPSettings(userId);

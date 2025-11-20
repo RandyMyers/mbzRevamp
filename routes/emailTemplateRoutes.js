@@ -155,7 +155,7 @@ router.patch("/update/:emailTemplateId", protect, emailTemplateController.update
  *       500:
  *         description: Server error
  */
-router.delete("/delete/:emailTemplateId", protect, emailTemplateController.deleteEmailTemplate);
+router.delete("/:emailTemplateId", protect, emailTemplateController.deleteEmailTemplate);
 
 /**
  * @swagger

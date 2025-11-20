@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 
 const AuditLog = require('../models/auditLog');
 const logEvent = require('../helper/logEvent');
+const { createAuditLog, logSecurityEvent } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
@@ -859,7 +860,7 @@ exports.getUserById = async (req, res) => {
 // Update user details (e.g., name, email, role)
 exports.updateUser = async (req, res) => {
   const { userId } = req.params;
-  const { fullName, username, email, department, role, status, profilePicture } = req.body;
+  const { fullName, username, email, department, role, status, profilePicture, otpEnabled } = req.body;
   console.log('📝 Update user request:', req.body);
 
   try {
@@ -876,6 +877,73 @@ exports.updateUser = async (req, res) => {
     if (status !== undefined) user.status = status;
     if (profilePicture !== undefined) user.profilePicture = profilePicture;
 
+    // Update OTP/2FA settings
+    if (otpEnabled !== undefined) {
+      const previousOtpEnabled = user.otpEnabled;
+      user.otpEnabled = otpEnabled;
+
+      if (otpEnabled) {
+        user.otpEnabledAt = new Date();
+      } else {
+        user.otpEnabledAt = undefined;
+      }
+
+      // Send email notification for 2FA status change
+      if (previousOtpEnabled !== otpEnabled) {
+        const SendGridService = require('../services/sendGridService');
+        const Organization = require('../models/organization');
+        const organization = await Organization.findById(user.organization);
+
+        if (organization) {
+          const subject = otpEnabled
+            ? `Two-Factor Authentication Enabled - ${organization.name}`
+            : `Two-Factor Authentication Disabled - ${organization.name}`;
+
+          const content = otpEnabled ? `
+            <h2>Hello ${user.fullName || user.email}!</h2>
+            <p>Two-Factor Authentication has been <strong>enabled</strong> on your account.</p>
+            <p>From now on, you will need to enter a verification code sent to your email each time you log in.</p>
+
+            <div class="info-box">
+              <h3>Benefits of 2FA:</h3>
+              <ul>
+                <li>Extra layer of security for your account</li>
+                <li>Protection even if your password is compromised</li>
+                <li>Secure access to sensitive data</li>
+              </ul>
+            </div>
+
+            <p>If you did not make this change, please contact support immediately.</p>
+          ` : `
+            <h2>Hello ${user.fullName || user.email}!</h2>
+            <p>Two-Factor Authentication has been <strong>disabled</strong> on your account.</p>
+
+            <div class="warning-box">
+              <h3>Security Notice</h3>
+              <p>Your account is now less secure without two-factor authentication. We recommend keeping 2FA enabled for maximum security.</p>
+            </div>
+
+            <p>If you did not make this change, please contact support immediately.</p>
+          `;
+
+          const htmlContent = SendGridService.generateEmailTemplate({
+            title: subject,
+            heading: otpEnabled ? '2FA Enabled' : '2FA Disabled',
+            content: content
+          });
+
+          // Send email in non-blocking manner
+          SendGridService.sendEmail({
+            to: user.email,
+            subject: subject,
+            html: htmlContent,
+            userId: user._id,
+            organizationId: organization._id
+          }).catch(err => console.error('Failed to send 2FA notification email:', err));
+        }
+      }
+    }
+
     // Update role if provided (role is the roleId from frontend)
     if (role !== undefined) {
       user.roleId = role;
@@ -889,13 +957,16 @@ exports.updateUser = async (req, res) => {
     // Save updated user
     await user.save();
 
-    await logEvent({
-      action: 'update_user',
-      user: user._id,
-      resource: 'User',
+    await createAuditLog({
+      action: 'User profile updated',
+      user: req.user?._id || req.user?.userId || user._id,
+      resource: 'user',
       resourceId: user._id,
-      details: { fullName, username, email, department, role, status, profilePicture },
-      organization: user.organization
+      details: { fullName, username, email, department, role, status, profilePicture, otpEnabled },
+      organization: user.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     // Populate roleId before returning
@@ -999,16 +1070,20 @@ exports.updateUserStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    const previousStatus = user.status;
     user.status = status;  // 'active' or 'inactive'
     await user.save();
 
-    await logEvent({
-      action: 'update_user_status',
-      user: user._id,
-      resource: 'User',
+    await createAuditLog({
+      action: 'User status changed',
+      user: req.user?._id || req.user?.userId || user._id,
+      resource: 'user',
       resourceId: user._id,
-      details: { status },
-      organization: user.organization
+      details: { previousStatus, newStatus: status },
+      organization: user.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, message: "User status updated successfully", user });
@@ -1176,29 +1251,119 @@ exports.getUsersByOrganization = async (req, res) => {
  *                   type: string
  *                   example: "Server error"
  */
-// Delete a user
+// Delete a user (schedules for deletion in 30 days)
 exports.deleteUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).populate('organization');
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Delete the user (use deleteOne instead of deprecated remove)
-    await user.deleteOne();
+    // Check if user is the last admin of the organization
+    if (user.role === 'Admin' && user.organization) {
+      const adminCount = await User.countDocuments({
+        organization: user.organization._id,
+        role: 'Admin',
+        _id: { $ne: userId },
+        deletionScheduledAt: { $exists: false }
+      });
 
-    await logEvent({
-      action: 'delete_user',
-      user: user._id,
-      resource: 'User',
+      if (adminCount === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot delete account. You are the last admin of this organization. Please assign another admin first."
+        });
+      }
+    }
+
+    // Schedule deletion for 30 days from now
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + 30);
+
+    user.deletionScheduledAt = deletionDate;
+    user.deletionRequestedAt = new Date();
+    user.status = 'pending-deletion';
+    await user.save();
+
+    // Send email notification about scheduled deletion
+    const SendGridService = require('../services/sendGridService');
+    const Organization = require('../models/organization');
+    const organization = await Organization.findById(user.organization);
+
+    if (organization) {
+      const formattedDate = deletionDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const content = `
+        <h2>Hello ${user.fullName || user.email}!</h2>
+
+        <p>We have received your request to delete your account at <strong>${organization.name}</strong>.</p>
+
+        <div class="warning-box">
+          <h3>Account Scheduled for Deletion</h3>
+          <p>Your account will be permanently deleted on <strong>${formattedDate}</strong> (30 days from now).</p>
+        </div>
+
+        <div class="info-box">
+          <h3>What happens next:</h3>
+          <ul>
+            <li>You will be logged out immediately</li>
+            <li>You will not be able to log in to your account</li>
+            <li>After 30 days, all your data will be permanently deleted</li>
+            <li>This action cannot be undone after the deletion date</li>
+          </ul>
+        </div>
+
+        <p><strong>Changed your mind?</strong></p>
+        <p>If you want to cancel this deletion request, please contact us at <a href="mailto:support@elapix.store">support@elapix.store</a> before ${formattedDate}.</p>
+
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization.name} Team</strong></p>
+      `;
+
+      const htmlContent = SendGridService.generateEmailTemplate({
+        title: 'Account Deletion Scheduled',
+        heading: 'Account Deletion Scheduled',
+        content: content
+      });
+
+      // Send email notification
+      SendGridService.sendEmail({
+        to: user.email,
+        subject: `Account Deletion Scheduled - ${organization.name}`,
+        html: htmlContent,
+        userId: user._id,
+        organizationId: organization._id
+      }).catch(err => console.error('Failed to send account deletion email:', err));
+    }
+
+    await createAuditLog({
+      action: 'User deletion scheduled',
+      user: req.user?._id || req.user?.userId || user._id,
+      resource: 'user',
       resourceId: user._id,
-      details: { organization: user.organization },
-      organization: user.organization
+      details: {
+        email: user.email,
+        fullName: user.fullName,
+        deletionScheduledAt: deletionDate,
+        deletionRequestedAt: new Date()
+      },
+      organization: user.organization,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
-    res.status(200).json({ success: true, message: "User deleted successfully" });
+    res.status(200).json({
+      success: true,
+      message: `Your account has been scheduled for deletion on ${deletionDate.toLocaleDateString()}. You will receive an email confirmation.`
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -1317,18 +1482,22 @@ exports.updateProfilePicture = async (req, res) => {
     }
 
     // Update the user's profile picture URL
+    const previousPicture = user.profilePicture;
     user.profilePicture = result.secure_url;
     await user.save();
 
     console.log(user.profilePicture);
 
-    await logEvent({
-      action: 'update_profile_picture',
-      user: user._id,
-      resource: 'User',
+    await createAuditLog({
+      action: 'Profile picture updated',
+      user: req.user?._id || req.user?.userId || user._id,
+      resource: 'user',
       resourceId: user._id,
-      details: { profilePicture: user.profilePicture },
-      organization: user.organization
+      details: { previousPicture, newPicture: user.profilePicture },
+      organization: user.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -1435,20 +1604,21 @@ exports.getUserRegionalSettings = async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(userId)
-      .select('language timezone dateFormat timeFormat')
+      .select('language timezone dateFormat timeFormat displayCurrency')
       .populate('organization', 'name defaultCurrency');
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: {
         language: user.language || 'en',
         timezone: user.timezone || 'UTC',
         dateFormat: user.dateFormat || 'MM/DD/YYYY',
         timeFormat: user.timeFormat || '12',
+        displayCurrency: user.displayCurrency || user.organization?.defaultCurrency || 'USD',
         organization: user.organization
       }
     });
@@ -1462,7 +1632,7 @@ exports.getUserRegionalSettings = async (req, res) => {
 exports.updateUserRegionalSettings = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { language, timezone, dateFormat, timeFormat } = req.body;
+    const { language, timezone, dateFormat, timeFormat, displayCurrency } = req.body;
 
     // Basic validation - let the User model handle detailed validation
     const validLanguages = ['en', 'es', 'fr'];
@@ -1493,21 +1663,43 @@ exports.updateUserRegionalSettings = async (req, res) => {
       });
     }
 
+    // Currency validation is handled by the User model using currency list
+    // This allows any valid currency code (USD, EUR, NGN, etc.)
+
+    const updateData = {
+      language,
+      timezone,
+      dateFormat,
+      timeFormat,
+      updatedAt: Date.now()
+    };
+
+    // Only add displayCurrency if it's provided
+    if (displayCurrency) {
+      updateData.displayCurrency = displayCurrency.toUpperCase();
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      {
-        language,
-        timezone,
-        dateFormat,
-        timeFormat,
-        updatedAt: Date.now()
-      },
+      updateData,
       { new: true, runValidators: true }
-    ).select('language timezone dateFormat timeFormat');
+    ).select('language timezone dateFormat timeFormat displayCurrency');
 
     if (!updatedUser) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+
+    await createAuditLog({
+      action: 'Regional settings updated',
+      user: req.user?._id || req.user?.userId || userId,
+      resource: 'user',
+      resourceId: updatedUser._id,
+      details: { language, timezone, dateFormat, timeFormat, displayCurrency },
+      organization: updatedUser.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -1516,7 +1708,8 @@ exports.updateUserRegionalSettings = async (req, res) => {
         language: updatedUser.language,
         timezone: updatedUser.timezone,
         dateFormat: updatedUser.dateFormat,
-        timeFormat: updatedUser.timeFormat
+        timeFormat: updatedUser.timeFormat,
+        displayCurrency: updatedUser.displayCurrency
       }
     });
   } catch (error) {
@@ -1573,8 +1766,20 @@ exports.uploadProfilePicture = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ 
-      success: true, 
+    await createAuditLog({
+      action: 'Profile picture uploaded',
+      user: req.user?._id || req.user?.userId || userId,
+      resource: 'user',
+      resourceId: updatedUser._id,
+      details: { profilePicture: updatedUser.profilePicture },
+      organization: updatedUser.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
       message: "Profile picture uploaded successfully",
       data: {
         profilePicture: updatedUser.profilePicture,
@@ -1613,17 +1818,30 @@ exports.removeProfilePicture = async (req, res) => {
     }
 
     // Update user to remove profile picture
+    const previousPicture = user.profilePicture;
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { 
+      {
         profilePicture: null,
         updatedAt: Date.now()
       },
       { new: true }
-    ).select('profilePicture fullName email');
+    ).select('profilePicture fullName email organization');
 
-    res.status(200).json({ 
-      success: true, 
+    await createAuditLog({
+      action: 'Profile picture removed',
+      user: req.user?._id || req.user?.userId || userId,
+      resource: 'user',
+      resourceId: updatedUser._id,
+      details: { previousPicture },
+      organization: updatedUser.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
       message: "Profile picture removed successfully",
       data: {
         profilePicture: updatedUser.profilePicture,
@@ -1853,8 +2071,24 @@ exports.terminateSession = async (req, res) => {
 
     // For now, just return success
     // In a real implementation, you'd invalidate the session token
-    res.status(200).json({ 
-      success: true, 
+
+    await logSecurityEvent({
+      action: 'Session terminated',
+      user: req.user?._id || req.user?.userId || userId,
+      resource: 'session',
+      resourceId: sessionId,
+      details: {
+        terminatedSessionId: sessionId,
+        targetUserId: userId
+      },
+      organization: user.organization,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
       message: "Session terminated successfully",
       data: {
         terminatedSessionId: sessionId

@@ -242,13 +242,13 @@ websiteSchema.index({ owner: 1 });
 
 // Virtuals
 websiteSchema.virtual('fullDomain').get(function() {
-  return `${this.domain}.storepilot.com`;
+  return `${this.domain}.elapix.store`;
 });
 
 // Generate email addresses from customEmails
 websiteSchema.virtual('emailAddresses').get(function() {
   return this.customEmails.map(email => ({
-    fullAddress: `${email.email}@${this.domain}.storepilot.com`,
+    fullAddress: `${email.email}@${this.domain}.elapix.store`,
     purpose: email.purpose
   }));
 });

@@ -289,6 +289,7 @@ const Template = require('../models/template');
 const User = require('../models/users');
 const Organization = require('../models/organization');
 const cloudinary = require('cloudinary').v2;
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 
 // Helper function to handle errors
@@ -303,14 +304,19 @@ const handleError = (res, error, status = 400) => {
 
 // Verify organization access middleware
 const verifyOrganizationAccess = async (organizationId, userId) => {
-  return await Organization.findOne({
-    _id: organizationId,
-    $or: [
-      { owner: userId },
-      { admins: userId },
-      { members: userId }
-    ]
+  // Check if organization exists
+  const organization = await Organization.findById(organizationId);
+  if (!organization) {
+    return null;
+  }
+
+  // Check if user belongs to this organization
+  const user = await User.findOne({
+    _id: userId,
+    organization: organizationId
   });
+
+  return user ? organization : null;
 };
 
 // Domain validation helper
@@ -323,21 +329,48 @@ const validateDomain = (domain) => {
 // Create a new website (Step 1)
 exports.createWebsite = async (req, res) => {
   try {
-    const { 
-      organizationId, 
+    const {
+      organizationId,
       userId,
-      businessName, 
-      businessType, 
-      domain, 
-      description, 
+      businessName,
+      businessType,
+      domain,
+      description,
       templateId,
       needLogoDesign,
       logoDesignNotes,
-      logoDesignPreferences
+      logoDesignPreferences,
+      // Colors
+      primaryColor,
+      secondaryColor,
+      complementaryColor,
+      // Business info
+      businessAddress,
+      businessContactInfo,
+      supportEmail,
+      termsConditions,
+      privacyPolicy,
+      // Custom emails
+      customEmails,
+      // Special instructions
+      specialInstructions
     } = req.body;
     
-    console.log(req.body);
-    
+    console.log('========== CREATE WEBSITE REQUEST ==========');
+    console.log('Request Body:', req.body);
+    console.log('Request Files:', req.files);
+    console.log('Logo file present:', !!req.files?.logo);
+    console.log('needLogoDesign value:', needLogoDesign, 'type:', typeof needLogoDesign);
+    if (req.files?.logo) {
+      console.log('Logo file details:', {
+        name: req.files.logo.name,
+        size: req.files.logo.size,
+        mimetype: req.files.logo.mimetype,
+        tempFilePath: req.files.logo.tempFilePath
+      });
+    }
+    console.log('==========================================');
+
     // Validate required fields
     if (!organizationId || !userId || !businessName || !businessType || !domain || !description) {
       return res.status(400).json({
@@ -373,7 +406,20 @@ exports.createWebsite = async (req, res) => {
 
   
 
-    // Create website data with logo preferences
+    // Convert needLogoDesign from string to boolean (FormData sends strings)
+    const needsLogoDesign = needLogoDesign === 'true' || needLogoDesign === true;
+
+    // Parse customEmails if it's a string (from FormData)
+    let parsedCustomEmails = [];
+    if (customEmails) {
+      try {
+        parsedCustomEmails = typeof customEmails === 'string' ? JSON.parse(customEmails) : customEmails;
+      } catch (e) {
+        console.error('Failed to parse customEmails:', e);
+      }
+    }
+
+    // Create website data with all fields
     const websiteData = {
       organization: new mongoose.Types.ObjectId(organizationId),
       businessName,
@@ -383,11 +429,12 @@ exports.createWebsite = async (req, res) => {
       template: templateId,
       owner: userId,
       status: 'draft',
-      // Set default colors
-      primaryColor: '#800020',
-      secondaryColor: '#0A2472',
-      complementaryColor: '#e18d01',
-      needLogoDesign: needLogoDesign || false,
+      // Colors
+      primaryColor: primaryColor || '#800020',
+      secondaryColor: secondaryColor || '#0A2472',
+      complementaryColor: complementaryColor || '#e18d01',
+      // Logo design
+      needLogoDesign: needsLogoDesign,
       logoDesignNotes: logoDesignNotes || '',
       logoDesignPreferences: logoDesignPreferences || {
         style: 'Modern',
@@ -395,11 +442,23 @@ exports.createWebsite = async (req, res) => {
         includeIcon: false,
         includeText: true,
         inspirationLinks: []
-      }
+      },
+      // Business info
+      businessAddress: businessAddress || '',
+      businessContactInfo: businessContactInfo || '',
+      supportEmail: supportEmail || '',
+      termsConditions: termsConditions || '',
+      privacyPolicy: privacyPolicy || '',
+      // Custom emails
+      customEmails: parsedCustomEmails,
+      // Special instructions
+      specialInstructions: specialInstructions || ''
     };
 
     // Handle logo upload (only if not requesting logo design)
-    if (!websiteData.needLogoDesign && req.files?.logo) {
+    console.log('Logo upload check - needsLogoDesign:', needsLogoDesign, 'has file:', !!req.files?.logo);
+    if (!needsLogoDesign && req.files?.logo) {
+      console.log('✅ Attempting to upload logo to Cloudinary...');
       const logoFile = req.files.logo;
       try {
         const result = await cloudinary.uploader.upload(logoFile.tempFilePath, {
@@ -410,30 +469,203 @@ exports.createWebsite = async (req, res) => {
           ]
         });
 
+        console.log('✅ Logo uploaded successfully:', result.secure_url);
         websiteData.logo = {
           url: result.secure_url,
           publicId: result.public_id,
           originalName: logoFile.name
         };
       } catch (uploadError) {
-        console.error('Cloudinary upload error:', uploadError);
+        console.error('❌ Cloudinary upload error:', uploadError);
         return res.status(500).json({
           success: false,
           message: "Failed to upload logo"
         });
       }
+    } else {
+      console.log('⚠️  Logo upload skipped - needsLogoDesign:', needsLogoDesign, 'has file:', !!req.files?.logo);
     }
 
     // Create and save website
     const newWebsite = new Website(websiteData);
     await newWebsite.save();
 
-
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: newWebsite._id,
+      details: { name: newWebsite.businessName, domain: newWebsite.domain, status: newWebsite.status },
+      organization: req.user?.organization || newWebsite.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(201).json({
       success: true,
       data: newWebsite,
       message: 'Website created successfully'
+    });
+
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// Update website (comprehensive update)
+exports.updateWebsite = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      businessName,
+      businessType,
+      domain,
+      description,
+      templateId,
+      needLogoDesign,
+      logoDesignNotes,
+      logoDesignPreferences,
+      // Colors
+      primaryColor,
+      secondaryColor,
+      complementaryColor,
+      // Business info
+      businessAddress,
+      businessContactInfo,
+      supportEmail,
+      termsConditions,
+      privacyPolicy,
+      // Custom emails
+      customEmails,
+      // Special instructions
+      specialInstructions
+    } = req.body;
+
+    const owner = req.user._id;
+
+    console.log('========== UPDATE WEBSITE REQUEST ==========');
+    console.log('Website ID:', id);
+    console.log('Request Body:', req.body);
+    console.log('Request Files:', req.files);
+    console.log('Logo file present:', !!req.files?.logo);
+    console.log('==========================================');
+
+    // Find the website
+    const website = await Website.findOne({ _id: id, owner });
+    if (!website) {
+      return res.status(404).json({
+        success: false,
+        message: 'Website not found or unauthorized'
+      });
+    }
+
+    // Convert needLogoDesign from string to boolean (FormData sends strings)
+    const needsLogoDesign = needLogoDesign === 'true' || needLogoDesign === true;
+
+    // Parse customEmails if it's a string (from FormData)
+    let parsedCustomEmails = website.customEmails; // Keep existing if not provided
+    if (customEmails) {
+      try {
+        parsedCustomEmails = typeof customEmails === 'string' ? JSON.parse(customEmails) : customEmails;
+      } catch (e) {
+        console.error('Failed to parse customEmails:', e);
+      }
+    }
+
+    // Update fields
+    if (businessName) website.businessName = businessName;
+    if (businessType) website.businessType = businessType;
+    if (domain) website.domain = domain;
+    if (description) website.description = description;
+    if (templateId) website.template = templateId;
+
+    // Colors
+    if (primaryColor) website.primaryColor = primaryColor;
+    if (secondaryColor) website.secondaryColor = secondaryColor;
+    if (complementaryColor) website.complementaryColor = complementaryColor;
+
+    // Logo design
+    if (needLogoDesign !== undefined) website.needLogoDesign = needsLogoDesign;
+    if (logoDesignNotes !== undefined) website.logoDesignNotes = logoDesignNotes;
+    if (logoDesignPreferences) website.logoDesignPreferences = logoDesignPreferences;
+
+    // Business info
+    if (businessAddress !== undefined) website.businessAddress = businessAddress;
+    if (businessContactInfo !== undefined) website.businessContactInfo = businessContactInfo;
+    if (supportEmail !== undefined) website.supportEmail = supportEmail;
+    if (termsConditions !== undefined) website.termsConditions = termsConditions;
+    if (privacyPolicy !== undefined) website.privacyPolicy = privacyPolicy;
+
+    // Custom emails
+    if (parsedCustomEmails) website.customEmails = parsedCustomEmails;
+
+    // Special instructions
+    if (specialInstructions !== undefined) website.specialInstructions = specialInstructions;
+
+    // Handle logo upload
+    console.log('Logo upload check - needsLogoDesign:', needsLogoDesign, 'has file:', !!req.files?.logo);
+    if (!needsLogoDesign && req.files?.logo) {
+      console.log('✅ Attempting to upload new logo to Cloudinary...');
+      const logoFile = req.files.logo;
+
+      // Delete old logo if exists
+      if (website.logo?.publicId) {
+        try {
+          await cloudinary.uploader.destroy(website.logo.publicId);
+          console.log('✅ Old logo deleted from Cloudinary');
+        } catch (cloudinaryError) {
+          console.error('Failed to delete old logo:', cloudinaryError);
+        }
+      }
+
+      try {
+        const result = await cloudinary.uploader.upload(logoFile.tempFilePath, {
+          folder: "website_logos",
+          transformation: [
+            { width: 500, height: 500, crop: "limit" },
+            { quality: "auto" }
+          ]
+        });
+
+        console.log('✅ New logo uploaded successfully:', result.secure_url);
+        website.logo = {
+          url: result.secure_url,
+          publicId: result.public_id,
+          originalName: logoFile.name
+        };
+      } catch (uploadError) {
+        console.error('❌ Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload logo"
+        });
+      }
+    } else {
+      console.log('⚠️  Logo upload skipped - needsLogoDesign:', needsLogoDesign, 'has file:', !!req.files?.logo);
+    }
+
+    // Save updated website
+    await website.save();
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
+      data: website,
+      message: 'Website updated successfully'
     });
 
   } catch (error) {
@@ -746,6 +978,19 @@ exports.updateBasicInfo = async (req, res) => {
     website.lastUpdated = Date.now();
     await website.save();
 
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Basic Info Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       data: website,
@@ -795,6 +1040,19 @@ exports.updateBusinessInfo = async (req, res) => {
 
     website.lastUpdated = Date.now();
     await website.save();
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Business Info Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -864,6 +1122,19 @@ exports.updateColors = async (req, res) => {
     website.lastUpdated = Date.now();
     await website.save();
 
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Colors Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       data: website,
@@ -920,6 +1191,19 @@ exports.updateEmails = async (req, res) => {
     website.customEmails = customEmails;
     website.lastUpdated = Date.now();
     await website.save();
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Emails Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -999,6 +1283,19 @@ exports.deleteWebsite = async (req, res) => {
       { _id: website.organization },
       { $pull: { websites: website._id } }
     );
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Website Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'website',
+      resourceId: website._id,
+      details: { name: website.businessName, domain: website.domain, status: website.status },
+      organization: req.user?.organization || website.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,

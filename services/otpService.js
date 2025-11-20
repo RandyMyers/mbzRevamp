@@ -4,7 +4,7 @@ dotenv.config();
 const UserOTP = require('../models/userOTP');
 const User = require('../models/users');
 const Organization = require('../models/organization');
-const { sendLoginOTPEmail } = require('./emailService');
+const SendGridService = require('./sendGridService');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
@@ -251,8 +251,8 @@ class OTPService {
       // Get organization details
       const organization = await Organization.findById(organizationId);
 
-      // Send OTP email
-      const emailResult = await sendLoginOTPEmail(user, code, organization);
+      // Send OTP email using SendGrid
+      const emailResult = await SendGridService.sendLoginOTPEmail(user, code, organization);
 
       if (!emailResult.success) {
         console.error('❌ [OTP SERVICE] Failed to send OTP email:', emailResult.error);

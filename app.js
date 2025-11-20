@@ -164,6 +164,8 @@ app.use(cors({
       'http://localhost:3001',
       'http://localhost:8080',
       'http://localhost:8081',
+      'http://localhost:8082',
+      'http://localhost:8083',
       'https://api.elapix.store',
       'https://elapix.store',
       'https://elapix.mbztechnology.com'

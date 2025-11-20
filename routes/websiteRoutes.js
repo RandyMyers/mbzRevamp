@@ -8,6 +8,7 @@ const router = express.Router();
  *     description: websites operations
  */
 
+const { protect } = require('../middleware/authMiddleware');
 const websiteController = require('../controllers/websiteControllers');
 
 
@@ -40,7 +41,7 @@ const websiteController = require('../controllers/websiteControllers');
  *       500:
  *         description: Server error
  */
-router.post('/create',  websiteController.createWebsite);
+router.post('/create', protect, websiteController.createWebsite);
 
 /**
  * @swagger
@@ -69,7 +70,7 @@ router.post('/create',  websiteController.createWebsite);
  *       500:
  *         description: Server error
  */
-router.get('/check-domain', websiteController.checkDomain);
+router.get('/check-domain', protect, websiteController.checkDomain);
 
 // Super admin routes (must come before /:id to avoid conflicts)
 
@@ -100,7 +101,7 @@ router.get('/check-domain', websiteController.checkDomain);
  *       500:
  *         description: Server error
  */
-router.get('/all/:userId', websiteController.getAllWebsites);
+router.get('/all/:userId', protect, websiteController.getAllWebsites);
 
 /**
  * @swagger
@@ -129,7 +130,7 @@ router.get('/all/:userId', websiteController.getAllWebsites);
  *       500:
  *         description: Server error
  */
-router.get('/analytics/:userId', websiteController.getWebsiteAnalytics);
+router.get('/analytics/:userId', protect, websiteController.getWebsiteAnalytics);
 
 // Organization analytics (must come before /:id to avoid conflicts)
 
@@ -160,7 +161,7 @@ router.get('/analytics/:userId', websiteController.getWebsiteAnalytics);
  *       500:
  *         description: Server error
  */
-router.get('/analytics/organization/:organizationId', websiteController.getOrganizationWebsiteAnalytics);
+router.get('/analytics/organization/:organizationId', protect, websiteController.getOrganizationWebsiteAnalytics);
 
 // Organization websites (must come before /:id to avoid conflicts)
 
@@ -191,7 +192,7 @@ router.get('/analytics/organization/:organizationId', websiteController.getOrgan
  *       500:
  *         description: Server error
  */
-router.get('/organization/:organizationId', websiteController.getOrganizationWebsites);
+router.get('/organization/:organizationId', protect, websiteController.getOrganizationWebsites);
 
 // Step-by-step website configuration (must come before /:id to avoid conflicts)
 
@@ -222,7 +223,7 @@ router.get('/organization/:organizationId', websiteController.getOrganizationWeb
  *       500:
  *         description: Server error
  */
-router.patch('/basic-info/:id', websiteController.updateBasicInfo);
+router.patch('/basic-info/:id', protect, websiteController.updateBasicInfo);
 
 /**
  * @swagger
@@ -251,7 +252,7 @@ router.patch('/basic-info/:id', websiteController.updateBasicInfo);
  *       500:
  *         description: Server error
  */
-router.patch('/business-info/:id', websiteController.updateBusinessInfo);
+router.patch('/business-info/:id', protect, websiteController.updateBusinessInfo);
 
 /**
  * @swagger
@@ -280,7 +281,7 @@ router.patch('/business-info/:id', websiteController.updateBusinessInfo);
  *       500:
  *         description: Server error
  */
-router.patch('/colors/:id', websiteController.updateColors);
+router.patch('/colors/:id', protect, websiteController.updateColors);
 
 /**
  * @swagger
@@ -309,7 +310,7 @@ router.patch('/colors/:id', websiteController.updateColors);
  *       500:
  *         description: Server error
  */
-router.patch('/emails/:id', websiteController.updateEmails);
+router.patch('/emails/:id', protect, websiteController.updateEmails);
 
 // Delete website (must come before /:id to avoid conflicts)
 
@@ -340,7 +341,7 @@ router.patch('/emails/:id', websiteController.updateEmails);
  *       500:
  *         description: Server error
  */
-router.delete('/delete/:id', websiteController.deleteWebsite);
+router.delete('/delete/:id', protect, websiteController.deleteWebsite);
 
 // Generic website CRUD operations (MUST be last due to /:id catching all)
 
@@ -371,7 +372,25 @@ router.delete('/delete/:id', websiteController.deleteWebsite);
  *       500:
  *         description: Server error
  */
-router.get('/:id', websiteController.getWebsiteById);
+router.get('/:id', protect, websiteController.getWebsiteById);
+
+/**
+ * @swagger
+ * /api/websites/:id:
+ *   put:
+ *     summary: Update Website
+ *     tags: [Websites]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/:id', protect, websiteController.updateWebsite);
 
 
 module.exports = router;

@@ -56,6 +56,13 @@ const UserSchema = new Schema({
     passwordChangedAt: {
       type: Date,
     },
+    // Account deletion scheduling
+    deletionScheduledAt: {
+      type: Date,
+    },
+    deletionRequestedAt: {
+      type: Date,
+    },
     invitations: [{
       type: Schema.Types.ObjectId,
       ref: 'Invitation',
@@ -76,7 +83,7 @@ const UserSchema = new Schema({
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'pending-verification', 'pending-activation'],
+      enum: ['active', 'inactive', 'pending-verification', 'pending-activation', 'pending-deletion'],
       default: 'pending-verification',
     },
 

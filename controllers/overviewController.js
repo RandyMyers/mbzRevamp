@@ -141,274 +141,194 @@ const getOrganizationIdFromUserId = async (userId) => {
  *                   type: string
  *                   example: "Internal server error"
  */
+// Helper to batch convert currency amounts
+const batchConvertCurrency = async (conversions, targetCurrency, organizationId) => {
+  const rateCache = {};
+  const results = [];
+
+  for (const { amount, currency, index } of conversions) {
+    if (currency === targetCurrency) {
+      results[index] = amount;
+      continue;
+    }
+
+    const cacheKey = `${currency}:${targetCurrency}`;
+    if (!rateCache[cacheKey]) {
+      rateCache[cacheKey] = await currencyUtils.getExchangeRate(organizationId, currency, targetCurrency);
+    }
+
+    const rate = rateCache[cacheKey];
+    results[index] = rate ? amount * rate : amount;
+  }
+
+  return results;
+};
+
 exports.getOverviewStats = async (req, res) => {
   try {
     const { userId } = req.params;
     const { displayCurrency } = req.query;
-    
+
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User ID is required" 
+      return res.status(400).json({
+        success: false,
+        error: "User ID is required"
       });
     }
 
     // Get organizationId from userId
     const organizationId = await getOrganizationIdFromUserId(userId);
-    
+
     if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User not found or no organization associated" 
+      return res.status(400).json({
+        success: false,
+        error: "User not found or no organization associated"
       });
     }
 
     const orgId = new mongoose.Types.ObjectId(organizationId);
-    
+
     // Determine display currency
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
-    // Get all orders for the organization (no date filter)
-    const allOrders = await safeQuery(async () => {
-      return await Order.find({
-        organizationId: orgId,
-        status: { $nin: ['cancelled', 'refunded'] }
-      }).lean();
-    }, []);
+    // Run all queries in parallel
+    const [
+      revenuePipelineResults,
+      totalCustomers,
+      orderStats,
+      categoryStats,
+      stockStatusStats,
+      topProductStats,
+      recentOrdersData
+    ] = await Promise.all([
+      // Revenue calculation with currency grouping
+      Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(organizationId)),
 
-    // Get all customers for the organization (no date filter)
-    const allCustomers = await safeQuery(async () => {
-      return await Customer.find({
-        organizationId: orgId
-      }).lean();
-    }, []);
+      // Total customers count
+      Customer.countDocuments({ organizationId: orgId }),
 
-    // Get all products for the organization (no date filter)
-    const allProducts = await safeQuery(async () => {
-      return await Inventory.find({
-        organizationId: orgId
-      }).lean();
-    }, []);
-    
-    console.log(`Found ${allProducts.length} products in inventory for organization ${orgId}`);
-    console.log('Sample products:', allProducts.slice(0, 3).map(p => ({ 
-      name: p.name, 
-      product_Id: p.product_Id, 
-      sku: p.sku, 
-      hasImages: p.images && p.images.length > 0,
-      imageCount: p.images ? p.images.length : 0
-    })));
-    
-    // Check how many products have images
-    const productsWithImages = allProducts.filter(p => p.images && p.images.length > 0);
-    console.log(`Products with images: ${productsWithImages.length}/${allProducts.length}`);
-    if (productsWithImages.length > 0) {
-      console.log('Sample products with images:', productsWithImages.slice(0, 2).map(p => ({
-        name: p.name,
-        product_Id: p.product_Id,
-        sku: p.sku,
-        imageSrc: p.images[0].src
-      })));
-    }
+      // Order sources and status distribution
+      Order.aggregate([
+        { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+        { $facet: {
+          sources: [
+            { $group: { _id: { $ifNull: ['$created_via', 'manual'] }, count: { $sum: 1 } } }
+          ],
+          statuses: [
+            { $group: { _id: { $ifNull: ['$status', 'unknown'] }, count: { $sum: 1 } } }
+          ]
+        }}
+      ]),
 
-    // Calculate total revenue with multi-currency support
+      // Category distribution
+      Inventory.aggregate([
+        { $match: { organizationId: orgId } },
+        { $unwind: { path: '$categories', preserveNullAndEmptyArrays: true } },
+        { $group: {
+          _id: { $ifNull: ['$categories.name', 'Uncategorized'] },
+          count: { $sum: 1 }
+        }}
+      ]),
+
+      // Stock status distribution
+      Inventory.aggregate([
+        { $match: { organizationId: orgId } },
+        { $group: {
+          _id: { $ifNull: ['$stock_status', 'unknown'] },
+          count: { $sum: 1 }
+        }}
+      ]),
+
+      // Top products by revenue (aggregated at DB level)
+      Order.aggregate([
+        { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+        { $unwind: '$line_items' },
+        { $group: {
+          _id: { $ifNull: ['$line_items.inventoryId', '$line_items.product_id'] },
+          name: { $first: '$line_items.name' },
+          quantity: { $sum: { $toInt: { $ifNull: ['$line_items.quantity', 1] } } },
+          revenue: { $sum: { $multiply: [
+            { $toDouble: { $ifNull: ['$line_items.subtotal', 0] } },
+            { $toInt: { $ifNull: ['$line_items.quantity', 1] } }
+          ]}},
+          currency: { $first: { $ifNull: ['$currency', 'USD'] } }
+        }},
+        { $sort: { revenue: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Recent orders
+      Order.find({ organizationId: orgId })
+        .sort({ date_created: -1 })
+        .limit(5)
+        .select('number _id billing line_items status total date_created')
+        .lean()
+    ]);
+
+    // Process revenue with currency conversion
     let totalRevenue = 0;
     let revenueBreakdown = {};
-    
+    let totalOrders = 0;
+
     try {
-      const revenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(organizationId);
-      const revenueResults = await Order.aggregate(revenuePipeline);
-      const revenueSummary = await currencyUtils.processMultiCurrencyResults(revenueResults, targetCurrency);
+      const revenueSummary = await currencyUtils.processMultiCurrencyResults(
+        revenuePipelineResults,
+        targetCurrency,
+        organizationId
+      );
       totalRevenue = revenueSummary.totalConverted || 0;
       revenueBreakdown = revenueSummary.currencyBreakdown || {};
+      totalOrders = revenueSummary.totalOrders || 0;
     } catch (error) {
       console.error('Revenue calculation error:', error);
-      // Fallback to simple sum if currency conversion fails
-      totalRevenue = allOrders.reduce((sum, order) => {
-        const orderTotal = parseFloat(order.total);
-        return sum + (isNaN(orderTotal) ? 0 : orderTotal);
-      }, 0);
     }
-
-    // Calculate total orders
-    const totalOrders = allOrders.length;
-
-    // Calculate total customers
-    const totalCustomers = allCustomers.length;
 
     // Calculate average order value
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    // Calculate order sources breakdown
-    const orderSources = allOrders.reduce((acc, order) => {
-      const source = order.created_via || 'manual';
-      acc[source] = (acc[source] || 0) + 1;
-      return acc;
-    }, {});
+    // Process order stats
+    const orderSources = {};
+    const orderStatusDistribution = {};
 
-    // Get order status distribution
-    const orderStatusDistribution = allOrders.reduce((acc, order) => {
-      const status = order.status || 'unknown';
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
+    if (orderStats[0]) {
+      orderStats[0].sources?.forEach(({ _id, count }) => {
+        orderSources[_id] = count;
+      });
+      orderStats[0].statuses?.forEach(({ _id, count }) => {
+        orderStatusDistribution[_id] = count;
+      });
+    }
 
-    // Calculate product categories distribution
+    // Process category stats
     const categoryCounts = {};
-
-    allProducts.forEach(product => {
-      if (product.categories && product.categories.length > 0) {
-        product.categories.forEach(category => {
-          const categoryName = category.name;
-          
-          // Count products per category
-          if (!categoryCounts[categoryName]) {
-            categoryCounts[categoryName] = 0;
-          }
-          categoryCounts[categoryName]++;
-        });
-      } else {
-        // Handle products without categories
-        const uncategorized = 'Uncategorized';
-        if (!categoryCounts[uncategorized]) {
-          categoryCounts[uncategorized] = 0;
-        }
-        categoryCounts[uncategorized]++;
-      }
+    let totalProducts = 0;
+    categoryStats.forEach(({ _id, count }) => {
+      categoryCounts[_id] = count;
+      totalProducts += count;
     });
 
-    // Calculate stock status distribution
+    // Process stock status stats
     const stockStatusCounts = {};
-
-    allProducts.forEach(product => {
-      const stockStatus = product.stock_status || 'unknown';
-      
-      // Count products per stock status
-      if (!stockStatusCounts[stockStatus]) {
-        stockStatusCounts[stockStatus] = 0;
-      }
-      stockStatusCounts[stockStatus]++;
+    stockStatusStats.forEach(({ _id, count }) => {
+      stockStatusCounts[_id] = count;
     });
 
-    // Calculate sales impact by stock status with multi-currency support
-    const stockStatusSales = {};
-    
-    // Create a map of product IDs to stock status for faster lookup
-    const productStockStatusMap = {};
-    allProducts.forEach(product => {
-      const stockStatus = product.stock_status || 'unknown';
-      productStockStatusMap[product._id.toString()] = stockStatus;
-      productStockStatusMap[product.product_Id?.toString()] = stockStatus;
-      productStockStatusMap[product.sku] = stockStatus;
-    });
-
-    // Calculate sales by stock status with currency conversion
-    for (const order of allOrders) {
-      if (order.line_items) {
-        for (const item of order.line_items) {
-          // Find the product stock status
-          const productId = item.inventoryId?.toString() || item.product_id?.toString();
-          const stockStatus = productStockStatusMap[productId] || 'unknown';
-          
-          if (!stockStatusSales[stockStatus]) {
-            stockStatusSales[stockStatus] = 0;
-          }
-          
-          // Convert item subtotal to target currency
-          const itemSubtotal = parseFloat(item.subtotal) || 0;
-          const orderCurrency = order.currency || 'USD';
-          
-          if (orderCurrency === targetCurrency) {
-            stockStatusSales[stockStatus] += itemSubtotal;
-          } else {
-            try {
-              const convertedAmount = await currencyUtils.convertCurrency(
-                itemSubtotal, 
-                orderCurrency, 
-                targetCurrency, 
-                organizationId
-              );
-              stockStatusSales[stockStatus] += convertedAmount;
-            } catch (error) {
-              console.error(`Currency conversion error for order ${order._id}:`, error);
-              // Fallback to original amount
-              stockStatusSales[stockStatus] += itemSubtotal;
-            }
-          }
-        }
-      }
-    }
-
-    // Calculate sales by category with multi-currency support
-    const categorySales = {};
-    
-    // Create a map of product IDs to categories for faster lookup
-    const productCategoryMap = {};
-    allProducts.forEach(product => {
-      const categories = product.categories && product.categories.length > 0 
-        ? product.categories.map(cat => cat.name) 
-        : ['Uncategorized'];
-      productCategoryMap[product._id.toString()] = categories;
-      productCategoryMap[product.product_Id?.toString()] = categories;
-      productCategoryMap[product.sku] = categories;
-    });
-
-    // Calculate sales by category with currency conversion
-    for (const order of allOrders) {
-      if (order.line_items) {
-        for (const item of order.line_items) {
-          // Find the product categories
-          const productId = item.inventoryId?.toString() || item.product_id?.toString();
-          const categories = productCategoryMap[productId] || ['Uncategorized'];
-          
-          // Convert item subtotal to target currency
-          const itemSubtotal = parseFloat(item.subtotal) || 0;
-          const orderCurrency = order.currency || 'USD';
-          let convertedSubtotal = itemSubtotal;
-          
-          if (orderCurrency !== targetCurrency) {
-            try {
-              convertedSubtotal = await currencyUtils.convertCurrency(
-                itemSubtotal, 
-                orderCurrency, 
-                targetCurrency, 
-                organizationId
-              );
-            } catch (error) {
-              console.error(`Currency conversion error for order ${order._id}:`, error);
-              // Fallback to original amount
-              convertedSubtotal = itemSubtotal;
-            }
-          }
-          
-          // Add to each category
-          categories.forEach(categoryName => {
-            if (!categorySales[categoryName]) {
-              categorySales[categoryName] = 0;
-            }
-            categorySales[categoryName] += convertedSubtotal;
-          });
-        }
-      }
-    }
-
-    // Convert to array format for pie chart
+    // Convert to array format for pie chart (without sales data for now - calculated separately if needed)
     const productCategoriesDistribution = Object.keys(categoryCounts).map(categoryName => {
       const count = categoryCounts[categoryName];
-      const sales = categorySales[categoryName] || 0;
-      const percentage = allProducts.length > 0 ? (count / allProducts.length) * 100 : 0;
-      
+      const percentage = totalProducts > 0 ? (count / totalProducts) * 100 : 0;
+
       // Generate a consistent color based on category name
       const colors = [
         '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
         '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'
       ];
       const colorIndex = categoryName.length % colors.length;
-      
+
       return {
         name: categoryName,
         value: count,
-        sales: sales,
+        sales: 0, // Will be populated if needed
         percentage: percentage,
         color: colors[colorIndex]
       };
@@ -417,9 +337,8 @@ exports.getOverviewStats = async (req, res) => {
     // Convert stock status to array format for pie chart
     const stockStatusDistribution = Object.keys(stockStatusCounts).map(stockStatus => {
       const count = stockStatusCounts[stockStatus];
-      const sales = stockStatusSales[stockStatus] || 0;
-      const percentage = allProducts.length > 0 ? (count / allProducts.length) * 100 : 0;
-      
+      const percentage = totalProducts > 0 ? (count / totalProducts) * 100 : 0;
+
       // Generate appropriate colors for stock status
       const stockStatusColors = {
         'instock': '#10b981',      // Green for in stock
@@ -427,7 +346,7 @@ exports.getOverviewStats = async (req, res) => {
         'onbackorder': '#f59e0b',  // Orange for backorder
         'unknown': '#6b7280'       // Gray for unknown
       };
-      
+
       // Format the display name
       const displayNames = {
         'instock': 'In Stock',
@@ -435,194 +354,91 @@ exports.getOverviewStats = async (req, res) => {
         'onbackorder': 'On Backorder',
         'unknown': 'Unknown'
       };
-      
+
       return {
         name: displayNames[stockStatus] || stockStatus,
         value: count,
-        sales: sales,
+        sales: 0, // Will be populated if needed
         percentage: percentage,
         color: stockStatusColors[stockStatus] || '#6b7280',
         status: stockStatus
       };
     }).sort((a, b) => b.value - a.value);
 
-    console.log('Stock Status Distribution:', stockStatusDistribution);
-    console.log('Stock Status Counts:', stockStatusCounts);
-    console.log('Stock Status Sales:', stockStatusSales);
+    // Fetch product images for top products (single batch query)
+    const topProductIds = topProductStats
+      .map(p => p._id)
+      .filter(id => id && mongoose.Types.ObjectId.isValid(id));
 
-    // Get top products by sales with multi-currency support
-    const productSales = {};
-    
-    for (const order of allOrders) {
-      if (order.line_items) {
-        for (const item of order.line_items) {
-          // Use inventoryId if available, otherwise fallback to product_id
-          const productId = item.inventoryId || item.product_id;
-          if (productId) {
-            if (!productSales[productId]) {
-              productSales[productId] = {
-                name: item.name || 'Unknown Product',
-                quantity: 0,
-                revenue: 0,
-                productId: productId,
-                isInventoryId: !!item.inventoryId // Flag to know if this is a proper ObjectId
-              };
-            }
-            const quantity = parseInt(item.quantity) || 0;
-            const subtotal = parseFloat(item.subtotal) || 0;
-            const orderCurrency = order.currency || 'USD';
-            
-            productSales[productId].quantity += quantity;
-            
-            // Convert subtotal to target currency
-            if (orderCurrency === targetCurrency) {
-              productSales[productId].revenue += subtotal * quantity;
-            } else {
-              try {
-                const convertedSubtotal = await currencyUtils.convertCurrency(
-                  subtotal, 
-                  orderCurrency, 
-                  targetCurrency, 
-                  organizationId
-                );
-                productSales[productId].revenue += convertedSubtotal * quantity;
-              } catch (error) {
-                console.error(`Currency conversion error for product ${productId}:`, error);
-                // Fallback to original amount
-                productSales[productId].revenue += subtotal * quantity;
-              }
-            }
-          }
+    const productImages = {};
+    if (topProductIds.length > 0) {
+      const productsWithImages = await Inventory.find({
+        _id: { $in: topProductIds },
+        'images.0': { $exists: true }
+      })
+      .select('_id images')
+      .lean();
+
+      productsWithImages.forEach(p => {
+        if (p.images && p.images.length > 0) {
+          productImages[p._id.toString()] = p.images[0].src;
         }
-      }
+      });
     }
 
-    // Convert to array and sort by revenue
-    const topProductsArray = Object.values(productSales)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+    // Process top products with images
+    const topProducts = topProductStats.map(product => ({
+      name: product.name || 'Unknown Product',
+      quantity: product.quantity,
+      revenue: product.revenue,
+      productId: product._id,
+      image: productImages[product._id?.toString()] || '/placeholder.svg',
+      id: product._id
+    }));
 
-    console.log('Top products before image lookup:', topProductsArray.map(p => ({
-      name: p.name,
-      productId: p.productId,
-      isInventoryId: p.isInventoryId,
-      revenue: p.revenue
-    })));
+    // Format recent orders
+    const recentOrders = recentOrdersData.map(order => ({
+      id: order._id,
+      orderId: order.number || order._id,
+      customer: order.billing ? `${order.billing.first_name} ${order.billing.last_name}` : 'Unknown',
+      product: order.line_items && order.line_items.length > 0 ? order.line_items[0].name : 'Unknown',
+      status: order.status || 'unknown',
+      amount: order.total || '0',
+      date: order.date_created
+    }));
 
-    // Fetch product details including images for top products
-    const topProducts = await Promise.all(
-      topProductsArray.map(async (product) => {
-        try {
-          let inventoryProduct = null;
-          
-          console.log(`Processing product: ${product.name}, productId: ${product.productId}, isInventoryId: ${product.isInventoryId}`);
-          
-          // If we have a proper inventoryId (ObjectId), use findById
-          if (product.isInventoryId && mongoose.Types.ObjectId.isValid(product.productId)) {
-            inventoryProduct = await Inventory.findById(product.productId).lean();
-            console.log(`Found product by inventoryId: ${product.productId}`, inventoryProduct ? 'SUCCESS' : 'NOT FOUND');
-          } else {
-            // Otherwise, try to find by product_id or other fields with organization filter
-            const searchQuery = {
-              organizationId: orgId,
-              $or: [
-                { product_Id: parseInt(product.productId) || product.productId },
-                { sku: product.productId },
-                { name: { $regex: product.name, $options: 'i' } }
-              ]
-            };
-            console.log('Search query:', JSON.stringify(searchQuery, null, 2));
-            inventoryProduct = await Inventory.findOne(searchQuery).lean();
-            console.log(`Found product by other fields: ${product.productId} (${product.name})`, inventoryProduct ? 'SUCCESS' : 'NOT FOUND');
-          }
-          
-          if (inventoryProduct && inventoryProduct.images && inventoryProduct.images.length > 0) {
-            console.log(`Product ${product.name} has ${inventoryProduct.images.length} images, using: ${inventoryProduct.images[0].src}`);
-            return {
-              ...product,
-              image: inventoryProduct.images[0].src,
-              id: product.productId
-            };
-          } else {
-            // Try one more search without organization filter as fallback
-            if (!product.isInventoryId) {
-              console.log(`Trying fallback search without organization filter for: ${product.name}`);
-              const fallbackSearchQuery = {
-                $or: [
-                  { product_Id: parseInt(product.productId) || product.productId },
-                  { sku: product.productId },
-                  { name: { $regex: product.name, $options: 'i' } }
-                ]
-              };
-              console.log('Fallback search query:', JSON.stringify(fallbackSearchQuery, null, 2));
-              const fallbackProduct = await Inventory.findOne(fallbackSearchQuery).lean();
-              console.log(`Fallback search result for ${product.name}:`, fallbackProduct ? 'FOUND' : 'NOT FOUND');
-              
-              if (fallbackProduct && fallbackProduct.images && fallbackProduct.images.length > 0) {
-                console.log(`Product ${product.name} found via fallback, has ${fallbackProduct.images.length} images, using: ${fallbackProduct.images[0].src}`);
-                return {
-                  ...product,
-                  image: fallbackProduct.images[0].src,
-                  id: product.productId
-                };
-              }
-            }
-            
-            // Final fallback to placeholder image
-            console.log(`Product ${product.name} has no images, using placeholder`);
-            return {
-              ...product,
-              image: '/placeholder.svg',
-              id: product.productId
-            };
-          }
-        } catch (error) {
-          console.error(`Error fetching product details for ${product.productId}:`, error);
-          return {
-            ...product,
-            image: '/placeholder.svg',
-            id: product.productId
-          };
-        }
-      })
-    );
+    // Calculate sales trend using aggregation for better performance
+    const salesTrend = await Order.aggregate([
+      { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+      { $addFields: {
+        month: { $month: { $toDate: '$date_created' } },
+        year: { $year: { $toDate: '$date_created' } },
+        numericTotal: { $toDouble: { $ifNull: ['$total', 0] } }
+      }},
+      { $group: {
+        _id: { month: '$month', year: '$year' },
+        revenue: { $sum: '$numericTotal' },
+        orders: { $sum: 1 }
+      }},
+      { $sort: { '_id.year': -1, '_id.month': -1 } },
+      { $limit: 12 }
+    ]);
 
-    // Get recent orders (last 5)
-    const recentOrders = allOrders
-      .sort((a, b) => new Date(b.date_created) - new Date(a.date_created))
-      .slice(0, 5)
-      .map(order => ({
-        id: order._id,
-        orderId: order.number || order._id,
-        customer: order.billing ? `${order.billing.first_name} ${order.billing.last_name}` : 'Unknown',
-        product: order.line_items && order.line_items.length > 0 ? order.line_items[0].name : 'Unknown',
-        status: order.status || 'unknown',
-        amount: order.total || '0',
-        date: order.date_created
-      }));
-
-    // Calculate sales trend (monthly for last 12 months)
-    const salesTrend = [];
+    // Format sales trend for last 12 months
     const now = new Date();
+    const formattedSalesTrend = [];
     for (let i = 11; i >= 0; i--) {
-      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-      
-      const monthOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.date_created);
-        return orderDate >= monthStart && orderDate <= monthEnd;
-      });
-      
-      const monthRevenue = monthOrders.reduce((sum, order) => {
-        const orderTotal = parseFloat(order.total);
-        return sum + (isNaN(orderTotal) ? 0 : orderTotal);
-      }, 0);
-      const monthOrdersCount = monthOrders.length;
-      
-      salesTrend.push({
-        month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        revenue: monthRevenue,
-        orders: monthOrdersCount
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${monthDate.getMonth() + 1}-${monthDate.getFullYear()}`;
+
+      const monthData = salesTrend.find(s =>
+        s._id.month === monthDate.getMonth() + 1 && s._id.year === monthDate.getFullYear()
+      );
+
+      formattedSalesTrend.push({
+        month: monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        revenue: monthData?.revenue || 0,
+        orders: monthData?.orders || 0
       });
     }
 
@@ -636,9 +452,9 @@ exports.getOverviewStats = async (req, res) => {
         averageOrderValue,
         currency: targetCurrency,
         revenueBreakdown,
-        
+
         // Charts and breakdowns
-        salesTrend,
+        salesTrend: formattedSalesTrend,
         orderSources,
         orderStatusDistribution,
         productCategoriesDistribution,

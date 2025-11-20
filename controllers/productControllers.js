@@ -1,6 +1,7 @@
 const Product = require('../models/product'); // Import Product model
 const SubscriptionPlan = require('../models/subscriptionPlans'); // Import SubscriptionPlan model (assuming it exists)
 const logEvent = require('../helper/logEvent');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
@@ -94,6 +95,19 @@ const logEvent = require('../helper/logEvent');
         details: { name: newProduct.name, price: newProduct.price },
         organization: req.user.organization
       });
+
+      await createAuditLog({
+        action: 'Product Created',
+        user: req.user?._id || req.user?.userId,
+        resource: 'Product',
+        resourceId: newProduct._id,
+        details: { name: newProduct.name, description: newProduct.description, isActive: newProduct.isActive },
+        organization: req.user?.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
       res.status(201).json({ message: "Product created successfully", product: newProduct });
     } catch (error) {
       console.error(error);
@@ -299,6 +313,19 @@ const logEvent = require('../helper/logEvent');
         details: { before: oldProduct, after: product },
         organization: req.user.organization
       });
+
+      await createAuditLog({
+        action: 'Product Updated',
+        user: req.user?._id || req.user?.userId,
+        resource: 'Product',
+        resourceId: product._id,
+        details: { name: product.name, changes: { name, description, isActive } },
+        organization: req.user?.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
       res.status(200).json({ message: "Product updated successfully", product });
     } catch (error) {
       console.error(error);
@@ -374,6 +401,19 @@ const logEvent = require('../helper/logEvent');
         details: { name: product.name },
         organization: req.user.organization
       });
+
+      await createAuditLog({
+        action: 'Product Deleted',
+        user: req.user?._id || req.user?.userId,
+        resource: 'Product',
+        resourceId: product._id,
+        details: { name: product.name },
+        organization: req.user?.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
       res.status(200).json({ message: "Product deleted successfully" });
     } catch (error) {
       console.error(error);
@@ -461,6 +501,18 @@ const logEvent = require('../helper/logEvent');
       // Add the subscription plan to the product's subscriptionPlans array
       product.subscriptionPlans.push(subscriptionPlanId);
       await product.save();
+
+      await createAuditLog({
+        action: 'Subscription Plan Added to Product',
+        user: req.user?._id || req.user?.userId,
+        resource: 'Product',
+        resourceId: product._id,
+        details: { productId, subscriptionPlanId, productName: product.name },
+        organization: req.user?.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
 
       res.status(200).json({ message: "Subscription plan added to product", product });
     } catch (error) {

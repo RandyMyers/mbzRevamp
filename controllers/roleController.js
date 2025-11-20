@@ -327,6 +327,20 @@ exports.updateRole = async (req, res) => {
       { new: true }
     );
     if (!role) return res.status(404).json({ success: false, message: 'Role not found' });
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Role Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'role',
+      resourceId: role._id,
+      details: { name: role.name, description: role.description, permissions: role.permissions },
+      organization: req.user?.organization || role.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, role });
   } catch (error) {
     console.error(error);
@@ -340,6 +354,20 @@ exports.deleteRole = async (req, res) => {
     const { roleId } = req.params;
     const role = await Role.findByIdAndDelete(roleId);
     if (!role) return res.status(404).json({ success: false, message: 'Role not found' });
+
+    // Audit logging
+    await createAuditLog({
+      action: 'Role Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'role',
+      resourceId: role._id,
+      details: { name: role.name, permissions: role.permissions },
+      organization: req.user?.organization || role.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, message: 'Role deleted' });
   } catch (error) {
     console.error(error);

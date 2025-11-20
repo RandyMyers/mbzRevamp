@@ -2,6 +2,7 @@ const SupportTicket = require('../models/support');
 const logEvent = require('../helper/logEvent');
 const mongoose = require('mongoose');
 const axios = require('axios');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
@@ -122,6 +123,25 @@ exports.createTicket = async (req, res) => {
       details: { subject: ticket.subject, status: ticket.status },
       organization: organizationId
     });
+
+    // Create audit log
+    await createAuditLog({
+      action: 'Support Ticket Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'supportTicket',
+      resourceId: ticket._id,
+      details: {
+        subject: ticket.subject,
+        category: ticket.category,
+        priority: ticket.priority,
+        status: ticket.status
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json({ success: true, data: ticket });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -420,6 +440,25 @@ exports.updateTicket = async (req, res) => {
       details: { before: oldTicket, after: ticket },
       organization: organizationId
     });
+
+    // Create audit log
+    await createAuditLog({
+      action: 'Support Ticket Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'supportTicket',
+      resourceId: ticket._id,
+      details: {
+        subject: ticket.subject,
+        changes: req.body,
+        previousStatus: oldTicket.status,
+        newStatus: ticket.status
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.json({ success: true, data: ticket });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -526,6 +565,24 @@ exports.addMessageToTicket = async (req, res) => {
     ticket.hasUnreadMessages = sender === 'customer';
     ticket.updatedAt = new Date();
     await ticket.save();
+
+    // Create audit log
+    await createAuditLog({
+      action: 'Support Ticket Message Added',
+      user: req.user?._id || req.user?.userId,
+      resource: 'supportTicket',
+      resourceId: ticket._id,
+      details: {
+        subject: ticket.subject,
+        sender: sender,
+        messageLength: content.length
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.json({ success: true, data: ticket });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -717,6 +774,23 @@ exports.changeTicketStatus = async (req, res) => {
       details: { subject: ticket.subject, closeDate: new Date() },
       organization: organizationId
     });
+
+    // Create audit log
+    await createAuditLog({
+      action: 'Support Ticket Status Changed',
+      user: req.user?._id || req.user?.userId,
+      resource: 'supportTicket',
+      resourceId: ticket._id,
+      details: {
+        subject: ticket.subject,
+        newStatus: status
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.json({ success: true, data: ticket });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -820,6 +894,24 @@ exports.deleteTicket = async (req, res) => {
     }
     const ticket = await SupportTicket.findOneAndDelete({ _id: req.params.id, organizationId });
     if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found' });
+
+    // Create audit log
+    await createAuditLog({
+      action: 'Support Ticket Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'supportTicket',
+      resourceId: req.params.id,
+      details: {
+        subject: ticket.subject,
+        category: ticket.category,
+        status: ticket.status
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.json({ success: true, message: 'Ticket deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

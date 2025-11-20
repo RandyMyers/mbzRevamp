@@ -1953,6 +1953,22 @@ exports.bulkGenerateReceipts = async (req, res) => {
       }
     }
 
+    // Create audit log for bulk generation
+    await createAuditLog({
+      action: 'Bulk Receipts Generated',
+      user: userId,
+      resource: 'Receipt',
+      resourceId: generatedReceipts.length > 0 ? generatedReceipts[0]._id : null,
+      details: {
+        totalGenerated: generatedReceipts.length,
+        receiptNumbers: generatedReceipts.map(r => r.receiptNumber)
+      },
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       message: `Generated ${generatedReceipts.length} receipts successfully`,

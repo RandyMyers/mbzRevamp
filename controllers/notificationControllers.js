@@ -86,14 +86,15 @@ const { createAuditLog } = require('../helpers/auditLogHelper');
 // CREATE a new notification
 exports.createNotification = async (req, res) => {
   try {
-    const { 
-      user, 
-      template, 
-      subject, 
-      body, 
+    const {
+      user,
+      template,
+      subject,
+      body,
       type = 'system',
+      category = 'general',
       status = 'pending',
-      organization 
+      organization
     } = req.body;
 
     // Validate required fields
@@ -120,6 +121,7 @@ exports.createNotification = async (req, res) => {
       subject,
       body,
       type,
+      category,
       status,
       organization,
       deliveryStatus: 'failure', // Will be updated when sent

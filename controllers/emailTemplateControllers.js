@@ -1,5 +1,6 @@
 const EmailTemplate = require("../models/emailTemplate"); // Import the EmailTemplate model
 const logEvent = require('../helper/logEvent');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 const { 
   getAllVariables, 
   getVariablesByCategory, 
@@ -234,19 +235,16 @@ exports.createEmailTemplate = async (req, res) => {
     // ✅ AUDIT LOG: Email Template Created
     try {
       console.log('Attempting to create audit log...');
-      await logEvent({
+      await createAuditLog({
         action: 'Email Template Created',
-        user: req.user?._id || createdBy,
+        user: req.user?._id || req.user?.userId,
         resource: 'emailTemplate',
         resourceId: savedEmailTemplate._id,
-        details: {
-          name: savedEmailTemplate.name,
-          subject: savedEmailTemplate.subject,
-          organization: savedEmailTemplate.organization
-        },
+        details: { name: savedEmailTemplate.name, subject: savedEmailTemplate.subject },
         organization: req.user?.organization || savedEmailTemplate.organization,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
       });
       console.log('Audit log created successfully');
     } catch (auditError) {
@@ -672,20 +670,16 @@ exports.updateEmailTemplate = async (req, res) => {
     }
 
     // ✅ AUDIT LOG: Email Template Updated
-    await logEvent({
+    await createAuditLog({
       action: 'Email Template Updated',
-      user: req.user?._id,
+      user: req.user?._id || req.user?.userId,
       resource: 'emailTemplate',
       resourceId: updatedEmailTemplate._id,
-      details: {
-        name: updatedEmailTemplate.name,
-        subject: updatedEmailTemplate.subject,
-        updatedFields: Object.keys(req.body),
-        organization: updatedEmailTemplate.organization
-      },
+      details: { name: updatedEmailTemplate.name, subject: updatedEmailTemplate.subject },
       organization: req.user?.organization || updatedEmailTemplate.organization,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, emailTemplate: updatedEmailTemplate });
@@ -778,20 +772,16 @@ exports.deleteEmailTemplate = async (req, res) => {
     }
 
     // ✅ AUDIT LOG: Email Template Deleted
-    await logEvent({
+    await createAuditLog({
       action: 'Email Template Deleted',
-      user: req.user?._id,
+      user: req.user?._id || req.user?.userId,
       resource: 'emailTemplate',
-      resourceId: emailTemplateId,
-      details: {
-        name: emailTemplateToDelete.name,
-        subject: emailTemplateToDelete.subject,
-        organization: emailTemplateToDelete.organization
-      },
+      resourceId: emailTemplateToDelete._id,
+      details: { name: emailTemplateToDelete.name, subject: emailTemplateToDelete.subject },
       organization: req.user?.organization || emailTemplateToDelete.organization,
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      severity: 'warning'
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     await EmailTemplate.findByIdAndDelete(emailTemplateId);

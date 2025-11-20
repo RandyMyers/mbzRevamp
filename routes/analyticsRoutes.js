@@ -42,6 +42,46 @@ const emailLogsController = require('../controllers/emailLogsController');
  */
 router.get('/total-revenue', analyticsController.totalRevenue);
 
+// Route for Revenue Growth
+
+/**
+ * @swagger
+ * /api/analytics/revenue-growth:
+ *   get:
+ *     summary: Get Revenue growth comparing current to previous period
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/revenue-growth', analyticsController.revenueGrowth);
+
+// Route for Order Growth
+
+/**
+ * @swagger
+ * /api/analytics/order-growth:
+ *   get:
+ *     summary: Get Order growth comparing current to previous period
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/order-growth', analyticsController.orderGrowth);
+
 // Route for Total Orders
 
 /**
@@ -165,6 +205,97 @@ router.get('/average-order-value', analyticsController.averageOrderValue);
  *         description: Server error
  */
 router.get('/return-rate', analyticsController.returnRate);
+
+// Route for Customer Retention Rate
+
+/**
+ * @swagger
+ * /api/analytics/customer-retention-rate:
+ *   get:
+ *     summary: Get Customer-retention-rate
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Operation completed successfully"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/customer-retention-rate', analyticsController.customerRetentionRate);
+
+// Route for Churn Rate
+
+/**
+ * @swagger
+ * /api/analytics/churn-rate:
+ *   get:
+ *     summary: Get customer churn rate
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/churn-rate', analyticsController.churnRate);
+
+// Route for Top Customers
+
+/**
+ * @swagger
+ * /api/analytics/top-customers:
+ *   get:
+ *     summary: Get top customers by spending
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/top-customers', analyticsController.topCustomers);
+
+// Route for Sales Time Series
+
+/**
+ * @swagger
+ * /api/analytics/sales-time-series:
+ *   get:
+ *     summary: Get daily revenue and orders breakdown
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/sales-time-series', analyticsController.salesTimeSeries);
 
 // Route for Lifetime Value (LTV)
 

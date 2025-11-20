@@ -58,6 +58,7 @@ exports.createAndSendNotification = async (notificationData) => {
       subject,
       body,
       type = 'system',
+      category = 'general',
       organization,
       variables = {}
     } = notificationData;
@@ -75,8 +76,7 @@ exports.createAndSendNotification = async (notificationData) => {
       return { success: false, error: 'No notification settings' };
     }
 
-    // Check if user has enabled notifications for this type (email channel only)
-    const category = getNotificationCategory(type);
+    // Check if user has enabled notifications for this category (email channel only)
     if (
       type === 'email' &&
       category &&
@@ -94,6 +94,7 @@ exports.createAndSendNotification = async (notificationData) => {
       subject,
       body,
       type,
+      category,
       status: 'pending',
       organization,
       deliveryStatus: 'failure',

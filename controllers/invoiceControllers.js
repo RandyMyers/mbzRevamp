@@ -6,6 +6,7 @@ const Organization = require('../models/organization');
 const User = require('../models/users');
 const logEvent = require('../helper/logEvent');
 const { sendNotificationToAdmins } = require('../helpers/notificationHelper');
+const { createAuditLog, logFinancialEvent } = require('../helpers/auditLogHelper');
 const cloudinary = require('cloudinary').v2;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -572,6 +573,19 @@ exports.createInvoice = async (req, res) => {
       // Don't fail the invoice creation if notification fails
     }
 
+    // Comprehensive audit logging
+    await createAuditLog({
+      action: 'Invoice Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: savedInvoice._id,
+      details: { invoiceNumber: savedInvoice.invoiceNumber, amount: savedInvoice.totalAmount, status: savedInvoice.status },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json({
       success: true,
       message: 'Invoice created successfully',
@@ -1091,6 +1105,19 @@ exports.updateInvoice = async (req, res) => {
       organization: organizationId
     });
 
+    // Comprehensive audit logging
+    await createAuditLog({
+      action: 'Invoice Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: invoice._id,
+      details: { invoiceNumber: invoice.invoiceNumber, amount: invoice.totalAmount, status: invoice.status },
+      organization: req.user?.organization || invoice.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       message: 'Invoice updated successfully',
@@ -1207,6 +1234,19 @@ exports.deleteInvoice = async (req, res) => {
         invoiceNumber: invoice.invoiceNumber
       },
       organization: organizationId
+    });
+
+    // Comprehensive audit logging
+    await createAuditLog({
+      action: 'Invoice Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: invoice._id,
+      details: { invoiceNumber: invoice.invoiceNumber, amount: invoice.totalAmount, status: invoice.status },
+      organization: req.user?.organization || invoice.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -1504,6 +1544,19 @@ exports.emailInvoice = async (req, res) => {
       organization: organizationId
     });
 
+    // Comprehensive audit logging
+    await createAuditLog({
+      action: 'Invoice Sent',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: invoice._id,
+      details: { invoiceNumber: invoice.invoiceNumber, amount: invoice.totalAmount, status: invoice.status },
+      organization: req.user?.organization || invoice.organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({
       success: true,
       message: 'Invoice sent successfully',
@@ -1730,6 +1783,23 @@ exports.bulkGenerateInvoices = async (req, res) => {
         console.error(`Error generating invoice for order ${order.id}:`, error);
       }
     }
+
+    // Comprehensive audit logging for bulk generation
+    await createAuditLog({
+      action: 'Invoice Bulk Generated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: generatedInvoices.length > 0 ? generatedInvoices[0]._id : null,
+      details: {
+        totalGenerated: generatedInvoices.length,
+        invoiceNumbers: generatedInvoices.map(inv => inv.invoiceNumber),
+        totalAmount: generatedInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+      },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -2097,6 +2167,19 @@ exports.generateOrderInvoice = async (req, res) => {
         totalAmount: savedInvoice.totalAmount
       },
       organization: organizationId
+    });
+
+    // Comprehensive audit logging
+    await createAuditLog({
+      action: 'Invoice Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'invoice',
+      resourceId: savedInvoice._id,
+      details: { invoiceNumber: savedInvoice.invoiceNumber, amount: savedInvoice.totalAmount, status: savedInvoice.status },
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(201).json({

@@ -279,13 +279,16 @@ exports.createSurvey = async (req, res) => {
     await createAuditLog({
       action: 'SURVEY_CREATED',
       user: userId,
-      resource: 'Survey',
+      resource: 'survey',
       resourceId: savedSurvey._id,
       details: {
         title: savedSurvey.title,
         questionCount: savedSurvey.questions.length
       },
-      organization: organizationId
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(201).json({
@@ -554,13 +557,16 @@ exports.updateSurvey = async (req, res) => {
     await createAuditLog({
       action: 'SURVEY_UPDATED',
       user: userId,
-      resource: 'Survey',
+      resource: 'survey',
       resourceId: survey._id,
       details: {
         title: survey.title,
         changes: req.body
       },
-      organization: organizationId
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -638,12 +644,15 @@ exports.deleteSurvey = async (req, res) => {
     await createAuditLog({
       action: 'SURVEY_DELETED',
       user: userId,
-      resource: 'Survey',
+      resource: 'survey',
       resourceId: id,
       details: {
         title: survey.title
       },
-      organization: organizationId
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -718,12 +727,15 @@ exports.publishSurvey = async (req, res) => {
     await createAuditLog({
       action: 'SURVEY_PUBLISHED',
       user: userId,
-      resource: 'Survey',
+      resource: 'survey',
       resourceId: survey._id,
       details: {
         title: survey.title
       },
-      organization: organizationId
+      organization: organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -874,13 +886,17 @@ exports.submitSurveyResponse = async (req, res) => {
       await createAuditLog({
         action: 'SURVEY_RESPONSE_SUBMITTED',
         user: userId,
-        resource: 'SurveyResponse',
+        resource: 'survey',
         resourceId: savedResponse._id,
         details: {
           surveyId: id,
+          surveyTitle: survey.title,
           responseCount: responses.length
         },
-        organization: organizationId
+        organization: organizationId,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
       });
     }
 

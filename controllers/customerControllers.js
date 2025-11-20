@@ -7,6 +7,7 @@ const WooCommerceService = require('../services/wooCommerceService.js');
 const logEvent = require('../helper/logEvent');
 const cloudinary = require('cloudinary').v2;
 const { notifyCustomerRegistered, notifyCustomerUpdated } = require('../helpers/notificationHelper');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 /**
  * @swagger
@@ -523,9 +524,30 @@ exports.createCustomer = async (req, res) => {
         // Don't fail the request if notification fails
       }
 
-      res.status(201).json({ 
+      // Audit logging
+      await createAuditLog({
+        action: 'Customer Created',
+        user: req.user?._id || req.user?.userId,
+        resource: 'customer',
+        resourceId: updatedCustomer._id,
+        details: {
+          email: updatedCustomer.email,
+          name: `${updatedCustomer.first_name} ${updatedCustomer.last_name}`,
+          first_name: updatedCustomer.first_name,
+          last_name: updatedCustomer.last_name,
+          syncToWooCommerce,
+          syncStatus,
+          wooCommerceId
+        },
+        organization: req.user?.organization || organizationId,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(201).json({
         success: true,
-        message: 'Customer created successfully.', 
+        message: 'Customer created successfully.',
         data: updatedCustomer,
         wooCommerceSync: {
           synced: syncStatus === 'synced',
@@ -1091,10 +1113,10 @@ exports.createCustomer = async (req, res) => {
 
       // Send notification to organization admins
       try {
-        const changes = Object.keys(sanitizedUpdates).filter(key => 
-          key !== 'lastWooCommerceSync' && 
-          key !== 'syncStatus' && 
-          key !== 'syncError' && 
+        const changes = Object.keys(sanitizedUpdates).filter(key =>
+          key !== 'lastWooCommerceSync' &&
+          key !== 'syncStatus' &&
+          key !== 'syncError' &&
           key !== 'wooCommerceId'
         );
         await notifyCustomerUpdated(updatedCustomer, changes, currentCustomer.organizationId);
@@ -1103,9 +1125,31 @@ exports.createCustomer = async (req, res) => {
         // Don't fail the request if notification fails
       }
 
-      res.status(200).json({ 
+      // Audit logging
+      await createAuditLog({
+        action: 'Customer Updated',
+        user: req.user?._id || req.user?.userId,
+        resource: 'customer',
+        resourceId: updatedCustomer._id,
+        details: {
+          email: updatedCustomer.email,
+          name: `${updatedCustomer.first_name} ${updatedCustomer.last_name}`,
+          first_name: updatedCustomer.first_name,
+          last_name: updatedCustomer.last_name,
+          updatedFields: Object.keys(sanitizedUpdates),
+          syncToWooCommerce,
+          syncStatus: sanitizedUpdates.syncStatus,
+          wooCommerceId: sanitizedUpdates.wooCommerceId || currentCustomer.wooCommerceId
+        },
+        organization: req.user?.organization || currentCustomer.organizationId,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(200).json({
         success: true,
-        message: 'Customer updated successfully.', 
+        message: 'Customer updated successfully.',
         data: updatedCustomer,
         wooCommerceSync
       });
@@ -1261,17 +1305,37 @@ exports.createCustomer = async (req, res) => {
         user: req.user?._id,
         resource: 'Customer',
         resourceId: customerToDelete._id,
-        details: { 
-          email: customerToDelete.email, 
+        details: {
+          email: customerToDelete.email,
           syncToWooCommerce,
           wooCommerceId: customerToDelete.wooCommerceId
         },
         organization: req.user?.organization || customerToDelete.organizationId
       });
 
-      res.status(200).json({ 
+      // Audit logging
+      await createAuditLog({
+        action: 'Customer Deleted',
+        user: req.user?._id || req.user?.userId,
+        resource: 'customer',
+        resourceId: customerToDelete._id,
+        details: {
+          email: customerToDelete.email,
+          name: `${customerToDelete.first_name} ${customerToDelete.last_name}`,
+          first_name: customerToDelete.first_name,
+          last_name: customerToDelete.last_name,
+          syncToWooCommerce,
+          wooCommerceId: customerToDelete.wooCommerceId
+        },
+        organization: req.user?.organization || customerToDelete.organizationId,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(200).json({
         success: true,
-        message: 'Customer deleted successfully.', 
+        message: 'Customer deleted successfully.',
         data: deletedCustomer,
         wooCommerceSync
       });
@@ -1432,14 +1496,33 @@ exports.createCustomer = async (req, res) => {
         user: req.user?._id,
         resource: 'Customer',
         resourceId: storeId,
-        details: { 
-          storeId, 
+        details: {
+          storeId,
           deletedCount: result.deletedCount,
           totalCustomers: customers.length,
           syncToWooCommerce,
           wooCommerceSyncResults
         },
         organization: req.user?.organization
+      });
+
+      // Audit logging
+      await createAuditLog({
+        action: 'Bulk Customers Deleted',
+        user: req.user?._id || req.user?.userId,
+        resource: 'customer',
+        resourceId: storeId,
+        details: {
+          storeId,
+          deletedCount: result.deletedCount,
+          totalCustomers: customers.length,
+          syncToWooCommerce,
+          wooCommerceSyncResults
+        },
+        organization: req.user?.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
       });
 
       const response = {
@@ -1457,7 +1540,7 @@ exports.createCustomer = async (req, res) => {
         response.wooCommerceSync = wooCommerceSyncResults;
       }
 
-      console.log(`✅ Bulk customer deletion completed for store ${storeId}`);
+      console.log(`Bulk customer deletion completed for store ${storeId}`);
       res.status(200).json(response);
 
     } catch (error) {
@@ -1618,16 +1701,36 @@ exports.createCustomer = async (req, res) => {
           user: req.user?._id || customer.userId,
           resource: 'Customer',
           resourceId: customer._id,
-          details: { 
-            email: customer.email, 
+          details: {
+            email: customer.email,
             action: syncAction,
-            wooCommerceId: wooCommerceResult.data.id 
+            wooCommerceId: wooCommerceResult.data.id
           },
           organization: req.user?.organization || customer.organizationId
         });
 
-        res.json({ 
-          success: true, 
+        // Audit logging
+        await createAuditLog({
+          action: 'Customer Synced to WooCommerce',
+          user: req.user?._id || req.user?.userId,
+          resource: 'customer',
+          resourceId: customer._id,
+          details: {
+            email: customer.email,
+            name: `${customer.first_name} ${customer.last_name}`,
+            first_name: customer.first_name,
+            last_name: customer.last_name,
+            syncAction,
+            wooCommerceId: wooCommerceResult.data.id
+          },
+          organization: req.user?.organization || customer.organizationId,
+          severity: 'info',
+          ip: req.ip || req.connection?.remoteAddress,
+          userAgent: req.get('User-Agent')
+        });
+
+        res.json({
+          success: true,
           message: `Customer ${syncAction} in WooCommerce successfully`,
           data: updatedCustomer,
           wooCommerceSync: {

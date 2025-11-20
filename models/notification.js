@@ -27,8 +27,13 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['email', 'sms', 'push', 'system'], // Type of notification (email, SMS, etc.)
+      enum: ['email', 'sms', 'push', 'system'], // Type of notification delivery channel
       required: true,
+    },
+    category: {
+      type: String,
+      enum: ['orders', 'billing', 'security', 'system', 'inventory', 'customers', 'campaigns', 'general'],
+      default: 'general', // Category of notification content
     },
     deliveryAttemptCount: {
       type: Number,
@@ -73,7 +78,7 @@ notificationSchema.pre('save', function (next) {
 
 // Method to mark a notification as read
 notificationSchema.methods.markAsRead = function () {
-  this.read = true;
+  this.status = 'read';
   return this.save();
 };
 

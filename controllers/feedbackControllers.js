@@ -254,16 +254,19 @@ exports.createFeedback = async (req, res) => {
 
     // Create audit log
     await createAuditLog({
-      action: 'FEEDBACK_CREATED',
-      user: userId,
-      resource: 'Feedback',
+      action: 'Feedback Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'feedback',
       resourceId: savedFeedback._id,
       details: {
         title: savedFeedback.title,
         category: savedFeedback.category,
         rating: savedFeedback.rating
       },
-      organization: organizationId
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(201).json({
@@ -551,15 +554,18 @@ exports.updateFeedback = async (req, res) => {
 
     // Create audit log
     await createAuditLog({
-      action: 'FEEDBACK_UPDATED',
-      user: userId,
-      resource: 'Feedback',
+      action: 'Feedback Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'feedback',
       resourceId: feedback._id,
       details: {
         title: feedback.title,
         changes: req.body
       },
-      organization: organizationId
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -635,14 +641,17 @@ exports.deleteFeedback = async (req, res) => {
 
     // Create audit log
     await createAuditLog({
-      action: 'FEEDBACK_DELETED',
-      user: userId,
-      resource: 'Feedback',
+      action: 'Feedback Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'feedback',
       resourceId: id,
       details: {
         title: feedback.title
       },
-      organization: organizationId
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({
@@ -758,16 +767,19 @@ exports.respondToFeedback = async (req, res) => {
 
     // Create audit log
     await createAuditLog({
-      action: 'FEEDBACK_RESPONDED',
-      user: userId,
-      resource: 'Feedback',
+      action: 'Feedback Response Added',
+      user: req.user?._id || req.user?.userId,
+      resource: 'feedback',
       resourceId: feedback._id,
       details: {
         title: feedback.title,
         responseType,
         responseLength: response.length
       },
-      organization: organizationId
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(201).json({
@@ -979,15 +991,18 @@ exports.bulkUpdateFeedbackStatus = async (req, res) => {
 
     // Create audit log
     await createAuditLog({
-      action: 'FEEDBACK_BULK_STATUS_UPDATE',
-      user: userId,
-      resource: 'Feedback',
+      action: 'Feedback Bulk Status Update',
+      user: req.user?._id || req.user?.userId,
+      resource: 'feedback',
       resourceId: feedbackIds.join(','),
       details: {
         feedbackCount: feedbackIds.length,
         newStatus: status
       },
-      organization: organizationId
+      organization: req.user?.organization || organizationId,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({

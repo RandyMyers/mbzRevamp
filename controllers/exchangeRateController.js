@@ -157,16 +157,18 @@ exports.getExchangeRates = async (req, res) => {
   try {
     const { organizationId, baseCurrency, targetCurrency, isActive } = req.query;
 
-    if (!organizationId) {
-      return res.status(400).json({
-        success: false,
-        error: "Organization ID is required"
-      });
-    }
+    const filter = {};
 
-    const filter = {
-      organizationId: new mongoose.Types.ObjectId(organizationId)
-    };
+    // If organizationId provided, include org-specific rates
+    if (organizationId) {
+      filter.$or = [
+        { organizationId: new mongoose.Types.ObjectId(organizationId) },
+        { isGlobal: true } // Also include global rates
+      ];
+    } else {
+      // If no organizationId, fetch only global rates
+      filter.isGlobal = true;
+    }
 
     // Add optional filters
     if (baseCurrency) filter.baseCurrency = baseCurrency;

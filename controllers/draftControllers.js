@@ -126,6 +126,7 @@
 const Draft = require("../models/draft");
 const Email = require("../models/emails");
 const logEvent = require('../helper/logEvent');
+const { createAuditLog } = require('../helpers/auditLogHelper');
 
 // CREATE a new draft email
 exports.createDraft = async (req, res) => {
@@ -152,7 +153,19 @@ exports.createDraft = async (req, res) => {
       details: { to: savedDraft.recipient, subject: savedDraft.subject },
       organization: req.user.organization
     });
-    
+
+    await createAuditLog({
+      action: 'Draft Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'Draft',
+      resourceId: savedDraft._id,
+      details: { recipient: savedDraft.recipient, subject: savedDraft.subject },
+      organization: req.user?.organization || organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json({ success: true, draft: savedDraft });
   } catch (error) {
     console.error(error);
@@ -231,6 +244,18 @@ exports.updateDraft = async (req, res) => {
       organization: req.user.organization
     });
 
+    await createAuditLog({
+      action: 'Draft Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'Draft',
+      resourceId: updatedDraft._id,
+      details: { recipient: updatedDraft.recipient, subject: updatedDraft.subject, changes: { recipient, subject, body } },
+      organization: req.user?.organization || updatedDraft.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(200).json({ success: true, draft: updatedDraft });
   } catch (error) {
     console.error(error);
@@ -254,6 +279,18 @@ exports.deleteDraft = async (req, res) => {
       resourceId: draftId,
       details: { to: deletedDraft.recipient, subject: deletedDraft.subject },
       organization: req.user.organization
+    });
+
+    await createAuditLog({
+      action: 'Draft Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'Draft',
+      resourceId: draftId,
+      details: { recipient: deletedDraft.recipient, subject: deletedDraft.subject },
+      organization: req.user?.organization || deletedDraft.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, message: "Draft deleted successfully" });
@@ -297,6 +334,18 @@ exports.sendDraft = async (req, res) => {
       resourceId: savedEmail._id,
       details: { to: savedEmail.recipient, subject: savedEmail.subject },
       organization: req.user.organization
+    });
+
+    await createAuditLog({
+      action: 'Draft Sent',
+      user: req.user?._id || req.user?.userId,
+      resource: 'Email',
+      resourceId: savedEmail._id,
+      details: { draftId, recipient: savedEmail.recipient, subject: savedEmail.subject },
+      organization: req.user?.organization || savedEmail.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ success: true, email: savedEmail, message: "Draft sent successfully" });

@@ -11,9 +11,10 @@ const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
 const EmailLogs = require('../models/emailLogs');
 const logEvent = require('../helper/logEvent');
-const { 
-  getVariableDefinition, 
-  getNestedValue 
+const { createAuditLog } = require('../helpers/auditLogHelper');
+const {
+  getVariableDefinition,
+  getNestedValue
 } = require('../config/emailTemplateVariables');
 
 const dotenv = require('dotenv');
@@ -267,6 +268,17 @@ exports.createCampaign = async (req, res) => {
       details: { name: campaign.name, subject: campaign.subject },
       organization: req.user.organization
     });
+    await createAuditLog({
+      action: 'Campaign Created',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, subject: campaign.subject, status: campaign.status },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
     res.status(201).json({ campaignId: campaign._id });
   } catch (error) {
     res.status(400).json({ error: 'Error creating campaign: ' + error.message });
@@ -379,6 +391,17 @@ exports.updateTemplate = async (req, res) => {
       },
       organization: req.user.organization
     });
+    await createAuditLog({
+      action: 'Campaign Template Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, templateId: emailTemplate, templateName: existingTemplate.name, status: campaign.status },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -481,6 +504,17 @@ exports.updateContacts = async (req, res) => {
       details: { before: oldCampaign, after: campaign },
       organization: req.user.organization
     });
+    await createAuditLog({
+      action: 'Campaign Contacts Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status, contactCount: targetContacts?.length || 0 },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json(campaign);
   } catch (error) {
@@ -578,6 +612,17 @@ exports.updateSenderEmails = async (req, res) => {
       details: { before: oldCampaign, after: campaign },
       organization: req.user.organization
     });
+    await createAuditLog({
+      action: 'Campaign Sender Emails Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status, senderEmailCount: senderEmails?.length || 0 },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json(campaign);
   } catch (error) {
@@ -651,16 +696,18 @@ exports.updateTargetCategories = async (req, res) => {
     const { campaignId } = req.params;
     const { targetCategories } = req.body;
 
+    // Fetch campaign before update for logging
+    const oldCampaign = await Campaign.findById(campaignId);
+    if (!oldCampaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
     // Update the campaign with the target categories
     const campaign = await Campaign.findByIdAndUpdate(
       campaignId,
       { targetCategories },  // Set the target categories
       { new: true } // Return the updated document
     );
-
-    if (!campaign) {
-      return res.status(404).json({ error: "Campaign not found" });
-    }
 
     await logEvent({
       action: 'update_campaign',
@@ -669,6 +716,17 @@ exports.updateTargetCategories = async (req, res) => {
       resourceId: campaign._id,
       details: { before: oldCampaign, after: campaign },
       organization: req.user.organization
+    });
+    await createAuditLog({
+      action: 'Campaign Target Categories Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status, targetCategories: targetCategories },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json(campaign);
@@ -794,26 +852,10 @@ exports.startCampaign = async (req, res) => {
           order: latestOrder ? latestOrder.toObject() : null
         };
 
-        // Use new dynamic variable replacement if template has variables defined
-        let personalizedSubject, personalizedBody;
-        
-        if (campaign.emailTemplate.variables && Object.keys(campaign.emailTemplate.variables).length > 0) {
-          console.log('Using new dynamic variable system with order data');
-          personalizedSubject = replaceTemplateVariables(
-            campaign.emailTemplate.subject, 
-            contactData, 
-            campaign.emailTemplate.variables
-          );
-          personalizedBody = replaceTemplateVariables(
-            campaign.emailTemplate.body, 
-            contactData, 
-            campaign.emailTemplate.variables
-          );
-        } else {
-          console.log('Using legacy placeholder system');
-          personalizedSubject = replacePlaceholders(campaign.emailTemplate.subject, contact);
-          personalizedBody = replacePlaceholders(campaign.emailTemplate.body, contact);
-        }
+        // Replace template variables with contact data
+        // Always use replacePlaceholders which handles both camelCase and snake_case variables
+        let personalizedSubject = replacePlaceholders(campaign.emailTemplate.subject, contactData);
+        let personalizedBody = replacePlaceholders(campaign.emailTemplate.body, contactData);
 
         if (campaign.emailTemplate.trackingEnabled) {
           personalizedBody = injectTrackingIntoLinks(personalizedBody, campaign._id, contact._id);
@@ -854,6 +896,17 @@ exports.startCampaign = async (req, res) => {
       resourceId: campaign._id,
       details: { recipients: campaign.targetContacts.map(c => c.email) },
       organization: req.user.organization
+    });
+    await createAuditLog({
+      action: 'Campaign Sent',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status, recipientCount: campaign.targetContacts.length, sentCount: campaign.sentCount },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(200).json({ message: 'Campaign started successfully', campaign });
@@ -932,7 +985,10 @@ exports.updateStatus = async (req, res) => {
       if (!campaign) {
         return res.status(404).json({ error: 'Campaign not found' });
       }
-  
+
+      // Store old status for logging
+      const oldStatus = campaign.status;
+
       campaign.status = req.body.status;
       await campaign.save();
       await logEvent({
@@ -940,8 +996,19 @@ exports.updateStatus = async (req, res) => {
         user: req.user._id,
         resource: 'Campaign',
         resourceId: campaign._id,
-        details: { before: oldCampaign, after: campaign },
+        details: { previousStatus: oldStatus, newStatus: campaign.status },
         organization: req.user.organization
+      });
+      await createAuditLog({
+        action: 'Campaign Status Updated',
+        user: req.user?._id || req.user?.userId,
+        resource: 'campaign',
+        resourceId: campaign._id,
+        details: { name: campaign.name, status: campaign.status, previousStatus: oldStatus },
+        organization: req.user?.organization || campaign.organization,
+        severity: 'info',
+        ip: req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('User-Agent')
       });
       res.status(200).json(campaign);
     } catch (error) {
@@ -1011,8 +1078,81 @@ exports.updateStatus = async (req, res) => {
       res.status(500).json({ error: 'Error tracking open event' });
     }
   };
-  
-  
+
+// Route to track email link clicks
+exports.trackClick = async (req, res) => {
+  const { campaignId, customerId } = req.params;
+  const { redirect } = req.query;
+
+  try {
+    // Find the campaign
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+      // Still redirect even if campaign not found
+      if (redirect) {
+        return res.redirect(decodeURIComponent(redirect));
+      }
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    // Find the contact
+    const contact = await Customer.findById(customerId);
+    if (!contact) {
+      // Still redirect even if contact not found
+      if (redirect) {
+        return res.redirect(decodeURIComponent(redirect));
+      }
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    // Add the contact's ID to the campaign's contactsClicked array
+    if (!campaign.contactsClicked.includes(contact._id)) {
+      campaign.contactsClicked.push(contact._id);
+    }
+
+    // Update click count
+    campaign.clickCount = (campaign.clickCount || 0) + 1;
+
+    // Save the updated campaign
+    await campaign.save();
+
+    // Extract analytics info
+    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+    const geo = geoip.lookup(ip) || {};
+    const country = geo.country || 'Unknown';
+
+    // Parse user agent
+    const ua = req.headers['user-agent'] || '';
+    const parser = new UAParser(ua);
+    const deviceType = parser.getDevice().type || 'desktop';
+    const client = parser.getBrowser().name || 'Unknown';
+
+    // Log to EmailLogs
+    await EmailLogs.create({
+      emailId: null,
+      status: 'clicked',
+      deviceType,
+      client,
+      country,
+    });
+
+    // Redirect to original URL
+    if (redirect) {
+      return res.redirect(decodeURIComponent(redirect));
+    }
+
+    res.status(200).json({ success: true, message: 'Click tracked' });
+  } catch (error) {
+    console.error('Error tracking click event:', error);
+    // Still try to redirect on error
+    if (redirect) {
+      return res.redirect(decodeURIComponent(redirect));
+    }
+    res.status(500).json({ error: 'Error tracking click event' });
+  }
+};
+
+
 
 /**
  * @swagger
@@ -1596,25 +1736,70 @@ const replaceTemplateVariables = (template, contact, templateVariables) => {
   return processedTemplate;
 };
 
-// Legacy function for backward compatibility (will be removed in future)
+// Legacy function for backward compatibility - handles camelCase placeholders from frontend
 const replacePlaceholders = (template, contact) => {
-  console.log('Using legacy placeholder replacement');
-  
-  // Use correct field names from customer model (snake_case)
+  console.log('Using placeholder replacement');
+
+  // Extract values from customer/contact model
   const firstName = contact.first_name || contact.billing?.first_name || 'Valued Customer';
   const lastName = contact.last_name || contact.billing?.last_name || '';
   const email = contact.email || '';
+  const userName = contact.username || firstName;
+  const companyName = contact.billing?.company || contact.company || '';
   const country = contact.billing?.country || contact.shipping?.country || '';
   const language = contact.language || 'en';
-  
-  console.log('Processed values:', { firstName, lastName, email, country, language });
-  
+  const phone = contact.billing?.phone || contact.phone || '';
+  const city = contact.billing?.city || contact.shipping?.city || '';
+  const address = contact.billing?.address_1 || contact.shipping?.address_1 || '';
+
+  // Extract order data if available
+  const order = contact.order || {};
+  const orderNumber = order.number || order.id || order._id || '';
+  const orderTotal = order.total ? `$${parseFloat(order.total).toFixed(2)}` : '';
+  const orderDate = order.date_created ? new Date(order.date_created).toLocaleDateString() : '';
+  const orderStatus = order.status || '';
+
+  // Get first product name if available
+  const productName = order.line_items?.[0]?.name || '';
+
+  // Current date
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  // Unsubscribe link placeholder
+  const unsubscribeLink = `<a href="${process.env.BASE_URL || ''}/unsubscribe/${contact._id}">Unsubscribe</a>`;
+
+  console.log('Processed values:', { firstName, lastName, email, orderNumber, orderTotal });
+
   return template
+    // Personal info - camelCase (frontend)
     .replace(/\{\{firstName\}\}/g, firstName)
     .replace(/\{\{lastName\}\}/g, lastName)
     .replace(/\{\{email\}\}/g, email)
+    .replace(/\{\{userName\}\}/g, userName)
+    .replace(/\{\{companyName\}\}/g, companyName)
+    .replace(/\{\{phone\}\}/g, phone)
+    .replace(/\{\{city\}\}/g, city)
+    .replace(/\{\{address\}\}/g, address)
     .replace(/\{\{country\}\}/g, country)
-    .replace(/\{\{language\}\}/g, language);
+    .replace(/\{\{language\}\}/g, language)
+    // Personal info - snake_case (backend config)
+    .replace(/\{\{first_name\}\}/g, firstName)
+    .replace(/\{\{last_name\}\}/g, lastName)
+    .replace(/\{\{user_name\}\}/g, userName)
+    .replace(/\{\{company_name\}\}/g, companyName)
+    // Order info
+    .replace(/\{\{orderNumber\}\}/g, orderNumber)
+    .replace(/\{\{orderTotal\}\}/g, orderTotal)
+    .replace(/\{\{orderDate\}\}/g, orderDate)
+    .replace(/\{\{orderStatus\}\}/g, orderStatus)
+    .replace(/\{\{productName\}\}/g, productName)
+    // Utility
+    .replace(/\{\{currentDate\}\}/g, currentDate)
+    .replace(/\{\{unsubscribeLink\}\}/g, unsubscribeLink);
 };
 
 const BASE_URL = process.env.BASE_URL;
@@ -1878,17 +2063,32 @@ exports.getCampaignById = async (req, res) => {
  */
 exports.updateCampaign = async (req, res) => {
   try {
-    const campaign = await Campaign.findByIdAndUpdate(req.params.campaignId, req.body, { new: true });
-    if (!campaign) {
+    // Fetch campaign before update for logging
+    const oldCampaign = await Campaign.findById(req.params.campaignId);
+    if (!oldCampaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
+
+    const campaign = await Campaign.findByIdAndUpdate(req.params.campaignId, req.body, { new: true });
+
     await logEvent({
       action: 'update_campaign',
       user: req.user._id,
       resource: 'Campaign',
       resourceId: campaign._id,
-      details: { before: oldCampaign, after: campaign },
+      details: { before: oldCampaign.toObject(), after: campaign.toObject() },
       organization: req.user.organization
+    });
+    await createAuditLog({
+      action: 'Campaign Updated',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
     res.status(200).json(campaign);
   } catch (error) {
@@ -1952,6 +2152,17 @@ exports.deleteCampaign = async (req, res) => {
       resourceId: campaign._id,
       details: { name: campaign.name },
       organization: req.user.organization
+    });
+    await createAuditLog({
+      action: 'Campaign Deleted',
+      user: req.user?._id || req.user?.userId,
+      resource: 'campaign',
+      resourceId: campaign._id,
+      details: { name: campaign.name, status: campaign.status },
+      organization: req.user?.organization || campaign.organization,
+      severity: 'info',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
     });
     res.status(200).json({ message: 'Campaign deleted successfully' });
   } catch (error) {

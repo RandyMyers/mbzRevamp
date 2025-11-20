@@ -564,6 +564,66 @@ class SendGridService {
   }
   
   /**
+   * Send login verification email (for 2FA)
+   * @param {Object} user - User object
+   * @param {string} verificationCode - 6-digit verification code
+   * @param {Object} organization - Organization object
+   * @returns {Promise<Object>} Result object
+   */
+  static async sendLoginVerificationEmail(user, verificationCode, organization) {
+    try {
+      const content = `
+        <h2>Hello ${user.fullName || 'there'}!</h2>
+
+        <p>We received a login request for your account at <strong>${organization?.name || 'Elapix'}</strong>. To complete your login, please enter the verification code below:</p>
+
+        <div style="background: white; color: #800020; padding: 30px; text-align: center; font-size: 36px; font-weight: bold; margin: 25px 0; border-radius: 8px; letter-spacing: 8px; border: 3px solid #800020;">
+          ${verificationCode}
+        </div>
+
+        <div class="info-box">
+          <h3>⏱️ Important Information:</h3>
+          <ul>
+            <li>This code will expire in <strong>15 minutes</strong></li>
+            <li>Never share this code with anyone</li>
+            <li>If you didn't attempt to log in, please secure your account immediately</li>
+          </ul>
+        </div>
+
+        <div class="divider"></div>
+
+        <p style="color: #6c757d; font-size: 14px;">If you didn't request this login verification, someone may be trying to access your account. Please change your password immediately.</p>
+
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization?.name || 'Elapix'} Team</strong></p>
+      `;
+
+      const htmlContent = this.generateEmailTemplate({
+        title: 'Verify Your Login',
+        heading: '🔐 Login Verification',
+        content: content
+      });
+
+      const emailData = {
+        to: user.email,
+        subject: `Login Verification Code - ${organization?.name || 'Elapix'}`,
+        html: htmlContent,
+        userId: user._id,
+        organizationId: organization?._id || user.organization
+      };
+
+      return await this.sendEmail(emailData);
+
+    } catch (error) {
+      console.error('❌ [SENDGRID] Failed to send login verification email:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Send password reset email with token link
    * @param {Object} user - User object
    * @param {Object} resetToken - Reset token object
@@ -881,6 +941,157 @@ class SendGridService {
 
     } catch (error) {
       console.error('❌ [SENDGRID] Failed to send password reset success email:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Send Login OTP Email
+   * @param {Object} user - User object
+   * @param {string} code - 6-digit OTP code
+   * @param {Object} organization - Organization object
+   * @returns {Promise<Object>} Result object
+   */
+  static async sendLoginOTPEmail(user, code, organization) {
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Login Verification Code - ${organization.name}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              margin: 0;
+              padding: 0;
+              background-color: #f8f9fa;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #800020 0%, #a0002a 100%);
+              color: white;
+              padding: 30px 20px;
+              text-align: center;
+              border-radius: 8px 8px 0 0;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            .content {
+              padding: 30px;
+              background: #ffffff;
+            }
+            .footer {
+              text-align: center;
+              padding: 20px;
+              color: #666;
+              font-size: 12px;
+              background-color: #f8f9fa;
+              border-top: 1px solid #e9ecef;
+              border-radius: 0 0 8px 8px;
+            }
+            .code-container {
+              background: #ffffff;
+              border: 2px solid #800020;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 25px 0;
+              text-align: center;
+              box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
+            }
+            .code {
+              font-size: 36px;
+              font-weight: bold;
+              color: #800020;
+              letter-spacing: 12px;
+              font-family: 'Courier New', monospace;
+              margin: 10px 0;
+            }
+            .warning {
+              background: #fff3cd;
+              border: 1px solid #ffeaa7;
+              padding: 20px;
+              margin: 20px 0;
+              border-radius: 8px;
+              color: #856404;
+              border-left: 4px solid #ffc107;
+            }
+          </style>
+        </head>
+        <body>
+          <div style="padding: 20px;">
+            <div class="container">
+              <div class="header">
+                <div style="font-size: 48px; margin-bottom: 10px;">🔐</div>
+                <h1>Login Verification</h1>
+                <p style="margin: 10px 0 0; opacity: 0.9;">Two-Factor Authentication</p>
+              </div>
+
+              <div class="content">
+                <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName || user.email}!</h2>
+                <p>You're attempting to sign in to <strong>${organization.name}</strong>. To complete your login, please use the verification code below.</p>
+
+                <div class="code-container">
+                  <h3 style="margin: 0 0 15px; color: #333;">Your Verification Code:</h3>
+                  <div class="code">${code}</div>
+                  <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Enter this 6-digit code to complete your login.</strong></p>
+                </div>
+
+                <div class="warning">
+                  <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Security Information:</h4>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li>This code will expire in <strong>5 minutes</strong></li>
+                    <li>Never share this code with anyone</li>
+                    <li>If you didn't attempt to log in, please secure your account immediately</li>
+                    <li>For security, this code can only be used once</li>
+                  </ul>
+                </div>
+
+                <p style="margin-top: 30px;">If you didn't request this code, please ignore this email and ensure your password is secure.</p>
+              </div>
+
+              <div class="footer">
+                <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
+                <p style="margin: 5px 0;">This email was sent by Elapix Platform</p>
+                <p style="margin: 5px 0;">© ${new Date().getFullYear()} Elapix. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const emailData = {
+        to: user.email,
+        subject: `Login Verification Code - ${organization.name}`,
+        html: htmlContent,
+        userId: user._id,
+        organizationId: organization._id
+      };
+
+      const result = await this.sendEmail(emailData);
+
+      if (result.success) {
+        console.log(`✅ [SENDGRID] Login OTP email sent to ${user.email}`);
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ [SENDGRID] Failed to send login OTP email:', error);
       return {
         success: false,
         error: error.message

@@ -572,35 +572,43 @@ router.get('/metrics/click-rate/:organizationId', protect, campaignController.ge
  *       500:
  *         description: Server error
  */
-router.get('/track/open/:campaignId/:customerId', protect, campaignController.trackOpen);
+router.get('/track/open/:campaignId/:customerId', campaignController.trackOpen);
 
 /**
  * @swagger
- * /api/campaigns/track/click/:campaignId/:contactId:
+ * /api/campaigns/track/click/{campaignId}/{customerId}:
  *   get:
- *     summary: Get Click
+ *     summary: Track email link click
  *     tags: [Campaigns]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Campaign ID
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *       - in: query
+ *         name: redirect
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: URL to redirect to after tracking
  *     responses:
+ *       302:
+ *         description: Redirects to the original URL
  *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
+ *         description: Click tracked successfully
+ *       404:
+ *         description: Campaign or contact not found
  *       500:
  *         description: Server error
  */
-// router.get('/track/click/:campaignId/:contactId', protect, campaignController.trackClick); // Implement if needed
+router.get('/track/click/:campaignId/:customerId', campaignController.trackClick);
 
 module.exports = router; 
