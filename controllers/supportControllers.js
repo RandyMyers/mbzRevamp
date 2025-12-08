@@ -213,12 +213,46 @@ exports.createTicket = async (req, res) => {
 // Get all tickets for an organization
 exports.getTickets = async (req, res) => {
   try {
-    const { organizationId } = req.query;
+    const { organizationId, customerEmail, page = 1, limit = 10 } = req.query;
     if (!organizationId) {
       return res.status(400).json({ success: false, error: 'organizationId is required' });
     }
-    const tickets = await SupportTicket.find({ organizationId }).sort({ updatedAt: -1 });
-    res.json({ success: true, data: tickets });
+
+    // Build query filter
+    const filter = { organizationId };
+
+    // If customerEmail is provided, filter by customer email (for customer dashboard)
+    if (customerEmail) {
+      filter['customer.email'] = customerEmail;
+    }
+
+    // Calculate pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count for pagination metadata
+    const totalTickets = await SupportTicket.countDocuments(filter);
+    const totalPages = Math.ceil(totalTickets / limitNum);
+
+    // Fetch paginated tickets
+    const tickets = await SupportTicket.find(filter)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    res.json({
+      success: true,
+      data: tickets,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalTickets,
+        limit: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPreviousPage: pageNum > 1
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

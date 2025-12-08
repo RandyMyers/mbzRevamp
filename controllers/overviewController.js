@@ -247,10 +247,7 @@ exports.getOverviewStats = async (req, res) => {
           _id: { $ifNull: ['$line_items.inventoryId', '$line_items.product_id'] },
           name: { $first: '$line_items.name' },
           quantity: { $sum: { $toInt: { $ifNull: ['$line_items.quantity', 1] } } },
-          revenue: { $sum: { $multiply: [
-            { $toDouble: { $ifNull: ['$line_items.subtotal', 0] } },
-            { $toInt: { $ifNull: ['$line_items.quantity', 1] } }
-          ]}},
+          revenue: { $sum: { $toDouble: { $ifNull: ['$line_items.subtotal', 0] } } },
           currency: { $first: { $ifNull: ['$currency', 'USD'] } }
         }},
         { $sort: { revenue: -1 } },
@@ -400,10 +397,10 @@ exports.getOverviewStats = async (req, res) => {
     const recentOrders = recentOrdersData.map(order => ({
       id: order._id,
       orderId: order.number || order._id,
-      customer: order.billing ? `${order.billing.first_name} ${order.billing.last_name}` : 'Unknown',
+      customer: order.billing ? `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
       product: order.line_items && order.line_items.length > 0 ? order.line_items[0].name : 'Unknown',
       status: order.status || 'unknown',
-      amount: order.total || '0',
+      amount: String(order.total || '0'),
       date: order.date_created
     }));
 
@@ -1082,10 +1079,10 @@ exports.getRecentOrders = async (req, res) => {
     const recentOrders = allOrders.map(order => ({
       id: order._id,
       orderId: order.number || order._id,
-      customer: order.billing ? `${order.billing.first_name} ${order.billing.last_name}` : 'Unknown',
+      customer: order.billing ? `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
       product: order.line_items && order.line_items.length > 0 ? order.line_items[0].name : 'Unknown',
       status: order.status || 'unknown',
-      amount: order.total || '0',
+      amount: String(order.total || '0'),
       date: order.date_created
     }));
 
@@ -1406,25 +1403,29 @@ exports.testProductImages = async (req, res) => {
 exports.getStockStatusDistribution = async (req, res) => {
   try {
     const { userId } = req.params;
-    
+    const { displayCurrency } = req.query;
+
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User ID is required" 
+      return res.status(400).json({
+        success: false,
+        error: "User ID is required"
       });
     }
 
     // Get organizationId from userId
     const organizationId = await getOrganizationIdFromUserId(userId);
-    
+
     if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User not found or no organization associated" 
+      return res.status(400).json({
+        success: false,
+        error: "User not found or no organization associated"
       });
     }
 
     const orgId = new mongoose.Types.ObjectId(organizationId);
+
+    // Determine display currency for conversion
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     // Get all products for the organization
     const allProducts = await safeQuery(async () => {
@@ -1447,7 +1448,7 @@ exports.getStockStatusDistribution = async (req, res) => {
 
     allProducts.forEach(product => {
       const stockStatus = product.stock_status || 'unknown';
-      
+
       // Count products per stock status
       if (!stockStatusCounts[stockStatus]) {
         stockStatusCounts[stockStatus] = 0;
@@ -1455,12 +1456,20 @@ exports.getStockStatusDistribution = async (req, res) => {
       stockStatusCounts[stockStatus]++;
     });
 
-    // Calculate sales impact by stock status
-    allOrders.forEach(order => {
-      if (order.line_items) {
-        order.line_items.forEach(item => {
+    // Calculate sales impact by stock status with currency conversion
+    for (const order of allOrders) {
+      if (order.line_items && Array.isArray(order.line_items)) {
+        const orderCurrency = order.currency || 'USD';
+
+        // Get exchange rate for this order's currency (cache rates per order currency)
+        let exchangeRate = 1;
+        if (orderCurrency !== targetCurrency) {
+          exchangeRate = await currencyUtils.getExchangeRate(organizationId, orderCurrency, targetCurrency) || 1;
+        }
+
+        for (const item of order.line_items) {
           // Find the product in inventory
-          const product = allProducts.find(p => 
+          const product = allProducts.find(p =>
             p._id.toString() === item.inventoryId?.toString() ||
             p.product_Id?.toString() === item.product_id ||
             p.sku === item.product_id
@@ -1471,11 +1480,13 @@ exports.getStockStatusDistribution = async (req, res) => {
             if (!stockStatusSales[stockStatus]) {
               stockStatusSales[stockStatus] = 0;
             }
-            stockStatusSales[stockStatus] += parseFloat(item.subtotal) || 0;
+            // Convert subtotal to target currency before adding
+            const subtotalInTargetCurrency = (parseFloat(item.subtotal) || 0) * exchangeRate;
+            stockStatusSales[stockStatus] += subtotalInTargetCurrency;
           }
-        });
+        }
       }
-    });
+    }
 
     // Convert to array format for pie chart
     const stockStatusData = Object.keys(stockStatusCounts).map(stockStatus => {
@@ -1607,25 +1618,29 @@ exports.getStockStatusDistribution = async (req, res) => {
 exports.getProductCategoriesDistribution = async (req, res) => {
   try {
     const { userId } = req.params;
-    
+    const { displayCurrency } = req.query;
+
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User ID is required" 
+      return res.status(400).json({
+        success: false,
+        error: "User ID is required"
       });
     }
 
     // Get organizationId from userId
     const organizationId = await getOrganizationIdFromUserId(userId);
-    
+
     if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "User not found or no organization associated" 
+      return res.status(400).json({
+        success: false,
+        error: "User not found or no organization associated"
       });
     }
 
     const orgId = new mongoose.Types.ObjectId(organizationId);
+
+    // Determine display currency for conversion
+    const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     // Get all products for the organization
     const allProducts = await safeQuery(async () => {
@@ -1639,10 +1654,10 @@ exports.getProductCategoriesDistribution = async (req, res) => {
     const categorySales = {};
 
     allProducts.forEach(product => {
-      if (product.categories && product.categories.length > 0) {
+      if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
         product.categories.forEach(category => {
           const categoryName = category.name;
-          
+
           // Count products per category
           if (!categoryCounts[categoryName]) {
             categoryCounts[categoryName] = 0;
@@ -1667,24 +1682,33 @@ exports.getProductCategoriesDistribution = async (req, res) => {
       }).lean();
     }, []);
 
-    // Calculate sales by category
-    allOrders.forEach(order => {
-      if (order.line_items) {
-        order.line_items.forEach(item => {
+    // Calculate sales by category with currency conversion
+    for (const order of allOrders) {
+      if (order.line_items && Array.isArray(order.line_items)) {
+        const orderCurrency = order.currency || 'USD';
+
+        // Get exchange rate for this order's currency
+        let exchangeRate = 1;
+        if (orderCurrency !== targetCurrency) {
+          exchangeRate = await currencyUtils.getExchangeRate(organizationId, orderCurrency, targetCurrency) || 1;
+        }
+
+        for (const item of order.line_items) {
           // Find the product in inventory
-          const product = allProducts.find(p => 
+          const product = allProducts.find(p =>
             p._id.toString() === item.inventoryId?.toString() ||
             p.product_Id?.toString() === item.product_id ||
             p.sku === item.product_id
           );
 
-          if (product && product.categories && product.categories.length > 0) {
+          if (product && product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+            const subtotalInTargetCurrency = (parseFloat(item.subtotal) || 0) * exchangeRate;
             product.categories.forEach(category => {
               const categoryName = category.name;
               if (!categorySales[categoryName]) {
                 categorySales[categoryName] = 0;
               }
-              categorySales[categoryName] += parseFloat(item.subtotal) || 0;
+              categorySales[categoryName] += subtotalInTargetCurrency;
             });
           } else {
             // Handle products without categories
@@ -1692,11 +1716,12 @@ exports.getProductCategoriesDistribution = async (req, res) => {
             if (!categorySales[uncategorized]) {
               categorySales[uncategorized] = 0;
             }
-            categorySales[uncategorized] += parseFloat(item.subtotal) || 0;
+            const subtotalInTargetCurrency = (parseFloat(item.subtotal) || 0) * exchangeRate;
+            categorySales[uncategorized] += subtotalInTargetCurrency;
           }
-        });
+        }
       }
-    });
+    }
 
     // Convert to array format for pie chart
     const categoriesData = Object.keys(categoryCounts).map(categoryName => {
