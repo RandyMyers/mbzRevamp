@@ -48,13 +48,19 @@ const syncProductJob = async (jobData) => {
     // Fetch all products from WooCommerce
     const getAllProducts = async (page = 1) => {
       try {
-        const response = await wooCommerce.get('products', { per_page: 100, page });
+        const response = await wooCommerce.get('products', {
+          per_page: 100,
+          page,
+          status: 'any', // Fetch products with any status (publish, draft, pending, private)
+          orderby: 'id',
+          order: 'asc'
+        });
         return response.data;
       } catch (error) {
         // Parse the error using our error handler
         const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'product sync');
         StoreErrorHandler.logError(errorInfo, 'syncProductWorker.getAllProducts');
-        
+
         // Send detailed error message to parent process
         parentPort.postMessage({
           status: 'error',
@@ -63,7 +69,7 @@ const syncProductJob = async (jobData) => {
           suggestions: errorInfo.suggestedActions,
           technicalDetails: errorInfo.technicalDetails
         });
-        
+
         throw error;
       }
     };
@@ -156,7 +162,7 @@ const syncProductJob = async (jobData) => {
           wooCommerceId: wooCommerceId, // Primary identifier
           product_Id: product.id.toString(),
           name: product.name || 'N/A',
-          sku: product.sku || 'N/A',
+          sku: product.sku || `NO-SKU-${wooCommerceId}`, // Make empty SKUs unique using WooCommerce ID
           description: product.description || 'N/A',
           short_description: product.short_description || 'N/A',
           // Converted prices (display currency)

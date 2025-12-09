@@ -87,34 +87,36 @@ const storeErrorNotification = async (storeId, operation, errorMessage, organiza
 
 // Synchronize products with WooCommerce API
 exports.syncProducts = async (storeId, organizationId, userId) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      console.log(`🔄 Starting product sync for store: ${storeId}`);
+  try {
+    console.log(`🔄 Starting product sync for store: ${storeId}`);
 
-      const store = await Store.findById(storeId);
-      if (!store) {
-        console.error('❌ Store not found for product sync');
-        reject(new Error('Store not found for product sync'));
-        return;
-      }
+    const store = await Store.findById(storeId);
+    if (!store) {
+      console.error('❌ Store not found for product sync');
+      throw new Error('Store not found for product sync');
+    }
 
-      const organization = await Organization.findById(organizationId);
-      if (!organization) {
-        console.error('❌ Organization not found for product sync');
-        reject(new Error('Organization not found for product sync'));
-        return;
-      }
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      console.error('❌ Organization not found for product sync');
+      throw new Error('Organization not found for product sync');
+    }
 
-      // Extract only serializable properties from the store document
-      const storeData = {
-        _id: store._id,
-        name: store.name,
-        url: store.url,
-        apiKey: store.apiKey,
-        secretKey: store.secretKey,
-        platformType: store.platformType,
-        isActive: store.isActive
-      };
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
+    // Use proper Promise constructor without async wrapper
+    return new Promise((resolve, reject) => {
+      let settled = false; // Prevent multiple resolve/reject calls
+      let timeoutId;
 
       const worker = new Worker(path.resolve(__dirname, '../helper/syncProductWorker.js'), {
         workerData: { storeId, store: storeData, organizationId, userId },
@@ -122,7 +124,27 @@ exports.syncProducts = async (storeId, organizationId, userId) => {
 
       console.log('Worker Path:', path.resolve(__dirname, '../helper/syncProductWorker.js'));
 
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+          worker.terminate();
+        } catch (err) {
+          // Worker already terminated
+        }
+      };
+
+      // Add timeout to force-terminate worker after 10 minutes
+      timeoutId = setTimeout(() => {
+        if (settled) return;
+        console.error(`❌ Product sync worker timeout after 10 minutes for store: ${storeId}`);
+        settled = true;
+        cleanup();
+        reject(new Error('Product sync timeout - worker terminated after 10 minutes'));
+      }, 10 * 60 * 1000); // 10 minutes
+
       worker.on('message', (message) => {
+        if (settled) return; // Already resolved/rejected
+
         if (message.status === 'success') {
           console.log(`✅ Product sync completed: ${message.message}`);
           // Notify success for product sync
@@ -133,12 +155,13 @@ exports.syncProducts = async (storeId, organizationId, userId) => {
             subject: `WooCommerce Product Sync Succeeded - ${store.name}`,
             body: `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
           }).catch(() => {});
+          settled = true;
           resolve(message);
         } else if (message.status === 'error') {
           console.error(`❌ Product sync error: ${message.message}`);
           console.error(`📋 Error Type: ${message.errorType}`);
           console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-          
+
           // Store error information in the database for user notification
           storeErrorNotification(storeId, 'product_sync', message, organizationId, userId);
           // Notify failure for product sync
@@ -149,69 +172,98 @@ exports.syncProducts = async (storeId, organizationId, userId) => {
             subject: `WooCommerce Product Sync Failed - ${store.name}`,
             body: `Product sync failed for ${store.name}. Error: ${message.message}. Type: ${message.errorType}`
           }).catch(() => {});
+          settled = true;
           reject(new Error(message.message));
         }
       });
 
       worker.on('error', (error) => {
+        if (settled) return; // Already resolved/rejected
+
         console.error(`❌ Product sync worker error: ${error.message}`);
+        settled = true;
+        cleanup();
         reject(error);
       });
 
       worker.on('exit', (code) => {
+        if (settled) return; // Already resolved/rejected
+
         if (code !== 0) {
           console.error(`❌ Product sync worker stopped with exit code ${code}`);
+          settled = true;
           reject(new Error(`Worker exited with code ${code}`));
-        } else {
-          console.log('✅ Product sync worker completed successfully');
-          resolve({ status: 'completed' });
         }
+        // Don't resolve on exit 0 if not already resolved - message handler should do it
       });
-
-    } catch (error) {
-      console.error('❌ Error in syncProducts:', error.message);
-      reject(error);
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Error in syncProducts:', error.message);
+    throw error;
+  }
 };
 
 exports.syncCustomers = async (storeId, organizationId, userId) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      console.log(`🔄 Starting customer sync for store: ${storeId}`);
+  try {
+    console.log(`🔄 Starting customer sync for store: ${storeId}`);
 
-      const store = await Store.findById(storeId);
-      if (!store) {
-        console.error('❌ Store not found for customer sync');
-        reject(new Error('Store not found for customer sync'));
-        return;
-      }
+    const store = await Store.findById(storeId);
+    if (!store) {
+      console.error('❌ Store not found for customer sync');
+      throw new Error('Store not found for customer sync');
+    }
 
-      const organization = await Organization.findById(organizationId);
-      if (!organization) {
-        console.error('❌ Organization not found for customer sync');
-        reject(new Error('Organization not found for customer sync'));
-        return;
-      }
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      console.error('❌ Organization not found for customer sync');
+      throw new Error('Organization not found for customer sync');
+    }
 
-      // Extract only serializable properties from the store document
-      const storeData = {
-        _id: store._id,
-        name: store.name,
-        url: store.url,
-        apiKey: store.apiKey,
-        secretKey: store.secretKey,
-        platformType: store.platformType,
-        isActive: store.isActive
-      };
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
+    // Use proper Promise constructor without async wrapper
+    return new Promise((resolve, reject) => {
+      let settled = false; // Prevent multiple resolve/reject calls
+      let timeoutId;
 
       const worker = new Worker(path.resolve(__dirname, '../helper/syncCustomerWorker.js'), {
         workerData: { storeId, store: storeData, organizationId, userId },
       });
 
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+          worker.terminate();
+        } catch (err) {
+          // Worker already terminated
+        }
+      };
+
+      // Add timeout to force-terminate worker after 10 minutes
+      timeoutId = setTimeout(() => {
+        if (settled) return;
+        console.error(`❌ Customer sync worker timeout after 10 minutes for store: ${storeId}`);
+        settled = true;
+        cleanup();
+        reject(new Error('Customer sync timeout - worker terminated after 10 minutes'));
+      }, 10 * 60 * 1000); // 10 minutes
+
       worker.on('message', (message) => {
+        if (settled) return; // Already resolved/rejected
+
         if (message.status === 'success') {
           console.log(`✅ Customer sync completed: ${message.message}`);
+          settled = true;
+          cleanup();
           // Notify success for customer sync
           createAndSendNotification({
             userId,
@@ -225,7 +277,9 @@ exports.syncCustomers = async (storeId, organizationId, userId) => {
           console.error(`❌ Customer sync error: ${message.message}`);
           console.error(`📋 Error Type: ${message.errorType}`);
           console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-          
+
+          settled = true;
+          cleanup();
           // Store error information in the database for user notification
           storeErrorNotification(storeId, 'customer_sync', message, organizationId, userId);
           // Notify failure for customer sync
@@ -241,9 +295,12 @@ exports.syncCustomers = async (storeId, organizationId, userId) => {
       });
 
       worker.on('error', (error) => {
+        if (settled) return;
         console.error(`❌ Customer sync worker error: ${error.message}`);
         console.error(`❌ Customer sync worker stack: ${error.stack}`);
-        
+
+        settled = true;
+        cleanup();
         // Store error notification for user feedback
         storeErrorNotification(storeId, 'customer_sync_worker_error', {
           message: error.message,
@@ -256,9 +313,12 @@ exports.syncCustomers = async (storeId, organizationId, userId) => {
       });
 
       worker.on('exit', (code) => {
+        if (settled) return;
+
         if (code !== 0) {
           console.error(`❌ Customer sync worker stopped with exit code ${code}`);
-          
+
+          settled = true;
           // Store error notification for user feedback
           storeErrorNotification(storeId, 'customer_sync_worker_exit', {
             message: `Worker exited with code ${code}`,
@@ -268,56 +328,76 @@ exports.syncCustomers = async (storeId, organizationId, userId) => {
             severity: 'error'
           }, organizationId, userId);
           reject(new Error(`Worker exited with code ${code}`));
-        } else {
-          console.log('✅ Customer sync worker completed successfully');
-          resolve({ status: 'completed' });
         }
       });
-
-    } catch (error) {
-      console.error('❌ Error in syncCustomers:', error.message);
-      reject(error);
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Error in syncCustomers:', error.message);
+    throw error;
+  }
 };
 
 exports.syncOrders = async (storeId, organizationId, userId) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      console.log(`🔄 Starting order sync for store: ${storeId}`);
+  try {
+    console.log(`🔄 Starting order sync for store: ${storeId}`);
 
-      const store = await Store.findById(storeId);
-      if (!store) {
-        console.error('❌ Store not found for order sync');
-        reject(new Error('Store not found for order sync'));
-        return;
-      }
+    const store = await Store.findById(storeId);
+    if (!store) {
+      console.error('❌ Store not found for order sync');
+      throw new Error('Store not found for order sync');
+    }
 
-      const organization = await Organization.findById(organizationId);
-      if (!organization) {
-        console.error('❌ Organization not found for order sync');
-        reject(new Error('Organization not found for order sync'));
-        return;
-      }
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      console.error('❌ Organization not found for order sync');
+      throw new Error('Organization not found for order sync');
+    }
 
-      // Extract only serializable properties from the store document
-      const storeData = {
-        _id: store._id,
-        name: store.name,
-        url: store.url,
-        apiKey: store.apiKey,
-        secretKey: store.secretKey,
-        platformType: store.platformType,
-        isActive: store.isActive
-      };
+    // Extract only serializable properties from the store document
+    const storeData = {
+      _id: store._id,
+      name: store.name,
+      url: store.url,
+      apiKey: store.apiKey,
+      secretKey: store.secretKey,
+      platformType: store.platformType,
+      isActive: store.isActive
+    };
+
+    // Use proper Promise constructor without async wrapper
+    return new Promise((resolve, reject) => {
+      let settled = false; // Prevent multiple resolve/reject calls
+      let timeoutId;
 
       const worker = new Worker(path.resolve(__dirname, '../helper/syncOrderWorker.js'), {
         workerData: { storeId, store: storeData, organizationId, userId },
       });
 
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+          worker.terminate();
+        } catch (err) {
+          // Worker already terminated
+        }
+      };
+
+      // Add timeout to force-terminate worker after 10 minutes
+      timeoutId = setTimeout(() => {
+        if (settled) return;
+        console.error(`❌ Order sync worker timeout after 10 minutes for store: ${storeId}`);
+        settled = true;
+        cleanup();
+        reject(new Error('Order sync timeout - worker terminated after 10 minutes'));
+      }, 10 * 60 * 1000); // 10 minutes
+
       worker.on('message', (message) => {
+        if (settled) return; // Already resolved/rejected
+
         if (message.status === 'success') {
           console.log(`✅ Order sync completed: ${message.message}`);
+          settled = true;
+          cleanup();
           // Notify success for order sync
           createAndSendNotification({
             userId,
@@ -331,7 +411,9 @@ exports.syncOrders = async (storeId, organizationId, userId) => {
           console.error(`❌ Order sync error: ${message.message}`);
           console.error(`📋 Error Type: ${message.errorType}`);
           console.error(`💡 Suggestions: ${message.suggestions?.join(', ')}`);
-          
+
+          settled = true;
+          cleanup();
           // Store error information in the database for user notification
           storeErrorNotification(storeId, 'order_sync', message, organizationId, userId);
           // Notify failure for order sync
@@ -347,9 +429,12 @@ exports.syncOrders = async (storeId, organizationId, userId) => {
       });
 
       worker.on('error', (error) => {
+        if (settled) return;
         console.error(`❌ Order sync worker error: ${error.message}`);
         console.error(`❌ Order sync worker stack: ${error.stack}`);
-        
+
+        settled = true;
+        cleanup();
         // Store error notification for user feedback
         storeErrorNotification(storeId, 'order_sync_worker_error', {
           message: error.message,
@@ -362,9 +447,12 @@ exports.syncOrders = async (storeId, organizationId, userId) => {
       });
 
       worker.on('exit', (code) => {
+        if (settled) return;
+
         if (code !== 0) {
           console.error(`❌ Order sync worker stopped with exit code ${code}`);
-          
+
+          settled = true;
           // Store error notification for user feedback
           storeErrorNotification(storeId, 'order_sync_worker_exit', {
             message: `Worker exited with code ${code}`,
@@ -374,17 +462,13 @@ exports.syncOrders = async (storeId, organizationId, userId) => {
             severity: 'error'
           }, organizationId, userId);
           reject(new Error(`Worker exited with code ${code}`));
-        } else {
-          console.log('✅ Order sync worker completed successfully');
-          resolve({ status: 'completed' });
         }
       });
-
-    } catch (error) {
-      console.error('❌ Error in syncOrders:', error.message);
-      reject(error);
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Error in syncOrders:', error.message);
+    throw error;
+  }
 };
 
 // Category sync function (different pattern - uses helper function)

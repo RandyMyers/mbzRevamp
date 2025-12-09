@@ -43,6 +43,39 @@ const getOrganizationIdFromUserId = async (userId) => {
   }
 };
 
+// Helper function to calculate date range for growth calculations
+const getDateRange = (timeRange) => {
+  const now = new Date();
+  const ranges = {
+    '7d': new Date(new Date().setDate(now.getDate() - 7)),
+    '30d': new Date(new Date().setDate(now.getDate() - 30)),
+    '90d': new Date(new Date().setDate(now.getDate() - 90)),
+    '12m': new Date(new Date().setDate(now.getDate() - 365)),
+    'ytd': new Date(new Date(now.getFullYear(), 0, 1))
+  };
+  return ranges[timeRange] || ranges['30d'];
+};
+
+// Helper function to get previous period date range for growth calculations
+const getPreviousPeriodRange = (timeRange) => {
+  const now = new Date();
+  const daysDiff = {
+    '7d': 7,
+    '30d': 30,
+    '90d': 90,
+    '12m': 365,
+    'ytd': Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24))
+  };
+  const days = daysDiff[timeRange] || 30;
+
+  return {
+    currentStart: new Date(new Date().setDate(now.getDate() - days)),
+    currentEnd: new Date(),
+    previousStart: new Date(new Date().setDate(now.getDate() - (days * 2))),
+    previousEnd: new Date(new Date().setDate(now.getDate() - days))
+  };
+};
+
 /**
  * @swagger
  * /api/overview/stats/{userId}:
@@ -167,7 +200,7 @@ const batchConvertCurrency = async (conversions, targetCurrency, organizationId)
 exports.getOverviewStats = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { displayCurrency } = req.query;
+    const { displayCurrency, timeRange } = req.query;
 
     if (!userId) {
       return res.status(400).json({
@@ -191,25 +224,53 @@ exports.getOverviewStats = async (req, res) => {
     // Determine display currency
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
-    // Run all queries in parallel
-    const [
-      revenuePipelineResults,
-      totalCustomers,
-      orderStats,
-      categoryStats,
-      stockStatusStats,
-      topProductStats,
-      recentOrdersData
-    ] = await Promise.all([
-      // Revenue calculation with currency grouping
-      Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(organizationId)),
+    // Calculate date ranges for growth calculations if timeRange is provided
+    let currentPeriodFilter = null;
+    let previousPeriodFilter = null;
+    let periodDates = null;
 
-      // Total customers count
-      Customer.countDocuments({ organizationId: orgId }),
+    if (timeRange) {
+      const { currentStart, currentEnd, previousStart, previousEnd } = getPreviousPeriodRange(timeRange);
+      currentPeriodFilter = { date_created: { $gte: currentStart } };
+      previousPeriodFilter = { date_created: { $gte: previousStart, $lt: previousEnd } };
+      periodDates = {
+        currentStart: currentStart.toISOString(),
+        currentEnd: currentEnd.toISOString(),
+        previousStart: previousStart.toISOString(),
+        previousEnd: previousEnd.toISOString()
+      };
+    }
+
+    // Build base match filter for orders (with optional date filter)
+    const orderBaseMatch = {
+      organizationId: orgId,
+      status: { $nin: ['cancelled', 'refunded'] },
+      ...(currentPeriodFilter || {})
+    };
+
+    // Build queries array
+    const queries = [
+      // Revenue calculation with currency grouping (with optional date filter)
+      Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(
+        organizationId,
+        targetCurrency,
+        currentPeriodFilter
+      )),
+
+      // Total customers count (with optional date filter)
+      Customer.countDocuments({
+        organizationId: orgId,
+        ...(currentPeriodFilter ? {
+          $or: [
+            currentPeriodFilter,
+            { createdAt: currentPeriodFilter.date_created }
+          ]
+        } : {})
+      }),
 
       // Order sources and status distribution
       Order.aggregate([
-        { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+        { $match: orderBaseMatch },
         { $facet: {
           sources: [
             { $group: { _id: { $ifNull: ['$created_via', 'manual'] }, count: { $sum: 1 } } }
@@ -220,7 +281,7 @@ exports.getOverviewStats = async (req, res) => {
         }}
       ]),
 
-      // Category distribution
+      // Category distribution (not date-filtered, always show all products)
       Inventory.aggregate([
         { $match: { organizationId: orgId } },
         { $unwind: { path: '$categories', preserveNullAndEmptyArrays: true } },
@@ -230,7 +291,7 @@ exports.getOverviewStats = async (req, res) => {
         }}
       ]),
 
-      // Stock status distribution
+      // Stock status distribution (not date-filtered, always show all products)
       Inventory.aggregate([
         { $match: { organizationId: orgId } },
         { $group: {
@@ -239,9 +300,9 @@ exports.getOverviewStats = async (req, res) => {
         }}
       ]),
 
-      // Top products by revenue (aggregated at DB level)
+      // Top products by revenue (with optional date filter)
       Order.aggregate([
-        { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+        { $match: orderBaseMatch },
         { $unwind: '$line_items' },
         { $group: {
           _id: { $ifNull: ['$line_items.inventoryId', '$line_items.product_id'] },
@@ -254,13 +315,61 @@ exports.getOverviewStats = async (req, res) => {
         { $limit: 5 }
       ]),
 
-      // Recent orders
+      // Recent orders (always show latest, no date filter)
       Order.find({ organizationId: orgId })
         .sort({ date_created: -1 })
         .limit(5)
         .select('number _id billing line_items status total date_created')
         .lean()
-    ]);
+    ];
+
+    // Add previous period queries if timeRange is provided
+    if (timeRange) {
+      const previousOrderMatch = {
+        organizationId: orgId,
+        status: { $nin: ['cancelled', 'refunded'] },
+        ...previousPeriodFilter
+      };
+
+      queries.push(
+        // Previous period revenue
+        Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(
+          organizationId,
+          targetCurrency,
+          previousPeriodFilter
+        )),
+
+        // Previous period customers
+        Customer.countDocuments({
+          organizationId: orgId,
+          $or: [
+            previousPeriodFilter,
+            { createdAt: previousPeriodFilter.date_created }
+          ]
+        }),
+
+        // Previous period order count
+        Order.countDocuments(previousOrderMatch)
+      );
+    }
+
+    // Run all queries in parallel
+    const results = await Promise.all(queries);
+
+    // Destructure current period results
+    const [
+      revenuePipelineResults,
+      totalCustomers,
+      orderStats,
+      categoryStats,
+      stockStatusStats,
+      topProductStats,
+      recentOrdersData,
+      // Previous period results (if timeRange provided)
+      previousRevenuePipelineResults,
+      previousTotalCustomers,
+      previousTotalOrders
+    ] = results;
 
     // Process revenue with currency conversion
     let totalRevenue = 0;
@@ -282,6 +391,52 @@ exports.getOverviewStats = async (req, res) => {
 
     // Calculate average order value
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Calculate growth percentages if timeRange is provided
+    let revenueGrowth = null;
+    let ordersGrowth = null;
+    let customersGrowth = null;
+    let aovGrowth = null;
+
+    if (timeRange && previousRevenuePipelineResults) {
+      try {
+        // Process previous period revenue
+        let previousTotalRevenue = 0;
+        let previousOrderCount = previousTotalOrders || 0;
+
+        const previousRevenueSummary = await currencyUtils.processMultiCurrencyResults(
+          previousRevenuePipelineResults,
+          targetCurrency,
+          organizationId
+        );
+        previousTotalRevenue = previousRevenueSummary.totalConverted || 0;
+        previousOrderCount = previousRevenueSummary.totalOrders || previousTotalOrders || 0;
+
+        const previousAverageOrderValue = previousOrderCount > 0 ? previousTotalRevenue / previousOrderCount : 0;
+        const previousCustomerCount = previousTotalCustomers || 0;
+
+        // Calculate growth percentages
+        revenueGrowth = previousTotalRevenue > 0
+          ? ((totalRevenue - previousTotalRevenue) / previousTotalRevenue) * 100
+          : (totalRevenue > 0 ? 100 : 0);
+
+        ordersGrowth = previousOrderCount > 0
+          ? ((totalOrders - previousOrderCount) / previousOrderCount) * 100
+          : (totalOrders > 0 ? 100 : 0);
+
+        customersGrowth = previousCustomerCount > 0
+          ? ((totalCustomers - previousCustomerCount) / previousCustomerCount) * 100
+          : (totalCustomers > 0 ? 100 : 0);
+
+        aovGrowth = previousAverageOrderValue > 0
+          ? ((averageOrderValue - previousAverageOrderValue) / previousAverageOrderValue) * 100
+          : (averageOrderValue > 0 ? 100 : 0);
+
+      } catch (error) {
+        console.error('Growth calculation error:', error);
+        // Keep growth values as null on error
+      }
+    }
 
     // Process order stats
     const orderSources = {};
@@ -449,6 +604,16 @@ exports.getOverviewStats = async (req, res) => {
         averageOrderValue,
         currency: targetCurrency,
         revenueBreakdown,
+
+        // Growth percentages (null if timeRange not provided)
+        revenueGrowth,
+        ordersGrowth,
+        customersGrowth,
+        aovGrowth,
+
+        // Period info (null if timeRange not provided)
+        timeRange: timeRange || null,
+        periodDates,
 
         // Charts and breakdowns
         salesTrend: formattedSalesTrend,

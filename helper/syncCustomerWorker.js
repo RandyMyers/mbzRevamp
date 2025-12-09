@@ -31,13 +31,19 @@ const syncCustomerJob = async (jobData) => {
 
     const getAllCustomers = async (page = 1) => {
       try {
-        const response = await wooCommerce.get('customers', { per_page: 100, page });
+        const response = await wooCommerce.get('customers', {
+          per_page: 100,
+          page,
+          role: 'all', // Fetch customers with all roles (customer, administrator, shop_manager, etc.)
+          orderby: 'id',
+          order: 'asc'
+        });
         return response.data;
       } catch (error) {
         // Parse the error using our error handler
         const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'customer sync');
         StoreErrorHandler.logError(errorInfo, 'syncCustomerWorker.getAllCustomers');
-        
+
         // Send detailed error message to parent process
         parentPort.postMessage({
           status: 'error',
@@ -46,7 +52,7 @@ const syncCustomerJob = async (jobData) => {
           suggestions: errorInfo.suggestedActions,
           technicalDetails: errorInfo.technicalDetails
         });
-        
+
         throw error;
       }
     };

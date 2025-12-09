@@ -237,24 +237,44 @@ const deleteCategoryInWooCommerce = async (wooCommerceId, storeId, userId, organ
 const getWooCommerceCategories = async (storeId) => {
   try {
     console.log('📋 Fetching categories from WooCommerce for store:', storeId);
-    
+
     // Get store configuration
     const store = await getStoreById(storeId);
     const api = initializeWooCommerceAPI(store);
 
-    // Execute API call with rate limiting
-    const response = await executeWithRateLimit(() => 
-      api.get('products/categories', { per_page: 100 })
-    );
+    // Fetch all categories with pagination
+    let allCategories = [];
+    let page = 1;
+    let hasMore = true;
 
-    // For getCategories, the response.data is an array, not a single object
-    const categories = response.data || [];
-    console.log(`✅ Fetched ${categories.length} categories from WooCommerce`);
+    while (hasMore) {
+      // Execute API call with rate limiting
+      const response = await executeWithRateLimit(() =>
+        api.get('products/categories', {
+          per_page: 100,
+          page,
+          hide_empty: false, // Include categories with no products
+          orderby: 'id',
+          order: 'asc'
+        })
+      );
+
+      const categories = response.data || [];
+
+      if (categories.length === 0) {
+        hasMore = false;
+      } else {
+        allCategories = [...allCategories, ...categories];
+        page++;
+      }
+    }
+
+    console.log(`✅ Fetched ${allCategories.length} categories from WooCommerce (${page - 1} pages)`);
 
     return {
       success: true,
-      data: categories,
-      count: categories.length
+      data: allCategories,
+      count: allCategories.length
     };
 
   } catch (error) {

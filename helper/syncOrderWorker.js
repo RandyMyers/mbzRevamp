@@ -68,13 +68,19 @@ const syncOrderJob = async (jobData) => {
 
     const getAllOrders = async (page = 1) => {
       try {
-        const response = await wooCommerce.get('orders', { per_page: 100, page });
+        const response = await wooCommerce.get('orders', {
+          per_page: 100,
+          page,
+          status: 'any', // Fetch orders with any status (pending, processing, completed, cancelled, refunded, failed, etc.)
+          orderby: 'id',
+          order: 'asc'
+        });
         return response.data;
       } catch (error) {
         // Parse the error using our error handler
         const errorInfo = StoreErrorHandler.parseStoreError(error, store, 'order sync');
         StoreErrorHandler.logError(errorInfo, 'syncOrderWorker.getAllOrders');
-        
+
         // Send detailed error message to parent process
         parentPort.postMessage({
           status: 'error',
@@ -83,7 +89,7 @@ const syncOrderJob = async (jobData) => {
           suggestions: errorInfo.suggestedActions,
           technicalDetails: errorInfo.technicalDetails
         });
-        
+
         throw error;
       }
     };
