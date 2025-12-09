@@ -11,13 +11,13 @@ const StoreErrorHandler = require('../services/storeErrorHandler');
 const currencyUtils = require('../utils/currencyUtils');
 
 const syncProductJob = async (jobData) => {
-  try {
-    const { storeId, store, organizationId, userId } = workerData;
+  const { storeId, store, organizationId, userId } = workerData;
 
+  try {
     console.log('Starting product sync for store:', storeId);
 
     // Connect to MongoDB
-    connectDB();
+    await connectDB();
 
     // Get user and organization currency preferences
     console.log('🔍 Getting currency preferences for user:', userId);

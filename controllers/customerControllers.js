@@ -627,19 +627,20 @@ exports.createCustomer = async (req, res) => {
   exports.getCustomersByOrganizationId = async (req, res) => {
     try {
       const { organizationId } = req.params;
-  
+
       // Fetch customers by organizationId and populate related fields
-      const customers = await Customer.find({ organizationId })
+      // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
+      const customers = await Customer.find({
+        organizationId,
+        role: 'customer' // Only fetch actual customers, not WordPress admin users
+      })
         .populate('storeId', 'name') // Adjust fields to match Store schema
         .populate('userId', 'name email') // Adjust fields to match User schema
         .populate('organizationId', 'name'); // Adjust fields to match Organization schema
-  
-      if (customers.length === 0) {
-        return res.status(404).json({ message: 'No customers found for this organization.' });
-      }
-  
+
+      // Return 200 with empty array if no customers found (not an error condition)
       res.status(200).json({
-        message: 'Customers retrieved successfully for the organization.',
+        message: customers.length === 0 ? 'No customers found for this organization.' : 'Customers retrieved successfully for the organization.',
         customers,
       });
     } catch (error) {
@@ -692,11 +693,12 @@ exports.createCustomer = async (req, res) => {
    */
   exports.getAllCustomers = async (req, res) => {
     try {
-      const customers = await Customer.find()
+      // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
+      const customers = await Customer.find({ role: 'customer' })
         .populate('storeId', 'name') // Adjust fields to populate as per your Store schema
         .populate('userId', 'name email') // Adjust fields to populate as per your User schema
         .populate('organizationId', 'name'); // Adjust fields to populate as per your Organization schema
-  
+
       res.status(200).json({ message: 'Customers retrieved successfully.', data: customers });
     } catch (error) {
       console.error('Error retrieving customers:', error);
@@ -1396,9 +1398,13 @@ exports.createCustomer = async (req, res) => {
   exports.getCustomersByStoreId = async (req, res) => {
     try {
       const { storeId } = req.params;
-  
-      const customers = await Customer.find({ storeId }).populate('userId', 'name email');
-  
+
+      // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
+      const customers = await Customer.find({
+        storeId,
+        role: 'customer' // Only fetch actual customers, not WordPress admin users
+      }).populate('userId', 'name email');
+
       res.status(200).json({ message: 'Customers retrieved successfully for the store.', data: customers });
     } catch (error) {
       console.error('Error retrieving customers by store ID:', error);

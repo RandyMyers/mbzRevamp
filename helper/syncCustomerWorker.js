@@ -6,11 +6,11 @@ const https = require('https');
 const StoreErrorHandler = require('../services/storeErrorHandler');
 
 const syncCustomerJob = async (jobData) => {
-  try {
-    const { storeId, store, organizationId, userId } = workerData;
+  const { storeId, store, organizationId, userId } = workerData;
 
+  try {
     // Connect to MongoDB
-    connectDB();
+    await connectDB();
 
     // Create HTTPS agent configuration for SSL bypass (if needed)
     let httpsAgent = null;
@@ -34,7 +34,7 @@ const syncCustomerJob = async (jobData) => {
         const response = await wooCommerce.get('customers', {
           per_page: 100,
           page,
-          role: 'all', // Fetch customers with all roles (customer, administrator, shop_manager, etc.)
+          role: 'customer', // Fetch only users with customer role (not administrators, shop managers, etc.)
           orderby: 'id',
           order: 'asc'
         });

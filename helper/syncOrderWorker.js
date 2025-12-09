@@ -35,9 +35,10 @@ const getInventoryIdByProductId = async (productId, sku, organizationId, storeId
   };
 
 const syncOrderJob = async (jobData) => {
+  const { storeId, store, organizationId, userId } = workerData;
+
   try {
-    const { storeId, store, organizationId, userId } = workerData;
-    connectDB();
+    await connectDB();
 
     console.log('Starting order sync for store:', storeId);
 
