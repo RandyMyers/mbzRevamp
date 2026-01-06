@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -39,7 +40,7 @@ const subscriptionController = require('../controllers/subscriptionController');
  *       500:
  *         description: Server error
  */
-router.post('/', subscriptionController.createSubscription);
+router.post('/', protect, subscriptionController.createSubscription);
 
 /**
  * @swagger
@@ -68,7 +69,67 @@ router.post('/', subscriptionController.createSubscription);
  *       500:
  *         description: Server error
  */
-router.get('/', subscriptionController.getSubscriptions);
+router.get('/', protect, subscriptionController.getSubscriptions);
+
+// ========== Scheduled Downgrade Routes (MUST be before /:id routes) ==========
+
+/**
+ * @swagger
+ * /api/subscriptions/scheduled-downgrade:
+ *   get:
+ *     summary: Get scheduled downgrade info for user
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 hasScheduledDowngrade:
+ *                   type: boolean
+ *                 scheduledDowngrade:
+ *                   type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/scheduled-downgrade', protect, subscriptionController.getScheduledDowngrade);
+
+/**
+ * @swagger
+ * /api/subscriptions/cancel-scheduled-downgrade:
+ *   post:
+ *     summary: Cancel a scheduled downgrade
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: No scheduled downgrade found
+ *       500:
+ *         description: Server error
+ */
+router.post('/cancel-scheduled-downgrade', protect, subscriptionController.cancelScheduledDowngrade);
 
 /**
  * @swagger
@@ -97,7 +158,7 @@ router.get('/', subscriptionController.getSubscriptions);
  *       500:
  *         description: Server error
  */
-router.get('/:id', subscriptionController.getSubscriptionById);
+router.get('/:id', protect, subscriptionController.getSubscriptionById);
 
 /**
  * @swagger
@@ -126,7 +187,7 @@ router.get('/:id', subscriptionController.getSubscriptionById);
  *       500:
  *         description: Server error
  */
-router.put('/:id', subscriptionController.updateSubscription);
+router.put('/:id', protect, subscriptionController.updateSubscription);
 
 /**
  * @swagger
@@ -155,7 +216,7 @@ router.put('/:id', subscriptionController.updateSubscription);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', subscriptionController.deleteSubscription);
+router.delete('/:id', protect, subscriptionController.deleteSubscription);
 
 // Create subscription with payment (NEW)
 
@@ -186,7 +247,40 @@ router.delete('/:id', subscriptionController.deleteSubscription);
  *       500:
  *         description: Server error
  */
-router.post('/create', subscriptionController.createSubscriptionWithPayment);
+router.post('/create', protect, subscriptionController.createSubscriptionWithPayment);
+
+// Create trial subscription
+
+/**
+ * @swagger
+ * /api/subscriptions/trial:
+ *   post:
+ *     summary: Create a 14-day free trial subscription
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Trial subscription created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "14-day free trial activated successfully"
+ *       400:
+ *         description: Validation error or user already has active subscription
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/trial', protect, subscriptionController.createTrialSubscription);
 
 // Assign a plan to a user
 
@@ -217,7 +311,7 @@ router.post('/create', subscriptionController.createSubscriptionWithPayment);
  *       500:
  *         description: Server error
  */
-router.post('/assign', subscriptionController.assignSubscription);
+router.post('/assign', protect, subscriptionController.assignSubscription);
 // Renew a subscription
 
 /**
@@ -247,7 +341,7 @@ router.post('/assign', subscriptionController.assignSubscription);
  *       500:
  *         description: Server error
  */
-router.post('/:id/renew', subscriptionController.renewSubscription);
+router.post('/:id/renew', protect, subscriptionController.renewSubscription);
 // Cancel a subscription
 
 /**
@@ -277,6 +371,6 @@ router.post('/:id/renew', subscriptionController.renewSubscription);
  *       500:
  *         description: Server error
  */
-router.post('/:id/cancel', subscriptionController.cancelSubscription);
+router.post('/:id/cancel', protect, subscriptionController.cancelSubscription);
 
 module.exports = router; 

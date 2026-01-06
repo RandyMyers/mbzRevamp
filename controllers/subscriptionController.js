@@ -159,10 +159,20 @@ exports.createSubscription = async (req, res) => {
   }
 };
 
-// Get all subscriptions
+// Get subscriptions for the current user
 exports.getSubscriptions = async (req, res) => {
   try {
-    const subscriptions = await Subscription.find().populate('user plan payment');
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated'
+      });
+    }
+
+    // Only return subscriptions for the authenticated user
+    const subscriptions = await Subscription.find({ user: userId }).populate('user plan payment');
     res.json(subscriptions);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -430,17 +440,190 @@ exports.createSubscriptionWithPayment = async (req, res) => {
     }
 
     // Check if user already has an active subscription
-    const existingSubscription = await Subscription.findOne({ 
-      user: userId, 
-      status: 'active' 
+    const existingActiveSubscription = await Subscription.findOne({
+      user: userId,
+      status: 'active'
     });
-    
-    if (existingSubscription) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User already has an active subscription' 
+
+    // Also check for pending subscriptions for the same plan (from previous failed attempts)
+    const existingPendingSubscription = await Subscription.findOne({
+      user: userId,
+      plan: planId,
+      status: 'pending'
+    }).populate('payment');
+
+    // If there's a pending subscription for this exact plan, reuse it
+    if (existingPendingSubscription && existingPendingSubscription.payment) {
+      console.log(`Reusing existing pending subscription ${existingPendingSubscription._id} for plan ${planId}`);
+      return res.status(200).json({
+        success: true,
+        message: 'Using existing pending subscription',
+        subscription: existingPendingSubscription,
+        payment: existingPendingSubscription.payment
       });
     }
+
+    let isUpgrade = false;
+    let previousPlanId = null;
+
+    if (existingActiveSubscription) {
+      // Check if trying to subscribe to the same plan that's already active
+      if (existingActiveSubscription.plan.toString() === planId) {
+        // User is adding a payment method for their existing subscription
+        // Create a payment record for the existing subscription (for card capture)
+        console.log(`User adding payment method for existing subscription ${existingActiveSubscription._id}`);
+
+        const { v4: uuidv4 } = require('uuid');
+        const paymentReference = uuidv4();
+
+        const payment = new Payment({
+          user: userId,
+          subscription: existingActiveSubscription._id,
+          plan: planId,
+          gateway: paymentMethod || 'unknown',
+          amount: amount,
+          currency: currency,
+          status: 'pending',
+          reference: paymentReference
+        });
+
+        await payment.save();
+
+        // Log the event
+        await logEvent({
+          action: 'add_payment_method',
+          user: userId,
+          resource: 'Payment',
+          resourceId: payment._id,
+          details: {
+            subscriptionId: existingActiveSubscription._id,
+            planId: planId,
+            amount: amount,
+            currency: currency,
+            paymentMethod: paymentMethod
+          },
+          organization: organizationId
+        });
+
+        return res.status(201).json({
+          success: true,
+          message: 'Payment created for existing subscription',
+          subscription: {
+            _id: existingActiveSubscription._id,
+            status: existingActiveSubscription.status,
+            billingInterval: existingActiveSubscription.billingInterval,
+            startDate: existingActiveSubscription.startDate,
+            endDate: existingActiveSubscription.endDate,
+            plan: plan
+          },
+          payment: {
+            _id: payment._id,
+            reference: payment.reference,
+            amount: payment.amount,
+            currency: payment.currency,
+            status: payment.status,
+            gateway: payment.gateway
+          }
+        });
+      }
+
+      // This is an upgrade or downgrade - need to compare plan prices
+      const currentPlan = await SubscriptionPlan.findById(existingActiveSubscription.plan);
+      const newPlan = plan; // Already fetched above
+
+      if (!currentPlan) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current plan not found'
+        });
+      }
+
+      // Determine if this is a downgrade (new plan costs less)
+      const isDowngrade = newPlan.price < currentPlan.price;
+
+      if (isDowngrade) {
+        // ========== DOWNGRADE FLOW ==========
+        // Schedule the downgrade for end of current billing period - NO immediate payment
+
+        // Check if already has a scheduled downgrade
+        if (existingActiveSubscription.scheduledDowngrade) {
+          const existingDowngradePlan = await SubscriptionPlan.findById(existingActiveSubscription.scheduledDowngrade);
+          return res.status(400).json({
+            success: false,
+            message: `You already have a scheduled downgrade to ${existingDowngradePlan?.name || 'another plan'}. Please cancel it first.`
+          });
+        }
+
+        // Schedule the downgrade
+        existingActiveSubscription.scheduledDowngrade = planId;
+        existingActiveSubscription.scheduledDowngradeDate = existingActiveSubscription.endDate;
+        await existingActiveSubscription.save();
+
+        // Log the event
+        await logEvent({
+          action: 'schedule_downgrade',
+          user: userId,
+          resource: 'Subscription',
+          resourceId: existingActiveSubscription._id,
+          details: {
+            currentPlan: currentPlan.name,
+            newPlan: newPlan.name,
+            effectiveDate: existingActiveSubscription.endDate,
+            currentPrice: currentPlan.price,
+            newPrice: newPlan.price
+          },
+          organization: organizationId
+        });
+
+        // Format the effective date for display
+        const effectiveDate = new Date(existingActiveSubscription.endDate);
+        const formattedDate = effectiveDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        return res.status(200).json({
+          success: true,
+          isScheduledDowngrade: true,
+          message: `Your plan will be downgraded to ${newPlan.name} on ${formattedDate}`,
+          effectiveDate: existingActiveSubscription.endDate,
+          currentPlan: {
+            name: currentPlan.name,
+            price: currentPlan.price
+          },
+          newPlan: {
+            name: newPlan.name,
+            price: newPlan.price
+          },
+          subscription: {
+            _id: existingActiveSubscription._id,
+            status: existingActiveSubscription.status,
+            endDate: existingActiveSubscription.endDate,
+            scheduledDowngrade: planId,
+            scheduledDowngradeDate: existingActiveSubscription.endDate
+          }
+        });
+      }
+
+      // ========== UPGRADE FLOW ==========
+      // This is an upgrade - proceed with immediate payment flow
+      isUpgrade = true;
+      previousPlanId = existingActiveSubscription.plan;
+
+      // Mark existing subscription as upgraded (will be finalized when payment succeeds)
+      existingActiveSubscription.upgradeStatus = 'pending_upgrade';
+      existingActiveSubscription.upgradeToPlan = planId;
+      await existingActiveSubscription.save();
+    }
+
+    // Clean up old pending subscriptions for this plan (from very old failed attempts)
+    await Subscription.deleteMany({
+      user: userId,
+      plan: planId,
+      status: 'pending',
+      createdAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Older than 24 hours
+    });
 
     // Calculate subscription dates
     const startDate = new Date();
@@ -455,7 +638,7 @@ exports.createSubscriptionWithPayment = async (req, res) => {
     }
 
     // Create subscription with pending status
-    const subscription = new Subscription({
+    const subscriptionData = {
       user: userId,
       plan: planId,
       billingInterval: billingCycle,
@@ -465,7 +648,16 @@ exports.createSubscriptionWithPayment = async (req, res) => {
       status: 'pending', // Will be updated to 'active' when payment is successful
       isActive: false,
       paymentMethod: paymentMethod || 'unknown'
-    });
+    };
+
+    // Add upgrade info if this is a plan change
+    if (isUpgrade && existingActiveSubscription) {
+      subscriptionData.isUpgrade = true;
+      subscriptionData.previousSubscription = existingActiveSubscription._id;
+      subscriptionData.previousPlan = previousPlanId;
+    }
+
+    const subscription = new Subscription(subscriptionData);
 
     await subscription.save();
 
@@ -530,10 +722,289 @@ exports.createSubscriptionWithPayment = async (req, res) => {
 
   } catch (err) {
     console.error('Error creating subscription with payment:', err);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error',
-      error: err.message 
+      error: err.message
     });
   }
-}; 
+};
+
+/**
+ * @swagger
+ * /api/subscriptions/trial:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Create a 14-day free trial subscription
+ *     description: Creates a trial subscription for onboarding users. No payment required.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [planId, billingCycle]
+ *             properties:
+ *               planId:
+ *                 type: string
+ *                 format: ObjectId
+ *                 description: Subscription plan ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               billingCycle:
+ *                 type: string
+ *                 enum: [monthly, quarterly, yearly]
+ *                 description: Billing cycle (for after trial ends)
+ *                 example: "monthly"
+ *     responses:
+ *       201:
+ *         description: Trial subscription created successfully
+ *       400:
+ *         description: Validation error or user already has active subscription
+ *       500:
+ *         description: Server error
+ */
+exports.createTrialSubscription = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+    const { planId, billingCycle } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    if (!planId || !billingCycle) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: planId, billingCycle'
+      });
+    }
+
+    // Verify plan exists
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subscription plan not found'
+      });
+    }
+
+    // Check if user already has an active subscription or trial
+    const existingSubscription = await Subscription.findOne({
+      user: userId,
+      $or: [
+        { status: 'active' },
+        { isTrial: true, trialEnd: { $gte: new Date() } }
+      ]
+    });
+
+    if (existingSubscription) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active subscription or trial'
+      });
+    }
+
+    // Calculate trial dates (14 days)
+    const trialStart = new Date();
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+
+    // Calculate what the end date would be after trial converts
+    const postTrialEndDate = new Date(trialEnd);
+    if (billingCycle === 'monthly') {
+      postTrialEndDate.setMonth(postTrialEndDate.getMonth() + 1);
+    } else if (billingCycle === 'quarterly') {
+      postTrialEndDate.setMonth(postTrialEndDate.getMonth() + 3);
+    } else if (billingCycle === 'yearly') {
+      postTrialEndDate.setFullYear(postTrialEndDate.getFullYear() + 1);
+    }
+
+    // Create trial subscription
+    const subscription = new Subscription({
+      user: userId,
+      plan: planId,
+      billingInterval: billingCycle,
+      currency: 'USD',
+      startDate: trialStart,
+      endDate: postTrialEndDate,
+      isTrial: true,
+      trialStart: trialStart,
+      trialEnd: trialEnd,
+      trialConverted: false,
+      status: 'active',
+      isActive: true,
+      paymentStatus: 'Pending',
+      paymentMethod: 'trial'
+    });
+
+    await subscription.save();
+
+    // Log the event
+    await logEvent({
+      action: 'start_trial',
+      user: userId,
+      resource: 'Subscription',
+      resourceId: subscription._id,
+      details: {
+        planId: planId,
+        planName: plan.name,
+        billingCycle: billingCycle,
+        trialStart: trialStart,
+        trialEnd: trialEnd
+      },
+      organization: organizationId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: '14-day free trial activated successfully',
+      subscription: {
+        _id: subscription._id,
+        status: subscription.status,
+        isTrial: subscription.isTrial,
+        trialStart: subscription.trialStart,
+        trialEnd: subscription.trialEnd,
+        billingInterval: subscription.billingInterval,
+        plan: plan
+      }
+    });
+
+  } catch (err) {
+    console.error('Error creating trial subscription:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+};
+
+/**
+ * Cancel a scheduled downgrade
+ * @route POST /api/subscriptions/cancel-scheduled-downgrade
+ */
+exports.cancelScheduledDowngrade = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const organizationId = req.user?.organization;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    // Find user's active subscription with a scheduled downgrade
+    const subscription = await Subscription.findOne({
+      user: userId,
+      status: 'active',
+      scheduledDowngrade: { $ne: null }
+    }).populate('scheduledDowngrade');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'No scheduled downgrade found'
+      });
+    }
+
+    const downgradePlanName = subscription.scheduledDowngrade?.name || 'Unknown';
+
+    // Clear the scheduled downgrade
+    subscription.scheduledDowngrade = null;
+    subscription.scheduledDowngradeDate = null;
+    await subscription.save();
+
+    // Log the event
+    await logEvent({
+      action: 'cancel_scheduled_downgrade',
+      user: userId,
+      resource: 'Subscription',
+      resourceId: subscription._id,
+      details: {
+        canceledDowngradePlan: downgradePlanName
+      },
+      organization: organizationId
+    });
+
+    res.json({
+      success: true,
+      message: 'Scheduled downgrade cancelled successfully',
+      subscription: {
+        _id: subscription._id,
+        status: subscription.status
+      }
+    });
+
+  } catch (err) {
+    console.error('Error cancelling scheduled downgrade:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+};
+
+/**
+ * Get scheduled downgrade info for user
+ * @route GET /api/subscriptions/scheduled-downgrade
+ */
+exports.getScheduledDowngrade = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    // Find user's active subscription with scheduled downgrade
+    const subscription = await Subscription.findOne({
+      user: userId,
+      status: 'active',
+      scheduledDowngrade: { $ne: null }
+    }).populate('plan scheduledDowngrade');
+
+    if (!subscription || !subscription.scheduledDowngrade) {
+      return res.json({
+        success: true,
+        hasScheduledDowngrade: false
+      });
+    }
+
+    res.json({
+      success: true,
+      hasScheduledDowngrade: true,
+      scheduledDowngrade: {
+        currentPlan: {
+          _id: subscription.plan._id,
+          name: subscription.plan.name,
+          price: subscription.plan.price
+        },
+        newPlan: {
+          _id: subscription.scheduledDowngrade._id,
+          name: subscription.scheduledDowngrade.name,
+          price: subscription.scheduledDowngrade.price
+        },
+        effectiveDate: subscription.scheduledDowngradeDate,
+        subscriptionId: subscription._id
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting scheduled downgrade:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+};
