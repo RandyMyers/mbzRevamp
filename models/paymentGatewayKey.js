@@ -25,6 +25,10 @@ const paymentGatewayKeySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  webhookSecret: {
+    type: String,
+    default: null, // Used for webhook signature verification (Flutterwave hash, Paystack/Squad HMAC secret)
+  },
   isActive: {
     type: Boolean,
     default: true,

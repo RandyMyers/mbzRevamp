@@ -82,7 +82,94 @@ const OrganizationSchema = new Schema({
     type: Boolean,
     default: false,
   },
-  
+
+  // Current active subscription plan (cached for faster lookups)
+  currentPlan: {
+    planId: {
+      type: Schema.Types.ObjectId,
+      ref: 'SubscriptionPlan'
+    },
+    planSlug: {
+      type: String,
+      enum: ['free', 'basic', 'standard', 'premium', 'custom'],
+      default: 'free'
+    },
+    planName: {
+      type: String,
+      default: 'Free'
+    },
+    isTrial: {
+      type: Boolean,
+      default: false
+    },
+    trialEndsAt: {
+      type: Date
+    },
+    expiresAt: {
+      type: Date
+    }
+  },
+
+  // Resource usage tracking (cached counts for faster limit checks)
+  usageTracking: {
+    storeCount: {
+      type: Number,
+      default: 0
+    },
+    productCount: {
+      type: Number,
+      default: 0
+    },
+    userCount: {
+      type: Number,
+      default: 1 // At least the owner
+    },
+    websiteCount: {
+      type: Number,
+      default: 0
+    },
+    integrationCount: {
+      type: Number,
+      default: 0
+    },
+    // Last time counts were refreshed
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
+
+  // Feature usage metrics (for analytics and future pricing decisions)
+  featureUsage: {
+    totalOrders: {
+      type: Number,
+      default: 0
+    },
+    totalCustomers: {
+      type: Number,
+      default: 0
+    },
+    totalTasks: {
+      type: Number,
+      default: 0
+    },
+    totalCampaigns: {
+      type: Number,
+      default: 0
+    },
+    totalInvoices: {
+      type: Number,
+      default: 0
+    },
+    totalReceipts: {
+      type: Number,
+      default: 0
+    },
+    lastActivityAt: {
+      type: Date
+    }
+  },
+
   // Invoice template preferences
   invoiceSettings: {
     defaultInvoiceTemplate: {

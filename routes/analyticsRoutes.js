@@ -10,6 +10,12 @@ const router = express.Router();
 
 const analyticsController = require('../controllers/analysisControllers');
 const emailLogsController = require('../controllers/emailLogsController');
+const { protect } = require('../middleware/authMiddleware');
+const { requirePlanFeature } = require('../middleware/permissionMiddleware');
+
+// Apply analytics feature check to all analytics routes
+// Analytics are available on Basic (limited), Standard (full), and Premium (full) plans
+router.use(protect, requirePlanFeature('analytics'));
 
 // Route for Total Revenue
 

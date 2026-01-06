@@ -1,8 +1,8 @@
-const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 const { createAuditLog } = require('../helpers/auditLogHelper');
 
-// Initialize SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Initialize Resend (replacing SendGrid)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 class SendGridService {
 
@@ -174,84 +174,82 @@ class SendGridService {
   }
 
   /**
-   * Send email using SendGrid HTTP API
+   * Send email using Resend API (migrated from SendGrid)
    * @param {Object} emailData - Email data object
    * @returns {Promise<Object>} Result object
    */
   static async sendEmail(emailData) {
     try {
-      console.log(`📧 [SENDGRID] Sending email to: ${emailData.to}`);
-      
+      console.log(`📧 [RESEND] Sending email to: ${emailData.to}`);
+
       // Validate required fields
       if (!emailData.to || !emailData.subject || !emailData.html) {
         throw new Error('Missing required email fields: to, subject, html');
       }
-      
-      // Validate SendGrid API key
-      if (!process.env.SENDGRID_API_KEY) {
-        throw new Error('SENDGRID_API_KEY environment variable is not set');
+
+      // Validate Resend API key
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY environment variable is not set');
       }
-      
-      // Prepare email message
-      const msg = {
+
+      // Prepare email message for Resend
+      const emailPayload = {
+        from: process.env.RESEND_FROM_EMAIL || `${process.env.FROM_NAME || 'Elapix'} <noreply@${process.env.RESEND_DOMAIN || 'elapix.store'}>`,
         to: emailData.to,
-        from: {
-          email: process.env.SMTP_USER || 'noreply@mbztechnology.com',
-          name: process.env.FROM_NAME || 'Elapix'
-        },
         subject: emailData.subject,
         html: emailData.html,
         text: emailData.text || emailData.html.replace(/<[^>]*>/g, '') // Strip HTML for text version
       };
-      
+
       // Add reply-to if provided
       if (emailData.replyTo) {
-        msg.replyTo = emailData.replyTo;
+        emailPayload.reply_to = emailData.replyTo;
       }
-      
-      // Send email via SendGrid
-      const response = await sgMail.send(msg);
-      
-      console.log(`✅ [SENDGRID] Email sent successfully to: ${emailData.to}`);
-      console.log(`📧 [SENDGRID] Response status: ${response[0].statusCode}`);
-      
+
+      // Send email via Resend
+      const { data, error } = await resend.emails.send(emailPayload);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to send email via Resend');
+      }
+
+      console.log(`✅ [RESEND] Email sent successfully to: ${emailData.to}`);
+      console.log(`📧 [RESEND] Message ID: ${data.id}`);
+
       // Create audit log
       try {
         await createAuditLog({
-          action: 'Email Sent via SendGrid',
+          action: 'Email Sent via Resend',
           user: emailData.userId || null,
           resource: 'email',
-          resourceId: response[0].headers['x-message-id'] || 'unknown',
+          resourceId: data.id || 'unknown',
           details: {
             to: emailData.to,
             subject: emailData.subject,
-            statusCode: response[0].statusCode,
-            messageId: response[0].headers['x-message-id']
+            messageId: data.id
           },
           organization: emailData.organizationId || null
         });
       } catch (auditError) {
-        console.error('Failed to create audit log for SendGrid email:', auditError);
+        console.error('Failed to create audit log for Resend email:', auditError);
       }
-      
+
       return {
         success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
+        messageId: data.id
       };
-      
+
     } catch (error) {
-      console.error('❌ [SENDGRID] Failed to send email:', error);
-      console.error('❌ [SENDGRID] Error details:', {
+      console.error('❌ [RESEND] Failed to send email:', error);
+      console.error('❌ [RESEND] Error details:', {
         message: error.message,
-        code: error.code,
-        response: error.response?.body
+        name: error.name
       });
-      
+
       // Create audit log for failed email
       try {
         await createAuditLog({
-          action: 'Email Send Failed via SendGrid',
+          action: 'Email Send Failed via Resend',
           user: emailData.userId || null,
           resource: 'email',
           resourceId: null, // Set to null instead of 'failed' to avoid ObjectId casting error
@@ -264,13 +262,12 @@ class SendGridService {
           organization: emailData.organizationId || null
         });
       } catch (auditError) {
-        console.error('Failed to create audit log for failed SendGrid email:', auditError);
+        console.error('Failed to create audit log for failed Resend email:', auditError);
       }
-      
+
       return {
         success: false,
-        error: error.message,
-        code: error.code
+        error: error.message
       };
     }
   }
@@ -717,116 +714,36 @@ class SendGridService {
    */
   static async sendPasswordResetCodeEmail(user, code, organization) {
     try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Password Reset Code - ${organization.name}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              line-height: 1.6; 
-              color: #333; 
-              margin: 0; 
-              padding: 0; 
-              background-color: #f8f9fa;
-            }
-            .container { 
-              max-width: 600px; 
-              margin: 0 auto; 
-              background-color: #ffffff;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header { 
-              background: linear-gradient(135deg, #800020 0%, #a0002a 100%); 
-              color: white; 
-              padding: 30px 20px; 
-              text-align: center; 
-              border-radius: 8px 8px 0 0;
-            }
-            .content { 
-              padding: 30px; 
-              background: #ffffff; 
-            }
-            .code-container {
-              background: #ffffff;
-              border: 2px solid #800020;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 25px 0;
-              text-align: center;
-              box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
-            }
-            .code { 
-              font-size: 32px; 
-              font-weight: bold; 
-              color: #800020; 
-              letter-spacing: 8px;
-              font-family: 'Courier New', monospace;
-              margin: 10px 0;
-            }
-            .warning { 
-              background: #fff3cd; 
-              border: 1px solid #ffeaa7; 
-              padding: 20px; 
-              margin: 20px 0; 
-              border-radius: 8px; 
-              color: #856404;
-              border-left: 4px solid #ffc107;
-            }
-            .footer { 
-              text-align: center; 
-              padding: 20px; 
-              color: #666; 
-              font-size: 12px; 
-              background-color: #f8f9fa;
-              border-top: 1px solid #e9ecef;
-              border-radius: 0 0 8px 8px;
-            }
-          </style>
-        </head>
-        <body>
-          <div style="padding: 20px;">
-            <div class="container">
-              <div class="header">
-                <div style="font-size: 24px;">🔐</div>
-                <h1>Password Reset Code</h1>
-                <p style="margin: 10px 0 0; opacity: 0.9;">Secure access to your account</p>
-              </div>
-              
-              <div class="content">
-                <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName}!</h2>
-                <p>You requested to reset your password for <strong>${organization.name}</strong>.</p>
-                
-                <div class="code-container">
-                  <p style="margin: 0 0 10px; font-size: 14px; color: #666;">Your 6-digit reset code:</p>
-                  <div class="code">${code}</div>
-                  <p style="margin: 10px 0 0; font-size: 12px; color: #999;">Enter this code to reset your password</p>
-                </div>
-                
-                <div class="warning">
-                  <strong>⚠️ Important Security Information:</strong>
-                  <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>This code will expire in <strong>15 minutes</strong></li>
-                    <li>Never share this code with anyone</li>
-                    <li>If you didn't request this reset, please ignore this email</li>
-                    <li>For security, this code can only be used once</li>
-                  </ul>
-                </div>
-                
-                <p style="margin-top: 30px;">If you need help or didn't request this password reset, please contact our support team immediately.</p>
-              </div>
-              
-              <div class="footer">
-                <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
-                <p style="margin: 5px 0;">© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
+      const content = `
+        <h2>Hello ${user.fullName || 'there'}!</h2>
+
+        <p>You requested to reset your password for <strong>${organization.name}</strong>.</p>
+
+        <div style="background: white; color: #800020; padding: 30px; text-align: center; font-size: 36px; font-weight: bold; margin: 25px 0; border-radius: 8px; letter-spacing: 8px; border: 3px solid #800020;">
+          ${code}
+        </div>
+
+        <div class="warning-box">
+          <h3>⚠️ Important Security Information:</h3>
+          <ul>
+            <li>This code will expire in <strong>15 minutes</strong></li>
+            <li>Never share this code with anyone</li>
+            <li>If you didn't request this reset, please ignore this email</li>
+            <li>For security, this code can only be used once</li>
+          </ul>
+        </div>
+
+        <p style="margin-top: 30px;">If you need help or didn't request this password reset, please contact our support team at <a href="mailto:hello@mbztechnology.com">hello@mbztechnology.com</a>.</p>
+
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization.name} Team</strong></p>
       `;
+
+      const htmlContent = this.generateEmailTemplate({
+        title: `Password Reset Code - ${organization.name}`,
+        heading: '🔐 Password Reset Code',
+        content: content
+      });
 
       const emailData = {
         to: user.email,
@@ -862,66 +779,48 @@ class SendGridService {
    */
   static async sendPasswordResetSuccessEmail(user, organization, req = null) {
     try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Password Reset Successful - ${organization.name}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #28a745; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-            .details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; margin: 15px 0; border-radius: 5px; color: #155724; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Password Reset Successful</h1>
-            </div>
-            
-            <div class="content">
-              <h2>Hello ${user.fullName}!</h2>
-              <p>Your password has been successfully reset for <strong>${organization.name}</strong>.</p>
-              
-              <div class="details">
-                <h3>Reset Details:</h3>
-                <ul>
-                  <li><strong>Organization:</strong> ${organization.name}</li>
-                  <li><strong>Email:</strong> ${user.email}</li>
-                  <li><strong>Reset Completed:</strong> ${new Date().toLocaleString()}</li>
-                  <li><strong>IP Address:</strong> ${req?.ip || 'Unknown'}</li>
-                </ul>
-              </div>
-              
-              <div class="success">
-                <strong>✅ Your password has been successfully updated!</strong>
-                <p>You can now log in to your account using your new password.</p>
-              </div>
-              
-              <p>If you did not make this change, please contact your administrator immediately as your account may have been compromised.</p>
-              
-              <p>For security reasons, we recommend:</p>
-              <ul>
-                <li>Using a strong, unique password</li>
-                <li>Enabling two-factor authentication if available</li>
-                <li>Regularly updating your password</li>
-                <li>Not sharing your password with anyone</li>
-              </ul>
-            </div>
-            
-            <div class="footer">
-              <p>This notification was sent from Elapix Platform</p>
-              <p>If you did not reset your password, please contact support immediately.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+      const content = `
+        <h2>Hello ${user.fullName || 'there'}!</h2>
+
+        <p>Your password has been successfully reset for <strong>${organization.name}</strong>.</p>
+
+        <div class="info-box">
+          <h3>📋 Reset Details:</h3>
+          <ul>
+            <li><strong>Organization:</strong> ${organization.name}</li>
+            <li><strong>Email:</strong> ${user.email}</li>
+            <li><strong>Reset Completed:</strong> ${new Date().toLocaleString()}</li>
+            <li><strong>IP Address:</strong> ${req?.ip || 'Unknown'}</li>
+          </ul>
+        </div>
+
+        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px 20px; margin: 20px 0; border-radius: 4px;">
+          <strong style="color: #155724;">✅ Your password has been successfully updated!</strong>
+          <p style="color: #155724; margin: 10px 0 0;">You can now log in to your account using your new password.</p>
+        </div>
+
+        <div class="warning-box">
+          <h3>⚠️ Didn't make this change?</h3>
+          <p>If you did not reset your password, please contact us immediately at <a href="mailto:hello@mbztechnology.com">hello@mbztechnology.com</a> as your account may have been compromised.</p>
+        </div>
+
+        <p>For security reasons, we recommend:</p>
+        <ul>
+          <li>Using a strong, unique password</li>
+          <li>Enabling two-factor authentication if available</li>
+          <li>Regularly updating your password</li>
+          <li>Not sharing your password with anyone</li>
+        </ul>
+
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization.name} Team</strong></p>
       `;
+
+      const htmlContent = this.generateEmailTemplate({
+        title: `Password Reset Successful - ${organization.name}`,
+        heading: '✅ Password Reset Successful',
+        content: content
+      });
 
       const emailData = {
         to: user.email,
@@ -957,122 +856,36 @@ class SendGridService {
    */
   static async sendLoginOTPEmail(user, code, organization) {
     try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Login Verification Code - ${organization.name}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              margin: 0;
-              padding: 0;
-              background-color: #f8f9fa;
-            }
-            .container {
-              max-width: 600px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #800020 0%, #a0002a 100%);
-              color: white;
-              padding: 30px 20px;
-              text-align: center;
-              border-radius: 8px 8px 0 0;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 28px;
-              font-weight: 600;
-            }
-            .content {
-              padding: 30px;
-              background: #ffffff;
-            }
-            .footer {
-              text-align: center;
-              padding: 20px;
-              color: #666;
-              font-size: 12px;
-              background-color: #f8f9fa;
-              border-top: 1px solid #e9ecef;
-              border-radius: 0 0 8px 8px;
-            }
-            .code-container {
-              background: #ffffff;
-              border: 2px solid #800020;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 25px 0;
-              text-align: center;
-              box-shadow: 0 2px 8px rgba(128, 0, 32, 0.1);
-            }
-            .code {
-              font-size: 36px;
-              font-weight: bold;
-              color: #800020;
-              letter-spacing: 12px;
-              font-family: 'Courier New', monospace;
-              margin: 10px 0;
-            }
-            .warning {
-              background: #fff3cd;
-              border: 1px solid #ffeaa7;
-              padding: 20px;
-              margin: 20px 0;
-              border-radius: 8px;
-              color: #856404;
-              border-left: 4px solid #ffc107;
-            }
-          </style>
-        </head>
-        <body>
-          <div style="padding: 20px;">
-            <div class="container">
-              <div class="header">
-                <div style="font-size: 48px; margin-bottom: 10px;">🔐</div>
-                <h1>Login Verification</h1>
-                <p style="margin: 10px 0 0; opacity: 0.9;">Two-Factor Authentication</p>
-              </div>
+      const content = `
+        <h2>Hello ${user.fullName || user.email}!</h2>
 
-              <div class="content">
-                <h2 style="color: #800020; margin-top: 0;">Hello ${user.fullName || user.email}!</h2>
-                <p>You're attempting to sign in to <strong>${organization.name}</strong>. To complete your login, please use the verification code below.</p>
+        <p>You're attempting to sign in to <strong>${organization.name}</strong>. To complete your login, please use the verification code below.</p>
 
-                <div class="code-container">
-                  <h3 style="margin: 0 0 15px; color: #333;">Your Verification Code:</h3>
-                  <div class="code">${code}</div>
-                  <p style="margin: 15px 0 0; color: #666; font-size: 14px;"><strong>Enter this 6-digit code to complete your login.</strong></p>
-                </div>
+        <div style="background: white; color: #800020; padding: 30px; text-align: center; font-size: 36px; font-weight: bold; margin: 25px 0; border-radius: 8px; letter-spacing: 8px; border: 3px solid #800020;">
+          ${code}
+        </div>
 
-                <div class="warning">
-                  <h4 style="margin: 0 0 15px; color: #856404;">⚠️ Security Information:</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li>This code will expire in <strong>5 minutes</strong></li>
-                    <li>Never share this code with anyone</li>
-                    <li>If you didn't attempt to log in, please secure your account immediately</li>
-                    <li>For security, this code can only be used once</li>
-                  </ul>
-                </div>
+        <div class="warning-box">
+          <h3>⚠️ Security Information:</h3>
+          <ul>
+            <li>This code will expire in <strong>5 minutes</strong></li>
+            <li>Never share this code with anyone</li>
+            <li>If you didn't attempt to log in, please secure your account immediately</li>
+            <li>For security, this code can only be used once</li>
+          </ul>
+        </div>
 
-                <p style="margin-top: 30px;">If you didn't request this code, please ignore this email and ensure your password is secure.</p>
-              </div>
+        <p style="margin-top: 30px;">If you didn't request this code, please ignore this email and ensure your password is secure.</p>
 
-              <div class="footer">
-                <p style="margin: 5px 0;"><strong>${organization.name}</strong></p>
-                <p style="margin: 5px 0;">This email was sent by Elapix Platform</p>
-                <p style="margin: 5px 0;">© ${new Date().getFullYear()} Elapix. All rights reserved.</p>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization.name} Team</strong></p>
       `;
+
+      const htmlContent = this.generateEmailTemplate({
+        title: `Login Verification Code - ${organization.name}`,
+        heading: '🔐 Login Verification',
+        content: content
+      });
 
       const emailData = {
         to: user.email,
@@ -1100,32 +913,111 @@ class SendGridService {
   }
 
   /**
-   * Test SendGrid connectivity
+   * Send account deletion scheduled email
+   * @param {Object} user - User object
+   * @param {Object} organization - Organization object
+   * @param {Date} deletionDate - Scheduled deletion date
+   * @returns {Promise<Object>} Result object
+   */
+  static async sendAccountDeletionEmail(user, organization, deletionDate) {
+    try {
+      const formattedDate = deletionDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const content = `
+        <h2>Hello ${user.fullName || user.email}!</h2>
+
+        <p>We have received your request to delete your account at <strong>${organization.name}</strong>.</p>
+
+        <div class="warning-box">
+          <h3>⚠️ Account Scheduled for Deletion</h3>
+          <p>Your account will be permanently deleted on <strong>${formattedDate}</strong> (30 days from now).</p>
+        </div>
+
+        <div class="info-box">
+          <h3>📋 What happens next:</h3>
+          <ul>
+            <li>You will be logged out immediately</li>
+            <li>You will not be able to log in to your account</li>
+            <li>After 30 days, all your data will be permanently deleted</li>
+            <li>This action cannot be undone after the deletion date</li>
+          </ul>
+        </div>
+
+        <p><strong>Changed your mind?</strong></p>
+        <p>If you want to cancel this deletion request, please contact us at <a href="mailto:hello@mbztechnology.com">hello@mbztechnology.com</a> before ${formattedDate}.</p>
+
+        <p style="margin-top: 30px;">Best regards,<br>
+        <strong>${organization.name} Team</strong></p>
+      `;
+
+      const htmlContent = this.generateEmailTemplate({
+        title: 'Account Deletion Scheduled',
+        heading: '🗑️ Account Deletion Scheduled',
+        content: content,
+        footer: `
+          <p>This is an automated message from MBZ Technology Platform.</p>
+          <p>If you did not request this deletion, please contact us immediately at hello@mbztechnology.com</p>
+          <p>© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
+        `
+      });
+
+      const emailData = {
+        to: user.email,
+        subject: `Account Deletion Scheduled - ${organization.name}`,
+        html: htmlContent,
+        userId: user._id,
+        organizationId: organization._id
+      };
+
+      const result = await this.sendEmail(emailData);
+
+      if (result.success) {
+        console.log(`✅ [SENDGRID] Account deletion email sent to ${user.email}`);
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ [SENDGRID] Failed to send account deletion email:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Test Resend connectivity
    * @returns {Promise<Object>} Test result
    */
   static async testConnection() {
     try {
-      if (!process.env.SENDGRID_API_KEY) {
+      if (!process.env.RESEND_API_KEY) {
         return {
           success: false,
-          error: 'SENDGRID_API_KEY environment variable is not set'
+          error: 'RESEND_API_KEY environment variable is not set'
         };
       }
-      
+
       // Simple validation - just check if API key is set and has correct format
-      const apiKey = process.env.SENDGRID_API_KEY;
-      if (apiKey && apiKey.startsWith('SG.')) {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (apiKey && apiKey.startsWith('re_')) {
         return {
           success: true,
-          message: 'SendGrid API key format is valid'
+          message: 'Resend API key format is valid'
         };
       } else {
         return {
           success: false,
-          error: 'SendGrid API key format is invalid (should start with SG.)'
+          error: 'Resend API key format is invalid (should start with re_)'
         };
       }
-      
+
     } catch (error) {
       return {
         success: false,

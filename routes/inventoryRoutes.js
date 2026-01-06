@@ -10,6 +10,12 @@ const router = express.Router();
 
 const inventoryController = require("../controllers/inventoryControllers");
 const { protect } = require("../middleware/authMiddleware");
+const { checkInventoryAccess } = require("../middleware/permissionMiddleware");
+
+// Apply inventory access check to all routes
+// Free plan: view_only (GET requests only)
+// Basic, Standard, Premium: full access
+router.use(protect, checkInventoryAccess);
 
 // Product CRUD Operations
 
@@ -40,7 +46,7 @@ const { protect } = require("../middleware/authMiddleware");
  *       500:
  *         description: Server error
  */
-router.post("/create", protect, inventoryController.createProduct);
+router.post("/create", inventoryController.createProduct);
 
 /**
  * @swagger
@@ -69,7 +75,7 @@ router.post("/create", protect, inventoryController.createProduct);
  *       500:
  *         description: Server error
  */
-router.get("/all", protect, inventoryController.getAllProducts);
+router.get("/all", inventoryController.getAllProducts);
 
 /**
  * @swagger
@@ -98,7 +104,7 @@ router.get("/all", protect, inventoryController.getAllProducts);
  *       500:
  *         description: Server error
  */
-router.get("/organization/:organizationId", protect, inventoryController.getAllProductsByOrganization);
+router.get("/organization/:organizationId", inventoryController.getAllProductsByOrganization);
 
 /**
  * @swagger
@@ -127,7 +133,7 @@ router.get("/organization/:organizationId", protect, inventoryController.getAllP
  *       500:
  *         description: Server error
  */
-router.get("/:productId", protect, inventoryController.getProductById);
+router.get("/:productId", inventoryController.getProductById);
 
 /**
  * @swagger
@@ -156,7 +162,7 @@ router.get("/:productId", protect, inventoryController.getProductById);
  *       500:
  *         description: Server error
  */
-router.patch("/:productId", protect, inventoryController.updateProduct);
+router.patch("/:productId", inventoryController.updateProduct);
 
 /**
  * @swagger
@@ -185,7 +191,7 @@ router.patch("/:productId", protect, inventoryController.updateProduct);
  *       500:
  *         description: Server error
  */
-router.delete("/:productId", protect, inventoryController.deleteProduct);
+router.delete("/:productId", inventoryController.deleteProduct);
 
 /**
  * @swagger
@@ -214,7 +220,7 @@ router.delete("/:productId", protect, inventoryController.deleteProduct);
  *       500:
  *         description: Server error
  */
-router.delete("/store/:storeId", protect, inventoryController.deleteAllProductsByStore);
+router.delete("/store/:storeId", inventoryController.deleteAllProductsByStore);
 
 // WooCommerce sync routes
 
@@ -245,7 +251,7 @@ router.delete("/store/:storeId", protect, inventoryController.deleteAllProductsB
  *       500:
  *         description: Server error
  */
-router.post("/woocommerce/sync-products/:storeId/:organizationId", protect, inventoryController.syncProducts);
+router.post("/woocommerce/sync-products/:storeId/:organizationId", inventoryController.syncProducts);
 
 // HIDDEN FROM SWAGGER - Not used by frontend
 // /**
@@ -275,7 +281,7 @@ router.post("/woocommerce/sync-products/:storeId/:organizationId", protect, inve
 //  *       500:
 //  *         description: Server error
 //  */
-router.post("/woocommerce/sync/:productId", protect, inventoryController.syncProductToWooCommerce);
+router.post("/woocommerce/sync/:productId", inventoryController.syncProductToWooCommerce);
 
 // HIDDEN FROM SWAGGER - Not used by frontend
 // /**
@@ -305,7 +311,7 @@ router.post("/woocommerce/sync/:productId", protect, inventoryController.syncPro
 //  *       500:
 //  *         description: Server error
 //  */
-router.post("/woocommerce/retry-sync/:productId", protect, inventoryController.retryProductWooCommerceSync);
+router.post("/woocommerce/retry-sync/:productId", inventoryController.retryProductWooCommerceSync);
 
 // Metrics routes
 
@@ -336,7 +342,7 @@ router.post("/woocommerce/retry-sync/:productId", protect, inventoryController.r
  *       500:
  *         description: Server error
  */
-router.get("/metrics/total-products/:organizationId", protect, inventoryController.getTotalProducts);
+router.get("/metrics/total-products/:organizationId", inventoryController.getTotalProducts);
 
 /**
  * @swagger
@@ -365,7 +371,7 @@ router.get("/metrics/total-products/:organizationId", protect, inventoryControll
  *       500:
  *         description: Server error
  */
-router.get("/metrics/in-stock/:organizationId", protect, inventoryController.getInStockItems);
+router.get("/metrics/in-stock/:organizationId", inventoryController.getInStockItems);
 
 /**
  * @swagger
@@ -394,7 +400,7 @@ router.get("/metrics/in-stock/:organizationId", protect, inventoryController.get
  *       500:
  *         description: Server error
  */
-router.get("/metrics/low-stock/:organizationId", protect, inventoryController.getLowStockItems);
+router.get("/metrics/low-stock/:organizationId", inventoryController.getLowStockItems);
 
 /**
  * @swagger
@@ -423,7 +429,7 @@ router.get("/metrics/low-stock/:organizationId", protect, inventoryController.ge
  *       500:
  *         description: Server error
  */
-router.get("/metrics/out-of-stock/:organizationId", protect, inventoryController.getOutOfStockItems);
+router.get("/metrics/out-of-stock/:organizationId", inventoryController.getOutOfStockItems);
 
 /**
  * @swagger
@@ -452,7 +458,7 @@ router.get("/metrics/out-of-stock/:organizationId", protect, inventoryController
  *       500:
  *         description: Server error
  */
-router.get("/metrics/category-count/:organizationId", protect, inventoryController.getCategoryCount);
+router.get("/metrics/category-count/:organizationId", inventoryController.getCategoryCount);
 
 /**
  * @swagger
@@ -481,7 +487,7 @@ router.get("/metrics/category-count/:organizationId", protect, inventoryControll
  *       500:
  *         description: Server error
  */
-router.get("/metrics/store-count/:organizationId", protect, inventoryController.getStoreCount);
+router.get("/metrics/store-count/:organizationId", inventoryController.getStoreCount);
 
 /**
  * @swagger
@@ -510,7 +516,7 @@ router.get("/metrics/store-count/:organizationId", protect, inventoryController.
  *       500:
  *         description: Server error
  */
-router.get("/metrics/total-value/:organizationId", protect, inventoryController.getTotalInventoryValue);
+router.get("/metrics/total-value/:organizationId", inventoryController.getTotalInventoryValue);
 
 /**
  * @swagger
@@ -539,7 +545,7 @@ router.get("/metrics/total-value/:organizationId", protect, inventoryController.
  *       500:
  *         description: Server error
  */
-router.get("/metrics/avg-price/:organizationId", protect, inventoryController.getAveragePrice);
+router.get("/metrics/avg-price/:organizationId", inventoryController.getAveragePrice);
 
 /**
  * @swagger
@@ -568,7 +574,7 @@ router.get("/metrics/avg-price/:organizationId", protect, inventoryController.ge
  *       500:
  *         description: Server error
  */
-router.get("/metrics/on-sale/:organizationId", protect, inventoryController.getOnSaleCount);
+router.get("/metrics/on-sale/:organizationId", inventoryController.getOnSaleCount);
 
 /**
  * @swagger
@@ -597,6 +603,30 @@ router.get("/metrics/on-sale/:organizationId", protect, inventoryController.getO
  *       500:
  *         description: Server error
  */
-router.get("/metrics/avg-rating/:organizationId", protect, inventoryController.getAverageRating);
+router.get("/metrics/avg-rating/:organizationId", inventoryController.getAverageRating);
+
+/**
+ * @swagger
+ * /api/inventory/cleanup/orphaned/:organizationId:
+ *   delete:
+ *     summary: Clean up orphaned products (products from deleted stores)
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: dryRun
+ *         schema:
+ *           type: boolean
+ *         description: If true, only returns count without deleting
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.delete("/cleanup/orphaned/:organizationId", inventoryController.cleanupOrphanedProducts);
 
 module.exports = router;

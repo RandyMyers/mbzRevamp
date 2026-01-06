@@ -612,8 +612,8 @@ exports.registerOrganizationUser = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'Organization user registered successfully',
       userId: newUser._id,
       username: newUser.fullName,
@@ -623,7 +623,8 @@ exports.registerOrganizationUser = async (req, res) => {
       token,
       organizationCode: newUser.organizationCode,
       organizationId: newOrganization._id,
-      organization: newOrganization.name
+      organization: newOrganization.name,
+      shortId: newUser.short_id
     });
   } catch (error) {
     console.error('Organization user registration error:', error);
@@ -707,7 +708,7 @@ exports.loginOrganizationUser = async (req, res) => {
 
       return res.status(403).json({
         success: false,
-        message: `Your account is scheduled for deletion on ${deletionDate}. If you want to cancel this request, please contact support@elapix.store.`,
+        message: `Your account is scheduled for deletion on ${deletionDate}. If you want to cancel this request, please contact hello@mbztechnology.com.`,
         accountScheduledForDeletion: true,
         deletionDate: user.deletionScheduledAt
       });
@@ -826,6 +827,7 @@ exports.loginOrganizationUser = async (req, res) => {
       organizationCode: user.organizationCode,
       profilePicture: user.profilePicture,
       status: user.status,
+      shortId: user.short_id, // ✅ Include customer shortId for identification
       onboarding: {
         status: onboardingStatus.status,
         currentStep: onboardingStatus.currentStep,
@@ -1971,8 +1973,8 @@ exports.registerUser = async (req, res) => {
     );
 
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'User registered successfully. Please check your email for verification code.',
       userId: newUser._id,
       username: newUser.fullName,
@@ -1983,6 +1985,7 @@ exports.registerUser = async (req, res) => {
       organizationCode: newOrganization.organizationCode,
       emailVerified: newUser.emailVerified,
       status: newUser.status,
+      shortId: newUser.short_id,
       token
     });
   } catch (error) {

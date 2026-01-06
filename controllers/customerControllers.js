@@ -284,6 +284,9 @@ exports.syncCustomers = async (req, res) => {
  */
 exports.createCustomer = async (req, res) => {
     try {
+      console.log('🎯 Backend: createCustomer called with req.body:', req.body);
+      console.log('🎯 Backend: syncToWooCommerce in req.body?', 'syncToWooCommerce' in req.body, req.body.syncToWooCommerce);
+
       const {
         storeId,
         userId,
@@ -419,8 +422,13 @@ exports.createCustomer = async (req, res) => {
       let syncStatus = savedCustomer.syncStatus;
       let syncError = null;
 
+      console.log('🔍 syncToWooCommerce value:', syncToWooCommerce);
+      console.log('🔍 storeId value:', storeId);
+      console.log('🔍 Should sync?', syncToWooCommerce && storeId);
+
       // PHASE 2: Sync to WooCommerce if requested
       if (syncToWooCommerce && storeId) {
+        console.log('🚀 Starting WooCommerce customer sync...');
         try {
           // Get store information
           const store = await Store.findById(storeId);
@@ -430,6 +438,18 @@ exports.createCustomer = async (req, res) => {
           } else {
             // Create WooCommerce service instance
             const wooCommerceService = new WooCommerceService(store);
+
+            // Generate username if not provided (WooCommerce requires a valid username)
+            let generatedUsername = username;
+            if (!generatedUsername && email) {
+              // Use email prefix as username, remove special chars, add random suffix for uniqueness
+              generatedUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now().toString().slice(-4);
+            } else if (!generatedUsername && first_name) {
+              // Fallback to first_name + last_name
+              generatedUsername = (first_name + (last_name || '')).toLowerCase().replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now().toString().slice(-4);
+            }
+
+            console.log('📧 Generated username for WooCommerce:', generatedUsername);
 
             // Prepare customer data for WooCommerce
             const customerData = {
@@ -446,7 +466,7 @@ exports.createCustomer = async (req, res) => {
               first_name,
               last_name,
               role: role || 'customer',
-              username,
+              username: generatedUsername,
               billing: processedBilling,
               shipping: processedShipping,
               is_paying_customer: Boolean(is_paying_customer),
@@ -640,12 +660,18 @@ exports.createCustomer = async (req, res) => {
 
       // Return 200 with empty array if no customers found (not an error condition)
       res.status(200).json({
+        success: true,
         message: customers.length === 0 ? 'No customers found for this organization.' : 'Customers retrieved successfully for the organization.',
-        customers,
+        data: customers,
+        customers, // Keep for backward compatibility
+        currentPage: 1,
+        totalPages: 1,
+        totalCustomers: customers.length
       });
     } catch (error) {
       console.error('Error retrieving customers by organization ID:', error);
       res.status(500).json({
+        success: false,
         message: 'Error retrieving customers by organization ID.',
         error: error.message,
       });
@@ -1244,7 +1270,7 @@ exports.createCustomer = async (req, res) => {
   exports.deleteCustomer = async (req, res) => {
     try {
       const { id } = req.params;
-      const { syncToWooCommerce = false } = req.body;
+      const { syncToWooCommerce = false } = req.body || {}; // Handle undefined req.body for DELETE requests
 
       // Get the customer before deleting to check if it has a WooCommerce ID
       const customerToDelete = await Customer.findById(id);

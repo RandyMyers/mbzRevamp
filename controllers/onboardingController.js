@@ -207,25 +207,64 @@ exports.completeOnboarding = async (req, res) => {
       });
     }
 
-    const onboarding = await Onboarding.findOne({ organizationId });
-    
+    let onboarding = await Onboarding.findOne({ organizationId });
+    const now = new Date();
+
+    // If no onboarding record exists, create one and mark it as completed
     if (!onboarding) {
-      return res.status(404).json({
-        success: false,
-        message: 'Onboarding record not found'
+      onboarding = new Onboarding({
+        organizationId,
+        mainUserId: userId,
+        status: 'completed',
+        currentStep: 4,
+        completedSteps: [
+          { stepNumber: 1, completedAt: now, completedBy: userId },
+          { stepNumber: 2, completedAt: now, completedBy: userId },
+          { stepNumber: 3, completedAt: now, completedBy: userId },
+          { stepNumber: 4, completedAt: now, completedBy: userId }
+        ],
+        storeSetup: { isCompleted: true, completedAt: now, completedBy: userId },
+        planSelection: { isCompleted: true, completedAt: now, completedBy: userId },
+        platformTour: { isCompleted: true, completedAt: now, completedBy: userId, moduleToursCompleted: [] },
+        finalSetup: { isCompleted: true, completedAt: now, completedBy: userId },
+        completedAt: now
       });
+    } else {
+      // Mark all steps as completed
+      onboarding.status = 'completed';
+      onboarding.currentStep = 4;
+
+      // Ensure all steps are in completedSteps array
+      for (let i = 1; i <= 4; i++) {
+        const existingStep = onboarding.completedSteps.find(step => step.stepNumber === i);
+        if (!existingStep) {
+          onboarding.completedSteps.push({
+            stepNumber: i,
+            completedAt: now,
+            completedBy: userId
+          });
+        }
+      }
+
+      onboarding.storeSetup.isCompleted = true;
+      onboarding.storeSetup.completedAt = now;
+      onboarding.storeSetup.completedBy = userId;
+
+      onboarding.planSelection.isCompleted = true;
+      onboarding.planSelection.completedAt = now;
+      onboarding.planSelection.completedBy = userId;
+
+      onboarding.platformTour.isCompleted = true;
+      onboarding.platformTour.completedAt = now;
+      onboarding.platformTour.completedBy = userId;
+
+      onboarding.finalSetup.isCompleted = true;
+      onboarding.finalSetup.completedAt = now;
+      onboarding.finalSetup.completedBy = userId;
+
+      onboarding.completedAt = now;
     }
 
-    // Mark all steps as completed
-    onboarding.status = 'completed';
-    onboarding.currentStep = 4;
-    onboarding.completedSteps = [1, 2, 3, 4];
-    onboarding.storeSetup.isCompleted = true;
-    onboarding.planSelection.isCompleted = true;
-    onboarding.platformTour.isCompleted = true;
-    onboarding.finalSetup.isCompleted = true;
-    onboarding.onboardingCompletedAt = new Date();
-    
     await onboarding.save();
 
     // Update user's onboarding status

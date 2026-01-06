@@ -15,6 +15,11 @@ const subtaskSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: false  // Make it optional since it will be defaulted
+  },
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false  // Optional - subtask can be unassigned
   }
 }, { timestamps: true });
 
@@ -61,6 +66,11 @@ const taskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
       required: true,
+    },
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      required: false, // Optional - tasks can be organization-wide or store-specific
     },
     tags: [String],
     comments: [

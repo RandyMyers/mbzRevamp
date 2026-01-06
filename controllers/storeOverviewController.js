@@ -180,9 +180,10 @@ exports.getStoreStats = async (req, res) => {
         date_created: { $gte: startDate, $lte: endDate },
         status: { $nin: ['cancelled', 'refunded'] }
       })),
-      // Total customers
+      // Total customers - only count actual customers, not admins
       safeQuery(() => Customer.countDocuments({
         organizationId: new mongoose.Types.ObjectId(organizationId),
+        role: 'customer', // Only count actual customers, exclude admin/shop_manager
         date_created: { $gte: startDate, $lte: endDate }
       })),
       // Total products
@@ -205,6 +206,7 @@ exports.getStoreStats = async (req, res) => {
       })),
       safeQuery(() => Customer.countDocuments({
         organizationId: new mongoose.Types.ObjectId(organizationId),
+        role: 'customer', // Only count actual customers, exclude admin/shop_manager
         date_created: { $gte: previousStartDate, $lt: startDate }
       })),
       safeQuery(() => Inventory.countDocuments({
@@ -389,9 +391,10 @@ exports.getStoreAlerts = async (req, res) => {
       });
     }
 
-    // Check for failed customer syncs
+    // Check for failed customer syncs - only check actual customers
     const failedCustomerSyncs = await Customer.countDocuments({
       organizationId: new mongoose.Types.ObjectId(organizationId),
+      role: 'customer', // Only check actual customers
       syncError: { $exists: true, $ne: null }
     });
 

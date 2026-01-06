@@ -204,12 +204,41 @@ const notifyTaskOverdue = async (task, assignedTo, organizationId) => {
   }
 };
 
+// Notify when subtask is added
+const notifySubtaskAdded = async (task, subtask, addedBy, organizationId) => {
+  try {
+    const companyName = await getOrganizationName(organizationId);
+    const addedByName = await getUserName(addedBy);
+
+    const variables = {
+      subtaskTitle: subtask.title,
+      taskTitle: task.title,
+      addedByName: addedByName,
+      companyName: companyName
+    };
+
+    // Notify all assigned users and creator (except the one who added)
+    const userIds = [...new Set([...task.assignedTo.map(id => id.toString()), task.createdBy?.toString()])].filter(
+      userId => userId && userId !== addedBy?.toString()
+    );
+
+    if (userIds.length === 0) {
+      return { success: true, message: 'No other users to notify' };
+    }
+
+    return await sendTaskNotification('subtask_added', userIds, variables, organizationId);
+  } catch (error) {
+    console.error('Notify subtask added error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Notify when subtask is completed
 const notifySubtaskCompleted = async (task, subtask, completedBy, organizationId) => {
   try {
     const companyName = await getOrganizationName(organizationId);
     const completedByName = await getUserName(completedBy);
-    
+
     const variables = {
       subtaskTitle: subtask.title,
       taskTitle: task.title,
@@ -218,8 +247,15 @@ const notifySubtaskCompleted = async (task, subtask, completedBy, organizationId
       companyName: companyName
     };
 
-    // Notify all assigned users and creator
-    const userIds = [...new Set([...task.assignedTo, task.createdBy])];
+    // Notify all assigned users and creator (except the one who completed)
+    const userIds = [...new Set([...task.assignedTo.map(id => id.toString()), task.createdBy?.toString()])].filter(
+      userId => userId && userId !== completedBy?.toString()
+    );
+
+    if (userIds.length === 0) {
+      return { success: true, message: 'No other users to notify' };
+    }
+
     return await sendTaskNotification('subtask_completed', userIds, variables, organizationId);
   } catch (error) {
     console.error('Notify subtask completed error:', error);
@@ -284,6 +320,7 @@ module.exports = {
   notifyTaskStatusUpdated,
   notifyTaskDueSoon,
   notifyTaskOverdue,
+  notifySubtaskAdded,
   notifySubtaskCompleted,
   notifyTaskCommentAdded,
   notifyTaskAttachmentUploaded,

@@ -18,6 +18,7 @@ const callSchedulerSchema = new mongoose.Schema({
   },
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
+  duration: { type: Number }, // Duration in minutes
   status: {
     type: String,
     enum: ['scheduled', 'cancelled', 'completed'],
@@ -70,7 +71,23 @@ const callSchedulerSchema = new mongoose.Schema({
   organizerTimezone: {
     type: String,
     default: 'UTC'
+  },
+  // Reminder tracking
+  reminderSent: {
+    type: Boolean,
+    default: false
+  },
+  reminderSentAt: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
+
+// Indexes for performance
+callSchedulerSchema.index({ organizationId: 1 });
+callSchedulerSchema.index({ startTime: 1 });
+callSchedulerSchema.index({ status: 1 });
+callSchedulerSchema.index({ organizationId: 1, startTime: 1 });
+callSchedulerSchema.index({ status: 1, startTime: 1, reminderSent: 1 });
 
 module.exports = mongoose.model('CallScheduler', callSchedulerSchema); 

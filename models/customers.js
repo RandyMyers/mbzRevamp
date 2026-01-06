@@ -132,10 +132,10 @@ const customerSchema = new mongoose.Schema({
   }
 });
 
-const Customer = mongoose.model('Customer', customerSchema);
-
-// Add unique indexes to prevent duplicates
+// Add unique indexes to prevent duplicates (MUST be before model creation)
 customerSchema.index({ wooCommerceId: 1, storeId: 1 }, { unique: true, sparse: true });
 customerSchema.index({ email: 1, storeId: 1, organizationId: 1 }, { unique: true, sparse: true });
+
+const Customer = mongoose.model('Customer', customerSchema);
 
 module.exports = Customer;

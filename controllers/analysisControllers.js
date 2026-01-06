@@ -1128,54 +1128,35 @@ exports.productPerformance = async (req, res) => {
   }
 };
 
-// Funnel Data
+// Funnel Data - Shows order funnel based on actual order statuses
 exports.funnelData = async (req, res) => {
   try {
     const { timeRange, organizationId } = req.query;
-    
+
     const startDate = getDateRange(timeRange);
 
-    // Get site visits (placeholder)
-    const siteVisits = 10000;
-
-    // Get product views
-    const productViewsPipeline = [
-      {
-        $match: {
-          organizationId: new mongoose.Types.ObjectId(organizationId),
-          date_created: { $gte: startDate }
-        }
-      },
-      {
-        $unwind: "$line_items"
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 }
-        }
-      }
-    ];
-
-    const productViews = await Order.aggregate(productViewsPipeline);
-
-    // Get cart additions
-    const cartQuery = {
+    // Get all orders (including pending, on-hold, etc.)
+    const allOrdersQuery = {
       organizationId: new mongoose.Types.ObjectId(organizationId),
-      date_created: { $gte: startDate },
-      status: { $ne: 'draft' }
+      date_created: { $gte: startDate }
     };
+    const allOrders = await Order.countDocuments(allOrdersQuery);
 
-    const cartAdditions = await Order.countDocuments(cartQuery);
-
-    // Get checkout starts
+    // Get orders that started checkout (not cancelled or failed)
     const checkoutQuery = {
       organizationId: new mongoose.Types.ObjectId(organizationId),
       date_created: { $gte: startDate },
-      status: { $nin: ['draft', 'cancelled'] }
+      status: { $nin: ['cancelled', 'failed', 'trash'] }
     };
-
     const checkoutStarts = await Order.countDocuments(checkoutQuery);
+
+    // Get orders in processing state
+    const processingQuery = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      date_created: { $gte: startDate },
+      status: { $in: ['processing', 'completed', 'on-hold'] }
+    };
+    const processingOrders = await Order.countDocuments(processingQuery);
 
     // Get completed purchases
     const purchaseQuery = {
@@ -1183,15 +1164,13 @@ exports.funnelData = async (req, res) => {
       date_created: { $gte: startDate },
       status: 'completed'
     };
-
     const completedPurchases = await Order.countDocuments(purchaseQuery);
 
     const funnelStages = [
-      { stage: "Site Visit", count: siteVisits },
-      { stage: "Product View", count: productViews[0]?.count || 0 },
-      { stage: "Add to Cart", count: cartAdditions },
-      { stage: "Checkout Start", count: checkoutStarts },
-      { stage: "Purchase", count: completedPurchases }
+      { stage: "Orders Created", count: allOrders },
+      { stage: "Checkout Started", count: checkoutStarts },
+      { stage: "Payment Received", count: processingOrders },
+      { stage: "Completed", count: completedPurchases }
     ];
 
     res.json({

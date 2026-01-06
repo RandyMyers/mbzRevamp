@@ -10,6 +10,7 @@ const router = express.Router();
 
 const { protect } = require('../middleware/authMiddleware');
 const websiteController = require('../controllers/websiteControllers');
+const { checkResourceLimit } = require('../middleware/permissionMiddleware');
 
 
 // Website creation and domain check
@@ -41,7 +42,8 @@ const websiteController = require('../controllers/websiteControllers');
  *       500:
  *         description: Server error
  */
-router.post('/create', protect, websiteController.createWebsite);
+// Check website limit before allowing creation (based on subscription plan)
+router.post('/create', protect, checkResourceLimit('website'), websiteController.createWebsite);
 
 /**
  * @swagger

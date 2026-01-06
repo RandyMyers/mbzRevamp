@@ -873,36 +873,56 @@ exports.createInvitation = async (req, res) => {
 
     // ✅ FLEXIBLE AUTHORIZATION: Check if user can send invitations
     let canSendInvitations = false;
-    
+
+    // Normalize role to lowercase for case-insensitive comparison
+    const userRoleName = (req.user.role?.name || req.user.role || '').toString().toLowerCase();
+
+    console.log('🔍 DEBUG: Checking invitation permissions:', {
+      userRoleName,
+      rawRole: req.user.role,
+      roleId: req.user.roleId,
+      organization: req.user.organization
+    });
+
     // ✅ FALLBACK 1: Check for super-admin (always allowed)
-    if (req.user.role === 'super-admin') {
+    if (userRoleName === 'super-admin' || userRoleName === 'superadmin') {
       canSendInvitations = true;
     }
-    
-    // ✅ FALLBACK 2: Check for admin role (legacy support)
-    else if (req.user.role === 'admin') {
+
+    // ✅ FALLBACK 2: Check for admin role (case-insensitive)
+    else if (userRoleName === 'admin' || userRoleName === 'administrator') {
       canSendInvitations = true;
     }
-    
+
     // ✅ FALLBACK 3: Check role permissions if user has roleId
     else if (req.user.roleId) {
       try {
         const Role = require('../models/role');
         const userRole = await Role.findById(req.user.roleId).select('permissions name');
-        
-        if (userRole && userRole.permissions) {
+
+        console.log('🔍 DEBUG: Role from DB:', userRole?.name, userRole?.permissions);
+
+        if (userRole) {
+          // Check if role name is admin (case-insensitive)
+          const roleName = (userRole.name || '').toLowerCase();
+          if (roleName === 'admin' || roleName === 'administrator' || roleName === 'super-admin') {
+            canSendInvitations = true;
+          }
           // Check if role has invitation permissions
-          canSendInvitations = userRole.permissions.invite_users === true || 
-                              userRole.permissions.user_management === true ||
-                              userRole.permissions.admin_access === true;
+          else if (userRole.permissions) {
+            canSendInvitations = userRole.permissions.invite_users === true ||
+                                userRole.permissions.user_management === true ||
+                                userRole.permissions.admin_access === true;
+          }
         }
       } catch (roleError) {
         console.error('❌ Error checking role permissions:', roleError.message);
       }
     }
-    
+
     // ✅ FALLBACK 4: Check if user is in the same organization (basic authorization)
-    else if (req.user.organization) {
+    // For organization owners/admins who might not have roleId set
+    if (!canSendInvitations && req.user.organization) {
       // Allow any user in an organization to send invitations (can be restricted later)
       canSendInvitations = true;
     }
@@ -1365,16 +1385,50 @@ exports.resendInvitation = async (req, res) => {
     const baseUrl = process.env.FRONTEND_URL || 'https://crm.mbztechnology.com';
     const invitedBy = req.user._id;
 
-    // ✅ VALIDATION 1: Check if user is authorized
-    // Check both role string and roleId for proper authorization
-    const userRole = req.user.role || req.userRoleName;
-    const isAuthorized = userRole === 'admin' || userRole === 'super-admin' ||
-                         userRole === 'Admin' || userRole === 'Super Admin';
+    // ✅ FLEXIBLE AUTHORIZATION: Check if user can resend invitations
+    let canResendInvitations = false;
 
-    if (!req.user || !isAuthorized) {
+    // Normalize role to lowercase for case-insensitive comparison
+    const userRoleName = (req.user.role?.name || req.user.role || '').toString().toLowerCase();
+
+    // ✅ FALLBACK 1: Check for super-admin (always allowed)
+    if (userRoleName === 'super-admin' || userRoleName === 'superadmin') {
+      canResendInvitations = true;
+    }
+
+    // ✅ FALLBACK 2: Check for admin role (case-insensitive)
+    else if (userRoleName === 'admin' || userRoleName === 'administrator') {
+      canResendInvitations = true;
+    }
+
+    // ✅ FALLBACK 3: Check role permissions if user has roleId
+    else if (req.user.roleId) {
+      try {
+        const userRole = await Role.findById(req.user.roleId).select('permissions name');
+        if (userRole) {
+          const roleName = (userRole.name || '').toLowerCase();
+          if (roleName === 'admin' || roleName === 'administrator' || roleName === 'super-admin') {
+            canResendInvitations = true;
+          } else if (userRole.permissions) {
+            canResendInvitations = userRole.permissions.invite_users === true ||
+                                  userRole.permissions.user_management === true ||
+                                  userRole.permissions.admin_access === true;
+          }
+        }
+      } catch (roleError) {
+        console.error('❌ Error checking role permissions for resend:', roleError.message);
+      }
+    }
+
+    // ✅ FALLBACK 4: Check if user is in the same organization
+    if (!canResendInvitations && req.user.organization) {
+      canResendInvitations = true;
+    }
+
+    if (!canResendInvitations) {
       return res.status(403).json({
         success: false,
-        message: 'You are not authorized to resend invitations'
+        message: 'You are not authorized to resend invitations. Please contact your administrator to update your permissions.'
       });
     }
 
@@ -1802,37 +1856,49 @@ exports.updateInvitation = async (req, res) => {
 
     // ✅ FLEXIBLE AUTHORIZATION: Check if user can update this invitation
     let canUpdateInvitation = false;
-    
+
+    // Normalize role to lowercase for case-insensitive comparison
+    const userRoleName = (req.user.role?.name || req.user.role || '').toString().toLowerCase();
+
     // ✅ FALLBACK 1: User is the one who sent the invitation
     if (invitation.invitedBy.toString() === userId.toString()) {
       canUpdateInvitation = true;
     }
-    
-    // ✅ FALLBACK 2: Check for super-admin (always allowed)
-    else if (req.user.role === 'super-admin') {
+
+    // ✅ FALLBACK 2: Check for super-admin (always allowed, case-insensitive)
+    else if (userRoleName === 'super-admin' || userRoleName === 'superadmin') {
       canUpdateInvitation = true;
     }
-    
-    // ✅ FALLBACK 3: Check for admin role (legacy support)
-    else if (req.user.role === 'admin') {
+
+    // ✅ FALLBACK 3: Check for admin role (case-insensitive)
+    else if (userRoleName === 'admin' || userRoleName === 'administrator') {
       canUpdateInvitation = true;
     }
-    
+
     // ✅ FALLBACK 4: Check role permissions if user has roleId
     else if (req.user.roleId) {
       try {
-        const Role = require('../models/role');
         const userRole = await Role.findById(req.user.roleId).select('permissions name');
-        
-        if (userRole && userRole.permissions) {
-          // Check if role has invitation management permissions
-          canUpdateInvitation = userRole.permissions.invite_users === true || 
-                               userRole.permissions.user_management === true ||
-                               userRole.permissions.admin_access === true;
+
+        if (userRole) {
+          const roleName = (userRole.name || '').toLowerCase();
+          if (roleName === 'admin' || roleName === 'administrator' || roleName === 'super-admin') {
+            canUpdateInvitation = true;
+          } else if (userRole.permissions) {
+            // Check if role has invitation management permissions
+            canUpdateInvitation = userRole.permissions.invite_users === true ||
+                                 userRole.permissions.user_management === true ||
+                                 userRole.permissions.admin_access === true;
+          }
         }
       } catch (roleError) {
         console.error('❌ Error checking role permissions for invitation update:', roleError.message);
       }
+    }
+
+    // ✅ FALLBACK 5: Check if user is in the same organization
+    if (!canUpdateInvitation && req.user.organization) {
+      canUpdateInvitation = true;
     }
     
     if (!canUpdateInvitation) {

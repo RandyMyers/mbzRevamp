@@ -10,6 +10,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -19,6 +20,9 @@ const router = express.Router();
  */
 
 const storeOverviewController = require('../controllers/storeOverviewController');
+
+// Protect all store overview routes - require authentication
+router.use(protect);
 
 // 1. Store Stats - Basic store metrics
 // GET /api/store-overview/stats/:organizationId

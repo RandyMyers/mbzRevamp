@@ -14,6 +14,9 @@ const receiverEvent = require('./helper/receiverEvent');
 // Import Swagger configuration
 const { specs, swaggerUi } = require('./swagger');
 
+// Import global error handler
+const { errorHandler } = require('./utils/errors');
+
 // Importing route files
 const userRoutes = require('./routes/userRoutes');
 //const policiesRoutes = require('./routes/policyRoutes');
@@ -128,6 +131,10 @@ console.log('Loaded invoiceTemplateRoutes type:', typeof invoiceTemplateRoutes);
 // New Shipping Label routes
 const shippingLabelRoutes = require('./routes/shippingLabelRoutes');
 console.log('Loaded shippingLabelRoutes type:', typeof shippingLabelRoutes);
+
+// Bank Transfer routes
+const bankTransferRoutes = require('./routes/bankTransferRoutes');
+console.log('Loaded bankTransferRoutes type:', typeof bankTransferRoutes);
 
 dotenv.config();
 
@@ -410,6 +417,10 @@ app.use('/api/invoice/templates', invoiceTemplateRoutes);
 // New Shipping Label routes
 app.use('/api/shipping-labels', shippingLabelRoutes);
 
+// Bank Transfer routes
+app.use('/api/bank-transfer', bankTransferRoutes);
+console.log('Mounted bankTransferRoutes');
+
 //Start the cron job for receiver emails
 receiverEvent.scheduleEmailSync();
 
@@ -423,12 +434,20 @@ rateSyncService.initialize()
     console.error('❌ Failed to initialize Exchange Rate Sync Service:', error);
   });
 
+// Initialize Call Reminder Scheduler
+const callReminderScheduler = require('./services/callReminderScheduler');
+callReminderScheduler.initializeCallReminderScheduler();
+
+// Initialize Subscription Renewal Scheduler
+const subscriptionRenewalScheduler = require('./services/subscriptionRenewalScheduler');
+subscriptionRenewalScheduler.initializeRenewalScheduler();
+
+// Global error handler - catches errors from middleware (auth, etc.) and returns JSON
+// Must be placed after all routes and before app.listen()
+app.use(errorHandler);
+
 // Start the server
 const PORT = process.env.PORT || 8800;
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
-  
 });
-
-// Remove the global error handler - let each controller handle its own errors
-// app.use(errorHandler);

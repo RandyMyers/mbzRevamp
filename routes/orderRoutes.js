@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const orderController = require("../controllers/orderControllers");
 
 /**
@@ -8,6 +9,9 @@ const orderController = require("../controllers/orderControllers");
  *   - name: Orders
  *     description: Order management operations
  */
+
+// Protect all order routes - require authentication
+router.use(protect);
 
 // CREATE a new order
 /**
@@ -82,7 +86,7 @@ const orderController = require("../controllers/orderControllers");
 router.post("/create", orderController.createOrder);
 
 // GET all orders for a specific organization
-router.get("/all", require('../middleware/authMiddleware').protect, orderController.getAllOrders);
+router.get("/all", orderController.getAllOrders);
 
 // GET all orders for a specific organization
 router.get("/organization/:organizationId", orderController.getAllOrdersByOrganization);

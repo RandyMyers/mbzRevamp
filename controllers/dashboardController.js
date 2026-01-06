@@ -162,9 +162,10 @@ exports.getOverviewStats = async (req, res) => {
         organizationId: orgId,
         status: { $nin: ['cancelled', 'refunded'] }
       })),
-      // Customers
+      // Customers - only count actual customers, not admins
       safeQuery(() => Customer.countDocuments({
-        organizationId: orgId
+        organizationId: orgId,
+        role: 'customer' // Only count actual customers, exclude admin/shop_manager
       })),
       // Products
       safeQuery(() => Inventory.countDocuments({
@@ -418,6 +419,7 @@ exports.getCustomerMetrics = async (req, res) => {
         {
           $match: {
             organizationId: orgId,
+            role: 'customer', // Only count actual customers, exclude admin/shop_manager
             date_created: { $gte: startDate }
           }
         },
@@ -442,6 +444,7 @@ exports.getCustomerMetrics = async (req, res) => {
         {
           $match: {
             organizationId: orgId,
+            role: 'customer', // Only count actual customers, exclude admin/shop_manager
             date_created: { $gte: startDate }
           }
         },
@@ -522,10 +525,11 @@ exports.getNotifications = async (req, res) => {
       }).limit(5).lean();
     }, []);
 
-    // Get new customers
+    // Get new customers - only show actual customers, not admins
     const newCustomers = await safeQuery(async () => {
       return await Customer.find({
         organizationId: orgId,
+        role: 'customer', // Only show actual customers, exclude admin/shop_manager
         date_created: { $gte: oneDayAgo }
       }).limit(5).lean();
     }, []);

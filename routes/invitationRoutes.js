@@ -9,6 +9,7 @@ const router = express.Router();
  */
 
 const { protect: authenticateUser } = require('../middleware/authMiddleware');
+const { checkResourceLimit } = require('../middleware/permissionMiddleware');
 const {
   createInvitation,
   getInvitations,
@@ -113,7 +114,8 @@ router.use(authenticateUser);
  *       500:
  *         description: Server error
  */
-router.post('/', createInvitation);
+// Check user limit before allowing invitation (based on subscription plan)
+router.post('/', checkResourceLimit('user'), createInvitation);
 
 /**
  * @swagger

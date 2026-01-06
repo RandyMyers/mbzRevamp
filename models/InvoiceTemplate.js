@@ -16,6 +16,12 @@ const InvoiceTemplateSchema = new Schema({
       return !this.isSystemDefault;
     }
   },
+  // Optional store reference - templates can be store-specific or global
+  store: {
+    type: Schema.Types.ObjectId,
+    ref: 'Store',
+    required: false
+  },
 
   // Template Design
   templateType: {

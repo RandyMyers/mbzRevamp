@@ -9,6 +9,12 @@ const router = express.Router();
  */
 
 const callSchedulerController = require('../controllers/callSchedulerController');
+const { protect } = require('../middleware/authMiddleware');
+const { requirePlanFeature } = require('../middleware/permissionMiddleware');
+
+// Apply call scheduler feature check to all routes
+// Call scheduler is only available on Standard and Premium plans
+router.use(protect, requirePlanFeature('callScheduler'));
 
 // All endpoints require organizationId (and userId for create)
 // For GET: pass as query params; for POST/PUT/PATCH/DELETE: pass as body fields
@@ -364,6 +370,24 @@ router.put('/:id', callSchedulerController.updateCall); // organizationId in bod
  *         description: Server error
  */
 router.patch('/:id/cancel', callSchedulerController.cancelCall); // organizationId in body
+
+/**
+ * @swagger
+ * /api/calls/:id/reschedule:
+ *   patch:
+ *     summary: Reschedule a call
+ *     tags: [Call Scheduler]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:id/reschedule', callSchedulerController.rescheduleCall); // organizationId, startTime, endTime in body
 
 /**
  * @swagger

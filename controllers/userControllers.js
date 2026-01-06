@@ -162,6 +162,35 @@ const { createAuditLog, logSecurityEvent } = require('../helpers/auditLogHelper'
  *                   type: string
  *                   example: "Server error"
  */
+/**
+ * Helper function to check if a user is the account owner (first admin of their organization)
+ * The account owner is determined by being the first user with an admin role in the organization
+ * @param {ObjectId} userId - The user ID to check
+ * @param {ObjectId} organizationId - The organization ID
+ * @returns {Promise<boolean>} - True if user is the account owner
+ */
+const isAccountOwner = async (userId, organizationId) => {
+  if (!userId || !organizationId) return false;
+
+  try {
+    // Find the first user of this organization by creation date
+    // who has an admin-like role (either string role containing 'admin' or has a roleId)
+    const firstAdmin = await User.findOne({
+      organization: organizationId,
+      $or: [
+        { role: { $regex: /admin/i } },
+        { role: 'Administrator' },
+        { role: 'Admin' }
+      ]
+    }).sort({ createdAt: 1 }).select('_id');
+
+    return firstAdmin && firstAdmin._id.toString() === userId.toString();
+  } catch (error) {
+    console.error('Error checking account owner status:', error);
+    return false;
+  }
+};
+
 // Create a new user within the same organization as the admin
 
 exports.createUser = async (req, res) => {
@@ -665,7 +694,11 @@ exports.createUser = async (req, res) => {
 // Get all users in an organization
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().populate("organization").populate("roleId");
+    // Exclude users that are pending deletion or have deletion scheduled
+    const users = await User.find({
+      status: { $ne: 'pending-deletion' },
+      deletionScheduledAt: { $exists: false }
+    }).populate("organization").populate("roleId");
 
     // Map users to include role as roleId for frontend compatibility
     const usersWithRole = users.map(user => {
@@ -1147,7 +1180,12 @@ exports.getUsersByOrganization = async (req, res) => {
 
   try {
     // Fetch all users belonging to the specified organization
-    const users = await User.find({ organization: organizationId }).populate("organization").populate("roleId");
+    // Exclude users that are pending deletion or have deletion scheduled
+    const users = await User.find({
+      organization: organizationId,
+      status: { $ne: 'pending-deletion' },
+      deletionScheduledAt: { $exists: false }
+    }).populate("organization").populate("roleId");
 
     console.log('users for the organization', users);
     if (!users.length) {
@@ -1287,64 +1325,26 @@ exports.deleteUser = async (req, res) => {
     user.status = 'pending-deletion';
     await user.save();
 
-    // Send email notification about scheduled deletion
-    const SendGridService = require('../services/sendGridService');
-    const Organization = require('../models/organization');
-    const organization = await Organization.findById(user.organization);
+    // Check if this is a self-deletion or admin deleting a sub-user
+    const requestingUserId = req.user?._id?.toString() || req.user?.userId?.toString();
+    const isSelfDeletion = requestingUserId === userId;
 
-    if (organization) {
-      const formattedDate = deletionDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+    // Only send email notification if user is deleting their own account
+    // Don't send email when admin deletes a sub-user's account
+    if (isSelfDeletion) {
+      const SendGridService = require('../services/sendGridService');
+      const Organization = require('../models/organization');
+      const organization = await Organization.findById(user.organization);
 
-      const content = `
-        <h2>Hello ${user.fullName || user.email}!</h2>
-
-        <p>We have received your request to delete your account at <strong>${organization.name}</strong>.</p>
-
-        <div class="warning-box">
-          <h3>Account Scheduled for Deletion</h3>
-          <p>Your account will be permanently deleted on <strong>${formattedDate}</strong> (30 days from now).</p>
-        </div>
-
-        <div class="info-box">
-          <h3>What happens next:</h3>
-          <ul>
-            <li>You will be logged out immediately</li>
-            <li>You will not be able to log in to your account</li>
-            <li>After 30 days, all your data will be permanently deleted</li>
-            <li>This action cannot be undone after the deletion date</li>
-          </ul>
-        </div>
-
-        <p><strong>Changed your mind?</strong></p>
-        <p>If you want to cancel this deletion request, please contact us at <a href="mailto:support@elapix.store">support@elapix.store</a> before ${formattedDate}.</p>
-
-        <p style="margin-top: 30px;">Best regards,<br>
-        <strong>${organization.name} Team</strong></p>
-      `;
-
-      const htmlContent = SendGridService.generateEmailTemplate({
-        title: 'Account Deletion Scheduled',
-        heading: 'Account Deletion Scheduled',
-        content: content
-      });
-
-      // Send email notification
-      SendGridService.sendEmail({
-        to: user.email,
-        subject: `Account Deletion Scheduled - ${organization.name}`,
-        html: htmlContent,
-        userId: user._id,
-        organizationId: organization._id
-      }).catch(err => console.error('Failed to send account deletion email:', err));
+      if (organization) {
+        // Use the dedicated method for account deletion emails
+        SendGridService.sendAccountDeletionEmail(user, organization, deletionDate)
+          .catch(err => console.error('Failed to send account deletion email:', err));
+      }
     }
 
     await createAuditLog({
-      action: 'User deletion scheduled',
+      action: isSelfDeletion ? 'User deletion scheduled (self)' : 'User deletion scheduled (by admin)',
       user: req.user?._id || req.user?.userId || user._id,
       resource: 'user',
       resourceId: user._id,
@@ -1352,7 +1352,8 @@ exports.deleteUser = async (req, res) => {
         email: user.email,
         fullName: user.fullName,
         deletionScheduledAt: deletionDate,
-        deletionRequestedAt: new Date()
+        deletionRequestedAt: new Date(),
+        deletedBy: isSelfDeletion ? 'self' : 'admin'
       },
       organization: user.organization,
       severity: 'warning',
@@ -1360,9 +1361,14 @@ exports.deleteUser = async (req, res) => {
       userAgent: req.get('User-Agent')
     });
 
+    // Different response message based on who is deleting
+    const responseMessage = isSelfDeletion
+      ? `Your account has been scheduled for deletion on ${deletionDate.toLocaleDateString()}. You will receive an email confirmation.`
+      : `User account has been scheduled for deletion on ${deletionDate.toLocaleDateString()}.`;
+
     res.status(200).json({
       success: true,
-      message: `Your account has been scheduled for deletion on ${deletionDate.toLocaleDateString()}. You will receive an email confirmation.`
+      message: responseMessage
     });
   } catch (error) {
     console.error(error);
@@ -2097,6 +2103,174 @@ exports.terminateSession = async (req, res) => {
   } catch (error) {
     console.error('Terminate Session Error:', error);
     res.status(500).json({ success: false, message: "Failed to terminate session" });
+  }
+};
+
+/**
+ * @swagger
+ * /api/users/check-owner-status:
+ *   get:
+ *     summary: Check if the current user is the account owner
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Owner status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 isAccountOwner:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+exports.checkOwnerStatus = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const organizationId = req.user.organization || req.user.organizationId;
+
+    if (!organizationId) {
+      // Super admins or users without org are considered owners of their own account
+      return res.json({ success: true, isAccountOwner: true });
+    }
+
+    const isOwner = await isAccountOwner(userId, organizationId);
+
+    res.json({ success: true, isAccountOwner: isOwner });
+  } catch (error) {
+    console.error('Error checking owner status:', error);
+    res.status(500).json({ success: false, message: 'Failed to check owner status' });
+  }
+};
+
+/**
+ * @swagger
+ * /api/users/celebration-milestones:
+ *   get:
+ *     summary: Get user's completed celebration milestones
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Milestones retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 milestones:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["first-task", "first-store"]
+ */
+exports.getCelebrationMilestones = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select('celebrationMilestones');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      milestones: user.celebrationMilestones || []
+    });
+  } catch (error) {
+    console.error('Error getting celebration milestones:', error);
+    res.status(500).json({ success: false, message: 'Failed to get milestones' });
+  }
+};
+
+/**
+ * @swagger
+ * /api/users/celebration-milestones:
+ *   post:
+ *     summary: Add a celebration milestone for the user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - milestone
+ *             properties:
+ *               milestone:
+ *                 type: string
+ *                 example: "first-task"
+ *     responses:
+ *       200:
+ *         description: Milestone added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 milestones:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+exports.addCelebrationMilestone = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { milestone } = req.body;
+
+    if (!milestone) {
+      return res.status(400).json({ success: false, message: 'Milestone is required' });
+    }
+
+    // Valid milestones
+    const validMilestones = [
+      'first-task', 'first-order', 'first-inventory', 'first-customer',
+      'first-campaign', 'first-invoice', 'first-website', 'first-store',
+      'first-product', 'first-receipt', 'welcome-login'
+    ];
+
+    if (!validMilestones.includes(milestone)) {
+      return res.status(400).json({ success: false, message: 'Invalid milestone' });
+    }
+
+    // Add milestone if not already present (using $addToSet to prevent duplicates)
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { celebrationMilestones: milestone } },
+      { new: true }
+    ).select('celebrationMilestones');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      milestones: user.celebrationMilestones,
+      message: 'Milestone added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding celebration milestone:', error);
+    res.status(500).json({ success: false, message: 'Failed to add milestone' });
   }
 };
 

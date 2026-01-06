@@ -129,10 +129,11 @@ exports.createLog = async (req, res) => {
 // Get audit logs (with optional filters)
 exports.getLogs = async (req, res) => {
   try {
-    const { user, resource, organization, startDate, endDate } = req.query;
+    const { user, resource, resourceId, organization, startDate, endDate } = req.query;
     const filter = {};
     if (user) filter.user = user;
     if (resource) filter.resource = resource;
+    if (resourceId) filter.resourceId = resourceId;
     if (organization) filter.organization = organization;
     if (startDate || endDate) {
       filter.timestamp = {};
@@ -155,11 +156,12 @@ exports.getLogs = async (req, res) => {
 exports.getLogsByOrganization = async (req, res) => {
   try {
     const { organizationId } = req.params;
-    const { user, resource, startDate, endDate, severity, action } = req.query;
-    
+    const { user, resource, resourceId, startDate, endDate, severity, action } = req.query;
+
     const filter = { organization: organizationId };
     if (user) filter.user = user;
     if (resource) filter.resource = resource;
+    if (resourceId) filter.resourceId = resourceId;
     if (severity) filter.severity = severity;
     if (action) filter.action = { $regex: action, $options: 'i' };
     if (startDate || endDate) {

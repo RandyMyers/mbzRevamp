@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -9,6 +10,9 @@ const router = express.Router();
  */
 
 const customerController = require('../controllers/customerControllers');
+
+// Protect all customer routes - require authentication
+router.use(protect);
 
 
 /**

@@ -7,8 +7,10 @@ const {
   notifyTaskCreated,
   notifyTaskAssigned,
   notifyTaskStatusUpdated,
+  notifySubtaskAdded,
   notifySubtaskCompleted,
-  notifyTaskCommentAdded
+  notifyTaskCommentAdded,
+  notifyTaskAttachmentUploaded
 } = require('../helpers/taskNotificationHelper');
 
 /**
@@ -158,7 +160,7 @@ const {
  */
 // CREATE a new task with subtasks
 exports.createTask = async (req, res) => {
-  const { title, description, status, priority, dueDate, assignedTo, organizationId, tags, createdBy, subtasks } = req.body;
+  const { title, description, status, priority, dueDate, assignedTo, organizationId, storeId, tags, createdBy, subtasks } = req.body;
   console.log(req.body);
   console.log(req.user);
 
@@ -198,15 +200,19 @@ exports.createTask = async (req, res) => {
       
       // Filter out null/undefined values
       const validUserIds = assignedToArray.filter(id => id && id.toString().trim() !== '');
-      
+
       if (validUserIds.length > 0) {
-        // Validate assigned users
-        const users = await User.find({ _id: { $in: validUserIds } });
+        // Validate assigned users - exclude deleted/pending-deletion users
+        const users = await User.find({
+          _id: { $in: validUserIds },
+          status: { $ne: 'pending-deletion' },
+          deletionScheduledAt: { $exists: false }
+        });
         if (users.length !== validUserIds.length) {
-          console.log('❌ Some assigned users not found');
-          return res.status(404).json({ 
-            success: false, 
-            message: "One or more assigned users not found" 
+          console.log('❌ Some assigned users not found or are pending deletion');
+          return res.status(404).json({
+            success: false,
+            message: "One or more assigned users not found or have been deleted"
           });
         }
         validatedAssignedTo = validUserIds;
@@ -265,6 +271,7 @@ exports.createTask = async (req, res) => {
       assignedTo: validatedAssignedTo,
       createdBy: createdBy || req.user._id, // Use authenticated user if not provided
       organization: organizationId,
+      store: storeId || null, // Optional store reference
       tags: tags || [],
       subtasks: processedSubtasks
     });
@@ -411,12 +418,22 @@ exports.createTask = async (req, res) => {
  *                   type: string
  *                   example: "Failed to retrieve tasks"
  */
-// GET all tasks for an organization
+// GET all tasks for an organization (with optional store filter)
 exports.getTasksByOrganization = async (req, res) => {
   const { organizationId } = req.params;
+  const { storeId } = req.query;
 
   try {
-    const tasks = await Task.find({ organization: organizationId }).populate('assignedTo createdBy organization');
+    // Build query with optional store filter
+    const query = { organization: organizationId };
+    if (storeId && storeId !== 'all') {
+      query.store = storeId;
+    }
+
+    const tasks = await Task.find(query)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
     if (!tasks) {
       return res.status(404).json({ success: false, message: "No tasks found for this organization" });
     }
@@ -492,8 +509,9 @@ exports.getTaskById = async (req, res) => {
 
   try {
     const task = await Task.findById(taskId)
-      .populate('assignedTo createdBy organization')
-      .populate('comments.user', 'name email');
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
 
     if (!task) {
       return res.status(404).json({ success: false, message: "Task not found" });
@@ -648,7 +666,14 @@ exports.updateTask = async (req, res) => {
       }
     });
 
-    const updatedTask = await task.save();
+    await task.save();
+
+    // Populate the task to return full user data
+    const updatedTask = await Task.findById(taskId)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
+
     await createAuditLog({
       action: 'Task Updated',
       user: req.user?._id || req.user?.userId,
@@ -895,7 +920,17 @@ exports.uploadAttachment = async (req, res) => {
       ip: req.ip || req.connection?.remoteAddress,
       userAgent: req.get('User-Agent')
     });
-    
+
+    // Send notification to task assignees about the new attachment
+    const attachmentInfo = {
+      filename: fileInfo.filename,
+      url: fileInfo.url,
+      size: fileInfo.size,
+      category: fileInfo.category
+    };
+    notifyTaskAttachmentUploaded(task, attachmentInfo, req.user, task.organization)
+      .catch(err => console.error('Error sending attachment notification:', err));
+
     res.status(200).json({ 
       success: true, 
       message: 'Attachment uploaded successfully',
@@ -1014,32 +1049,52 @@ exports.addSubtask = async (req, res) => {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
+    // Use provided createdBy or fall back to authenticated user
+    const creatorId = createdBy || req.user?._id || req.user?.userId;
+
+    if (!creatorId) {
+      return res.status(400).json({ success: false, message: "Creator ID is required" });
+    }
+
     // Validate createdBy user exists
-    const user = await User.findById(createdBy);
+    const user = await User.findById(creatorId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const newSubtask = {
       title,
-      createdBy,
+      createdBy: creatorId,
       status: 'pending'
     };
 
     task.subtasks.push(newSubtask);
     const updatedTask = await task.save();
 
-    res.status(201).json({ 
-      success: true, 
+    // Send notification to task assignees and creator
+    try {
+      await notifySubtaskAdded(
+        updatedTask,
+        newSubtask,
+        creatorId,
+        updatedTask.organization
+      );
+    } catch (notificationError) {
+      console.error('Error sending subtask added notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
+    res.status(201).json({
+      success: true,
       task: updatedTask,
       message: "Subtask added successfully"
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to add subtask",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -1429,11 +1484,17 @@ exports.updateTaskStatus = async (req, res) => {
     }
 
     const oldStatus = task.status;
-    
+
     // Update only the status (column)
     task.status = status;
 
-    const updatedTask = await task.save();
+    await task.save();
+
+    // Populate the task to return full user data
+    const updatedTask = await Task.findById(taskId)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
 
     // Log the status change
     await createAuditLog({
@@ -1690,7 +1751,13 @@ exports.addComment = async (req, res) => {
       createdAt: Date.now(),
     });
 
-    const updatedTask = await task.save();
+    await task.save();
+
+    // Populate comments.user to return full user data
+    const updatedTask = await Task.findById(taskId)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
 
     // Log the comment addition
     await createAuditLog({
@@ -1868,7 +1935,13 @@ exports.updateComment = async (req, res) => {
     comment.text = text.trim();
     comment.updatedAt = Date.now();
 
-    const updatedTask = await task.save();
+    await task.save();
+
+    // Populate the task to return full user data
+    const updatedTask = await Task.findById(taskId)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
 
     // Log the comment update
     await createAuditLog({
@@ -1994,8 +2067,15 @@ exports.deleteComment = async (req, res) => {
       return res.status(403).json({ success: false, message: "You can only delete your own comments or be the task creator" });
     }
 
+    const deletedCommentText = comment.text; // Store before deletion
     comment.deleteOne();
-    const updatedTask = await task.save();
+    await task.save();
+
+    // Populate the task to return full user data
+    const updatedTask = await Task.findById(taskId)
+      .populate('assignedTo createdBy organization store')
+      .populate('comments.user', 'fullName username email')
+      .populate('subtasks.assignedTo', 'fullName username email');
 
     // Log the comment deletion
     await createAuditLog({
@@ -2005,7 +2085,7 @@ exports.deleteComment = async (req, res) => {
       resourceId: task._id,
       details: {
         title: task.title,
-        commentText: comment.text.substring(0, 100)
+        commentText: deletedCommentText.substring(0, 100)
       },
       organization: req.user?.organization || task.organization,
       severity: 'info',

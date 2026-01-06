@@ -28,7 +28,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   billingInterval: {
     type: String,
-    enum: ['monthly', 'yearly'],
+    enum: ['monthly', 'quarterly', 'yearly'],
     required: true,
     default: 'monthly',
   },
@@ -59,7 +59,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'pending', 'canceled', 'expired'],
+    enum: ['active', 'pending', 'canceled', 'expired', 'pending_renewal', 'downgraded'],
     default: 'active',
   },
   payment: {
@@ -68,6 +68,74 @@ const subscriptionSchema = new mongoose.Schema({
   },
   canceledAt: {
     type: Date,
+  },
+  // Renewal reminder tracking
+  renewalReminders: {
+    sevenDaysSent: { type: Boolean, default: false },
+    threeDaysSent: { type: Boolean, default: false },
+    oneDaySent: { type: Boolean, default: false },
+    expiredSent: { type: Boolean, default: false },
+  },
+  autoRenew: {
+    type: Boolean,
+    default: true,  // Default ON (opt-out) - users can disable
+  },
+
+  // ========== Auto-Renewal Tracking ==========
+  renewalAttempts: {
+    type: Number,
+    default: 0,
+  },
+  lastRenewalAttempt: {
+    type: Date,
+  },
+  renewalFailureReason: {
+    type: String,
+  },
+  // Reference to saved payment method for auto-renewal
+  savedPaymentMethod: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentMethod',
+  },
+
+  // Upgrade tracking fields
+  isUpgrade: {
+    type: Boolean,
+    default: false,
+  },
+  previousSubscription: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subscription',
+  },
+  previousPlan: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPlan',
+  },
+  upgradeStatus: {
+    type: String,
+    enum: ['none', 'pending_upgrade', 'upgraded'],
+    default: 'none',
+  },
+  upgradeToPlan: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPlan',
+  },
+
+  // ========== Scheduled Downgrade Tracking ==========
+  // When user requests a downgrade, it's scheduled for end of current billing period
+  scheduledDowngrade: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SubscriptionPlan',
+    default: null,
+  },
+  scheduledDowngradeDate: {
+    type: Date,
+    default: null,
+  },
+
+  paymentMethod: {
+    type: String,
+    default: 'unknown',
   },
   createdAt: {
     type: Date,

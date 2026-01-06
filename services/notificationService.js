@@ -5,14 +5,14 @@ const Notification = require('../models/notification');
 const NotificationTemplate = require('../models/notificationTemplates');
 const User = require('../models/users');
 const { createAuditLog } = require('../helpers/auditLogHelper');
-const SendGridService = require('./sendGridService');
+const SendGridService = require('./sendGridService'); // Now uses Resend under the hood
 
-// Send email notification using SendGrid
+// Send email notification using Resend
 const sendEmailNotification = async (notification, user) => {
   try {
     console.log(`📧 Sending email notification to ${user.email}: ${notification.subject}`);
 
-    // Send email via SendGrid
+    // Send email via Resend (through SendGridService which now uses Resend)
     const result = await SendGridService.sendEmail({
       to: user.email,
       subject: notification.subject,
@@ -138,6 +138,58 @@ exports.createAndSendNotification = async (notificationData) => {
     return result;
   } catch (error) {
     console.error('Create and Send Notification Error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send direct email to external recipient (no user account required)
+exports.sendDirectEmail = async (emailData) => {
+  try {
+    const {
+      to,
+      subject,
+      body,
+      html,
+      organizationId
+    } = emailData;
+
+    if (!to || !subject) {
+      throw new Error('Email recipient and subject are required');
+    }
+
+    console.log(`📧 Sending direct email to external recipient: ${to}`);
+
+    // Send email via Resend (through SendGridService)
+    const result = await SendGridService.sendEmail({
+      to,
+      subject,
+      html: html || body,
+      text: (html || body).replace(/<[^>]*>/g, ''),
+      organizationId
+    });
+
+    if (result.success) {
+      console.log(`✅ Direct email sent to ${to}`);
+
+      // Create audit log
+      await createAuditLog({
+        action: 'Direct Email Sent',
+        user: null,
+        resource: 'email',
+        resourceId: result.messageId || null,
+        details: {
+          to,
+          subject,
+          success: true
+        },
+        organization: organizationId,
+        severity: 'info'
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Send Direct Email Error:', error);
     return { success: false, error: error.message };
   }
 };

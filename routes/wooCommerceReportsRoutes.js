@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -9,6 +10,9 @@ const router = express.Router();
  */
 
 const wooCommerceReportsController = require('../controllers/wooCommerceReportsController');
+
+// Protect all WooCommerce reports - require authentication
+router.use(protect);
 
 // Sales report (totals, grouped)
 
@@ -401,5 +405,20 @@ router.get('/reports/downloads', wooCommerceReportsController.getMultiStoreDownl
  *         description: Server error
  */
 router.get('/reports/stock', wooCommerceReportsController.getMultiStoreStockReport);
+
+// Refunds report
+router.get('/reports/refunds', wooCommerceReportsController.getMultiStoreRefundsReport);
+
+// Low stock alerts report
+router.get('/reports/low-stock', wooCommerceReportsController.getMultiStoreLowStockReport);
+
+// Shipping report
+router.get('/reports/shipping', wooCommerceReportsController.getMultiStoreShippingReport);
+
+// Revenue breakdown report
+router.get('/reports/revenue-breakdown', wooCommerceReportsController.getMultiStoreRevenueBreakdown);
+
+// Payment methods report
+router.get('/reports/payment-methods', wooCommerceReportsController.getMultiStorePaymentMethodsReport);
 
 module.exports = router; 

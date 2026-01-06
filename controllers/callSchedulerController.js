@@ -250,11 +250,24 @@ const validateParticipants = async (participants, organizationId) => {
 exports.createCall = async (req, res) => {
   try {
     const { organizationId, userId, participants, externalParticipants, senderId, ...callData } = req.body;
-    console.log(req.body);
+
     if (!organizationId || !userId) {
       return res.status(400).json({ success: false, error: 'organizationId and userId are required' });
     }
-    
+
+    // Validate time fields
+    if (callData.startTime && callData.endTime) {
+      const startTime = new Date(callData.startTime);
+      const endTime = new Date(callData.endTime);
+
+      if (startTime >= endTime) {
+        return res.status(400).json({ success: false, error: 'Start time must be before end time' });
+      }
+      if (startTime < new Date()) {
+        return res.status(400).json({ success: false, error: 'Start time must be in the future' });
+      }
+    }
+
     // Validate participants belong to organization
     if (participants && participants.length > 0) {
       await validateParticipants(participants, organizationId);
@@ -296,12 +309,17 @@ exports.createCall = async (req, res) => {
       try {
         // Send call scheduled notification to organizer
         await callNotificationService.sendCallScheduledNotification(call);
-        
-        // Send call invitations to internal participants if any
+
+        // Send in-app notifications to internal participants (always, regardless of email)
+        if (participants && participants.length > 0) {
+          await callNotificationService.sendInAppCallNotifications(call, participants);
+        }
+
+        // Send email invitations to internal participants if senderId is provided
         if (participants && participants.length > 0 && senderId) {
           await callNotificationService.sendCallInvitations(call, participants, senderId);
         }
-        
+
         // Send call invitations to external participants if any
         if (externalParticipants && externalParticipants.length > 0) {
           await callNotificationService.sendExternalCallInvitations(call, externalParticipants);
@@ -466,6 +484,67 @@ exports.cancelCall = async (req, res) => {
       }
     });
     
+    res.json({ success: true, data: updatedCall });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+};
+
+// Reschedule a call (must belong to org)
+exports.rescheduleCall = async (req, res) => {
+  try {
+    const { organizationId, startTime, endTime, notifyParticipants = true, senderId } = req.body;
+    if (!organizationId) {
+      return res.status(400).json({ success: false, error: 'organizationId is required' });
+    }
+    if (!startTime || !endTime) {
+      return res.status(400).json({ success: false, error: 'startTime and endTime are required' });
+    }
+
+    // Validate times
+    const newStartTime = new Date(startTime);
+    const newEndTime = new Date(endTime);
+
+    if (newStartTime >= newEndTime) {
+      return res.status(400).json({ success: false, error: 'Start time must be before end time' });
+    }
+    if (newStartTime < new Date()) {
+      return res.status(400).json({ success: false, error: 'Start time must be in the future' });
+    }
+
+    // Get the original call
+    const originalCall = await CallScheduler.findOne({ _id: req.params.id, organizationId })
+      .populate('participants', 'name email');
+
+    if (!originalCall) {
+      return res.status(404).json({ success: false, error: 'Call not found or not authorized' });
+    }
+
+    // Update the call with new times and reset reminder
+    const updatedCall = await CallScheduler.findOneAndUpdate(
+      { _id: req.params.id, organizationId },
+      {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        status: 'scheduled',
+        reminderSent: false,
+        reminderSentAt: null
+      },
+      { new: true }
+    ).populate('participants', 'name email').populate('userId', 'name email');
+
+    // Send reschedule notifications if requested
+    if (notifyParticipants && updatedCall.participants && updatedCall.participants.length > 0 && senderId) {
+      setImmediate(async () => {
+        try {
+          const participantIds = updatedCall.participants.map(p => p._id);
+          await callNotificationService.sendCallInvitations(updatedCall, participantIds, senderId);
+        } catch (notificationError) {
+          console.error('❌ Call reschedule notification error (non-blocking):', notificationError.message);
+        }
+      });
+    }
+
     res.json({ success: true, data: updatedCall });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });

@@ -189,6 +189,5 @@ StoreSchema.methods.updateLastSync = async function() {
   return this.save();
 };
 
-// Create Store Model
-const Store = mongoose.model('Store', StoreSchema);
-module.exports = Store;
+// Create Store Model (with safeguard against recompilation)
+module.exports = mongoose.models.Store || mongoose.model('Store', StoreSchema);

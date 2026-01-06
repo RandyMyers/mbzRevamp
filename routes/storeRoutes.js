@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { authenticateUser } = require('../middlewares/authMiddleware');
 const storeController = require("../controllers/storeControllers");
+const { checkResourceLimit } = require("../middleware/permissionMiddleware");
 
 /**
  * @swagger
@@ -69,7 +70,8 @@ const storeController = require("../controllers/storeControllers");
  *       500:
  *         description: Server error
  */
-router.post("/create", authenticateUser, storeController.createStore);
+// Check store limit before allowing creation (based on subscription plan)
+router.post("/create", authenticateUser, checkResourceLimit('store'), storeController.createStore);
 
 // GET all stores by organization
 router.get("/organization/:organizationId", authenticateUser, storeController.getStoresByOrganization);

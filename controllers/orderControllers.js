@@ -3,6 +3,7 @@ const path = require('path');
 const Store = require('../models/store');
 const Organization = require('../models/organization');
 const Order = require('../models/order');
+const DeletedOrder = require('../models/deletedOrder');
 const mongoose = require('mongoose');
 const logEvent = require('../helper/logEvent');
 const WooCommerceService = require('../services/wooCommerceService.js');
@@ -32,8 +33,56 @@ const calculateOrderTotal = (lineItems, totalTax = 0, shippingTotal = 0, discoun
   const lineItemsTotal = lineItems.reduce((sum, item) => {
     return sum + (Number(item.total) || Number(item.subtotal) || 0);
   }, 0);
-  
+
   return lineItemsTotal + Number(totalTax) + Number(shippingTotal) - Number(discountTotal);
+};
+
+// Currency symbol mapping
+const currencySymbols = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  NGN: '₦',
+  CAD: 'C$',
+  AUD: 'A$',
+  JPY: '¥',
+  CNY: '¥',
+  INR: '₹',
+  ZAR: 'R',
+  KES: 'KSh',
+  GHS: '₵',
+  XOF: 'CFA',
+  XAF: 'FCFA',
+  BRL: 'R$',
+  MXN: 'MX$',
+  CHF: 'CHF',
+  SEK: 'kr',
+  NOK: 'kr',
+  DKK: 'kr',
+  PLN: 'zł',
+  RUB: '₽',
+  TRY: '₺',
+  KRW: '₩',
+  THB: '฿',
+  SGD: 'S$',
+  HKD: 'HK$',
+  NZD: 'NZ$',
+  PHP: '₱',
+  MYR: 'RM',
+  IDR: 'Rp',
+  VND: '₫',
+  AED: 'د.إ',
+  SAR: '﷼',
+  EGP: 'E£',
+  PKR: '₨',
+  BDT: '৳',
+  LKR: 'Rs',
+  NPR: 'Rs',
+};
+
+// Get currency symbol from currency code
+const getCurrencySymbol = (currencyCode) => {
+  return currencySymbols[currencyCode?.toUpperCase()] || currencyCode || '$';
 };
 
 /**
@@ -118,6 +167,12 @@ exports.syncOrders = async (req, res) => {
     const organization = await Organization.findById(organizationId);
     if (!organization) return res.status(404).json({ error: 'Organization not found' });
 
+    // Set sync status to pending
+    await Store.findByIdAndUpdate(storeId, {
+      'syncStatus.orders': 'pending',
+      lastSyncDate: new Date()
+    });
+
     // Extract only serializable properties from the store document
     const storeData = {
       _id: store._id,
@@ -133,26 +188,50 @@ exports.syncOrders = async (req, res) => {
       workerData: { storeId, store: storeData, organizationId, userId },
     });
 
-    worker.on('message', (message) => {
+    worker.on('message', async (message) => {
       if (message.status === 'success') {
-        console.log(message.message);
+        console.log('✅ Order sync completed:', message.message);
+        // Update sync status to completed
+        await Store.findByIdAndUpdate(storeId, {
+          'syncStatus.orders': 'completed',
+          lastSyncDate: new Date()
+        });
       } else if (message.status === 'error') {
-        console.error(`Error in worker thread: ${message.message}`);
+        console.error(`❌ Error in worker thread: ${message.message}`);
+        // Update sync status to failed
+        await Store.findByIdAndUpdate(storeId, {
+          'syncStatus.orders': 'failed'
+        });
       }
     });
 
-    worker.on('error', (error) => {
-      console.error(`Worker thread error: ${error.message}`);
+    worker.on('error', async (error) => {
+      console.error(`❌ Worker thread error: ${error.message}`);
+      // Update sync status to failed
+      await Store.findByIdAndUpdate(storeId, {
+        'syncStatus.orders': 'failed'
+      });
     });
 
-    worker.on('exit', (code) => {
-      if (code !== 0) console.error(`Worker stopped with exit code ${code}`);
+    worker.on('exit', async (code) => {
+      if (code !== 0) {
+        console.error(`❌ Worker stopped with exit code ${code}`);
+        // Update sync status to failed on non-zero exit
+        await Store.findByIdAndUpdate(storeId, {
+          'syncStatus.orders': 'failed'
+        });
+      }
     });
 
-    res.json({ message: 'Order synchronization started in the background' });
+    res.json({
+      success: true,
+      message: 'Order synchronization started in the background',
+      syncStatus: 'pending',
+      storeId
+    });
   } catch (error) {
     console.error('Error in syncOrders:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -405,14 +484,22 @@ exports.createOrder = async (req, res) => {
       syncToWooCommerce = false, // NEW: Option to sync to WooCommerce
     } = req.body;
 
-    // Validate required fields
+    // DEBUG: Log sync parameters
+    console.log('📦 Create Order - Sync Parameters:', {
+      syncToWooCommerce,
+      storeId,
+      storeIdType: typeof storeId,
+      rawSyncToWooCommerce: req.body.syncToWooCommerce
+    });
+
+    // Validate required fields (use explicit undefined/null check to allow 0 for customer_id)
     const requiredFields = ['storeId', 'userId', 'organizationId', 'customer_id'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    
+    const missingFields = requiredFields.filter(field => req.body[field] === undefined || req.body[field] === null);
+
     if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Missing required fields: ${missingFields.join(', ')}` 
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
@@ -496,21 +583,31 @@ exports.createOrder = async (req, res) => {
     const processedDateCompleted = date_completed ? new Date(date_completed) : null;
     const processedDatePaid = date_paid ? new Date(date_paid) : null;
 
-    // Validate customer_id - ensure it's a valid number
-    const processedCustomerId = customer_id && !isNaN(Number(customer_id)) ? Number(customer_id) : null;
-    if (!processedCustomerId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid or missing customer_id" 
+    // Validate customer_id - ensure it's a valid number (0 is valid for guest orders)
+    const processedCustomerId = customer_id !== undefined && customer_id !== null && !isNaN(Number(customer_id))
+      ? Number(customer_id)
+      : null;
+    if (processedCustomerId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing customer_id"
       });
     }
 
     let wooCommerceId = null;
     let syncStatus = 'pending';
     let syncError = null;
+    let orderNumber = number; // Use mutable variable for order number
 
     // If sync to WooCommerce is requested
+    console.log('🔄 WooCommerce Sync Check:', {
+      syncToWooCommerce,
+      storeId,
+      willSync: !!(syncToWooCommerce && storeId)
+    });
+
     if (syncToWooCommerce && storeId) {
+      console.log('✅ Entering WooCommerce sync block...');
       try {
         // Get store information
         const store = await Store.findById(storeId);
@@ -548,9 +645,14 @@ exports.createOrder = async (req, res) => {
         
         if (wooCommerceResult.success) {
           wooCommerceId = wooCommerceResult.data.id;
-          // Set both wooCommerceId and number to the WooCommerce order ID for consistency
-          number = wooCommerceResult.data.id.toString();
+          // Set order number to the WooCommerce order ID for consistency
+          orderNumber = wooCommerceResult.data.id.toString();
           syncStatus = 'synced';
+          console.log('✅ WooCommerce sync SUCCESS:', {
+            wooCommerceId,
+            orderNumber,
+            syncStatus
+          });
         } else {
           syncStatus = 'failed';
           syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
@@ -566,6 +668,7 @@ exports.createOrder = async (req, res) => {
     // Calculate order total from line items
     const calculatedTotal = calculateOrderTotal(processedLineItems, processedTotalTax, processedShippingTotal, processedDiscountTotal);
 
+    const orderCurrency = currency || 'USD';
     const newOrder = new Order({
       storeId,
       userId,
@@ -576,9 +679,10 @@ exports.createOrder = async (req, res) => {
       billing: processedBilling,
       shipping: processedShipping,
       order_id: Number(order_id),
-      number: wooCommerceId ? wooCommerceId.toString() : number, // Use WooCommerce ID if available
+      number: orderNumber || (wooCommerceId ? wooCommerceId.toString() : null), // Use orderNumber which may be set from WooCommerce sync
       status: status || 'pending',
-      currency: currency || 'USD',
+      currency: orderCurrency,
+      currency_symbol: getCurrencySymbol(orderCurrency),
       version: version || '6.0.0',
       prices_include_tax: processedPricesIncludeTax,
       date_created: date_created || now,
@@ -1687,6 +1791,11 @@ exports.updateOrder = async (req, res) => {
       sanitizedData.total_tax = sanitizedData.total_tax ? Number(sanitizedData.total_tax) : 0;
     }
 
+    // If currency is being updated, also update currency_symbol
+    if (sanitizedData.currency !== undefined) {
+      sanitizedData.currency_symbol = getCurrencySymbol(sanitizedData.currency);
+    }
+
     // Validate and process boolean fields
     if (sanitizedData.prices_include_tax !== undefined) {
       sanitizedData.prices_include_tax = Boolean(sanitizedData.prices_include_tax);
@@ -2037,7 +2146,7 @@ exports.updateOrder = async (req, res) => {
 // DELETE an order from the system
 exports.deleteOrder = async (req, res) => {
   const { orderId } = req.params;
-  const { syncToWooCommerce = false } = req.body;
+  const syncToWooCommerce = req.body?.syncToWooCommerce || false;
 
   try {
     // Get the order before deleting to check if it has a WooCommerce ID
@@ -2090,6 +2199,38 @@ exports.deleteOrder = async (req, res) => {
           error: wooCommerceError.message
         };
         console.error('WooCommerce delete error:', wooCommerceError);
+      }
+    }
+
+    // Track deleted orders that have a WooCommerce ID but weren't deleted from WooCommerce
+    // This prevents them from being re-created during sync
+    if (orderToDelete.wooCommerceId && orderToDelete.storeId) {
+      const wasDeletedFromWooCommerce = wooCommerceSync?.synced === true;
+
+      try {
+        await DeletedOrder.findOneAndUpdate(
+          {
+            wooCommerceId: orderToDelete.wooCommerceId,
+            storeId: orderToDelete.storeId
+          },
+          {
+            wooCommerceId: orderToDelete.wooCommerceId,
+            storeId: orderToDelete.storeId,
+            organizationId: orderToDelete.organizationId,
+            deletedBy: req.user?._id,
+            orderNumber: orderToDelete.number,
+            orderTotal: orderToDelete.total,
+            orderStatus: orderToDelete.status,
+            customerEmail: orderToDelete.billing?.email,
+            deletedFromWooCommerce: wasDeletedFromWooCommerce,
+            deletedAt: new Date()
+          },
+          { upsert: true, new: true }
+        );
+        console.log(`Tracked deleted order: WooCommerce ID ${orderToDelete.wooCommerceId}, deletedFromWooCommerce: ${wasDeletedFromWooCommerce}`);
+      } catch (trackError) {
+        console.error('Error tracking deleted order:', trackError);
+        // Don't fail the delete operation if tracking fails
       }
     }
 

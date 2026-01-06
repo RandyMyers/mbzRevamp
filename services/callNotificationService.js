@@ -2,6 +2,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const notificationGenerationService = require('./notificationGenerationService');
+const { createAndSendNotification, sendDirectEmail } = require('./notificationService');
+const SendGridService = require('./sendGridService'); // Uses Resend under the hood
 const User = require('../models/users');
 const Organization = require('../models/organization');
 const Sender = require('../models/sender');
@@ -126,6 +128,110 @@ class CallNotificationService {
 
     } catch (error) {
       console.error('❌ Call invitation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send in-app notifications to call participants (no email required)
+   * This is used when email service is not available
+   * @param {Object} call - Call object from database
+   * @param {Array} participants - Array of participant user IDs
+   * @returns {Promise<Object>} Result of notification sending
+   */
+  async sendInAppCallNotifications(call, participants) {
+    try {
+      console.log(`🔔 Sending in-app call notifications for: ${call.title}`);
+
+      const organizer = await User.findById(call.userId);
+      const organization = await Organization.findById(call.organizationId);
+
+      if (!organizer || !organization) {
+        throw new Error('Organizer or organization not found');
+      }
+
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: []
+      };
+
+      // Format date and time for display
+      const callDate = new Date(call.startTime).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const callTime = new Date(call.startTime).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Send in-app notification to each participant
+      for (const participantId of participants) {
+        try {
+          const participant = await User.findById(participantId);
+          if (!participant) {
+            results.failed++;
+            results.errors.push(`Participant ${participantId} not found`);
+            continue;
+          }
+
+          // Create in-app notification
+          const notificationResult = await createAndSendNotification({
+            userId: participantId,
+            subject: `You're invited to: ${call.title}`,
+            body: `<p><strong>${organizer.fullName}</strong> has invited you to a call.</p>
+              <p><strong>Title:</strong> ${call.title}</p>
+              <p><strong>Date:</strong> ${callDate}</p>
+              <p><strong>Time:</strong> ${callTime}</p>
+              ${call.description ? `<p><strong>Description:</strong> ${call.description}</p>` : ''}
+              ${call.meetingLink ? `<p><strong>Meeting Link:</strong> <a href="${call.meetingLink}">${call.meetingLink}</a></p>` : ''}`,
+            type: 'system',
+            category: 'calls',
+            organization: call.organizationId
+          });
+
+          if (notificationResult.success) {
+            results.success++;
+            console.log(`✅ In-app notification sent to ${participant.fullName}`);
+          } else {
+            results.failed++;
+            results.errors.push(`Failed to notify ${participant.fullName}: ${notificationResult.error}`);
+          }
+
+        } catch (error) {
+          results.failed++;
+          results.errors.push(`Error notifying participant ${participantId}: ${error.message}`);
+          console.error(`❌ Error sending in-app notification to participant ${participantId}:`, error);
+        }
+      }
+
+      // Audit log
+      await createAuditLog({
+        action: 'Call In-App Notifications Sent',
+        user: call.userId,
+        resource: 'call_scheduler',
+        resourceId: call._id,
+        details: {
+          callTitle: call.title,
+          participantsCount: participants.length,
+          successCount: results.success,
+          failedCount: results.failed
+        },
+        organization: call.organizationId,
+        severity: 'info'
+      });
+
+      return {
+        success: results.failed === 0,
+        message: `In-app notifications sent: ${results.success} successful, ${results.failed} failed`,
+        data: results
+      };
+
+    } catch (error) {
+      console.error('❌ In-app call notification error:', error);
       throw error;
     }
   }
@@ -282,16 +388,17 @@ class CallNotificationService {
         throw new Error('Organizer or organization not found');
       }
 
-      // Prepare call data for template variables
-      const callData = {
-        callTitle: call.title,
-        callDate: new Date(call.startTime).toLocaleDateString(),
-        callTime: new Date(call.startTime).toLocaleTimeString(),
-        callDescription: call.description || 'No description provided',
-        meetingLink: call.meetingLink || 'TBD',
-        companyName: organization.name,
-        organizerName: organizer.fullName
-      };
+      // Format date and time nicely
+      const callDate = new Date(call.startTime).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const callTime = new Date(call.startTime).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
 
       const results = {
         success: 0,
@@ -308,27 +415,58 @@ class CallNotificationService {
             continue;
           }
 
-          // Send notification using the template system
-          const notificationResult = await this.notificationService.generateByTriggerEvent(
-            'external_call_invitation',
-            {
-              ...callData,
-              participantName: participant.name
-            },
-            {
-              recipientEmail: participant.email,
-              recipientName: participant.name,
-              priority: 'high',
-              ...options
-            }
-          );
+          // Generate email HTML using template
+          const emailHtml = SendGridService.generateEmailTemplate({
+            title: `You're Invited: ${call.title}`,
+            heading: `📅 Meeting Invitation`,
+            content: `
+              <h2>Hello ${participant.name}!</h2>
+              <p>You have been invited to join a call by <strong>${organizer.fullName}</strong> from <strong>${organization.name}</strong>.</p>
 
-          if (notificationResult.success) {
+              <div class="info-box">
+                <h3>📋 Call Details:</h3>
+                <ul>
+                  <li><strong>Title:</strong> ${call.title}</li>
+                  <li><strong>Date:</strong> ${callDate}</li>
+                  <li><strong>Time:</strong> ${callTime}</li>
+                  ${call.description ? `<li><strong>Description:</strong> ${call.description}</li>` : ''}
+                </ul>
+              </div>
+
+              <p><strong>Join the call using this link:</strong></p>
+              <div style="text-align: center;">
+                <a href="${call.meetingLink}" class="button">Join Meeting</a>
+              </div>
+
+              <p style="color: #6c757d; font-size: 14px;">Or copy and paste this link into your browser:</p>
+              <div class="link-box">${call.meetingLink}</div>
+
+              <div class="divider"></div>
+
+              <p>We look forward to speaking with you!</p>
+              <p style="margin-top: 20px;">Best regards,<br>
+              <strong>${organization.name} Team</strong></p>
+            `,
+            footer: `
+              <p>This invitation was sent by ${organizer.fullName} from ${organization.name}.</p>
+              <p>© ${new Date().getFullYear()} ${organization.name}. All rights reserved.</p>
+            `
+          });
+
+          // Send direct email to external participant
+          const emailResult = await sendDirectEmail({
+            to: participant.email,
+            subject: `You're Invited: ${call.title} - ${organization.name}`,
+            html: emailHtml,
+            organizationId: call.organizationId
+          });
+
+          if (emailResult.success) {
             results.success++;
             console.log(`✅ External call invitation sent to ${participant.email}`);
           } else {
             results.failed++;
-            results.errors.push(`Failed to send to ${participant.email}: ${notificationResult.message}`);
+            results.errors.push(`Failed to send to ${participant.email}: ${emailResult.error}`);
           }
 
         } catch (error) {

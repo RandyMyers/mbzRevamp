@@ -33,7 +33,7 @@ const notificationTemplateSchema = new mongoose.Schema(
         'product_created', 'low_stock_alert', 'out_of_stock', 'inventory_sync',
         'system_maintenance', 'system_error', 'woocommerce_sync_success', 'woocommerce_sync_failed',
         'subscriptionEnd', 'reminder', 'invoiceCreated', 'accountUpdate', 'custom',
-        'call_scheduled', 'call_reminder', 'call_cancelled', 'call_invitation',
+        'call_scheduled', 'call_reminder', 'call_cancelled', 'call_invitation', 'external_call_invitation',
         'task_created', 'task_assigned', 'task_status_updated', 'task_due_soon', 'task_overdue', 'subtask_completed', 'task_comment_added', 'task_attachment_uploaded','woocommerce_sync_started','woocommerce_sync_success','woocommerce_sync_failed'
       ],
       required: true,

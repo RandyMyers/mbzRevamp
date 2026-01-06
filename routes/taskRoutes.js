@@ -10,6 +10,11 @@ const router = express.Router();
 
 const taskController = require("../controllers/taskControllers");
 const { protect } = require("../middleware/authMiddleware");
+const { requirePlanFeature } = require("../middleware/permissionMiddleware");
+
+// Apply plan feature check to all task routes
+// Tasks are only available on Standard and Premium plans
+router.use(protect, requirePlanFeature('tasks'));
 
 // CREATE a new task
 
@@ -40,7 +45,7 @@ const { protect } = require("../middleware/authMiddleware");
  *       500:
  *         description: Server error
  */
-router.post("/create", protect, taskController.createTask);
+router.post("/create", taskController.createTask);
 
 // GET all tasks for an organization
 
@@ -71,7 +76,7 @@ router.post("/create", protect, taskController.createTask);
  *       500:
  *         description: Server error
  */
-router.get("/organization/:organizationId", protect, taskController.getTasksByOrganization);
+router.get("/organization/:organizationId", taskController.getTasksByOrganization);
 
 // GET task by ID
 
@@ -102,7 +107,7 @@ router.get("/organization/:organizationId", protect, taskController.getTasksByOr
  *       500:
  *         description: Server error
  */
-router.get("/get/:taskId", protect, taskController.getTaskById);
+router.get("/get/:taskId", taskController.getTaskById);
 
 // UPDATE a task
 
@@ -133,7 +138,7 @@ router.get("/get/:taskId", protect, taskController.getTaskById);
  *       500:
  *         description: Server error
  */
-router.patch("/update/:taskId", protect, taskController.updateTask);
+router.patch("/update/:taskId", taskController.updateTask);
 
 // DELETE a task
 
@@ -164,7 +169,7 @@ router.patch("/update/:taskId", protect, taskController.updateTask);
  *       500:
  *         description: Server error
  */
-router.delete("/delete/:taskId", protect, taskController.deleteTask); 
+router.delete("/delete/:taskId", taskController.deleteTask); 
 
 // Task status update (for drag and drop)
 
@@ -195,7 +200,7 @@ router.delete("/delete/:taskId", protect, taskController.deleteTask);
  *       500:
  *         description: Server error
  */
-router.patch("/status/:taskId", protect, taskController.updateTaskStatus);
+router.patch("/status/:taskId", taskController.updateTaskStatus);
 
 // Subtask routes
 
@@ -226,7 +231,7 @@ router.patch("/status/:taskId", protect, taskController.updateTaskStatus);
  *       500:
  *         description: Server error
  */
-router.post("/subtasks/create/:taskId", protect, taskController.addSubtask);
+router.post("/subtasks/create/:taskId", taskController.addSubtask);
 
 /**
  * @swagger
@@ -255,7 +260,7 @@ router.post("/subtasks/create/:taskId", protect, taskController.addSubtask);
  *       500:
  *         description: Server error
  */
-router.patch("/:taskId/subtasks/update/:subtaskId", protect, taskController.updateSubtask);
+router.patch("/:taskId/subtasks/update/:subtaskId", taskController.updateSubtask);
 
 /**
  * @swagger
@@ -284,11 +289,11 @@ router.patch("/:taskId/subtasks/update/:subtaskId", protect, taskController.upda
  *       500:
  *         description: Server error
  */
-router.delete("/:taskId/subtasks/delete/:subtaskId", protect, taskController.deleteSubtask);
+router.delete("/:taskId/subtasks/delete/:subtaskId", taskController.deleteSubtask);
 
 // Subtask assignment routes
-router.patch("/:taskId/subtasks/:subtaskId/assign", protect, taskController.assignSubtask);
-router.patch("/:taskId/subtasks/:subtaskId/unassign", protect, taskController.unassignSubtask);
+router.patch("/:taskId/subtasks/:subtaskId/assign", taskController.assignSubtask);
+router.patch("/:taskId/subtasks/:subtaskId/unassign", taskController.unassignSubtask);
 
 // Comment routes
 
@@ -319,7 +324,7 @@ router.patch("/:taskId/subtasks/:subtaskId/unassign", protect, taskController.un
  *       500:
  *         description: Server error
  */
-router.post("/:taskId/comments", protect, taskController.addComment);
+router.post("/:taskId/comments", taskController.addComment);
 
 /**
  * @swagger
@@ -348,7 +353,7 @@ router.post("/:taskId/comments", protect, taskController.addComment);
  *       500:
  *         description: Server error
  */
-router.patch("/:taskId/comments/:commentId", protect, taskController.updateComment);
+router.patch("/:taskId/comments/:commentId", taskController.updateComment);
 
 /**
  * @swagger
@@ -377,7 +382,7 @@ router.patch("/:taskId/comments/:commentId", protect, taskController.updateComme
  *       500:
  *         description: Server error
  */
-router.delete("/:taskId/comments/:commentId", protect, taskController.deleteComment);
+router.delete("/:taskId/comments/:commentId", taskController.deleteComment);
 
 // Attachments
 
@@ -408,7 +413,7 @@ router.delete("/:taskId/comments/:commentId", protect, taskController.deleteComm
  *       500:
  *         description: Server error
  */
-router.post('/:taskId/attachments', protect, taskController.uploadAttachment);
+router.post('/:taskId/attachments', taskController.uploadAttachment);
 
 // User-specific tasks
 
@@ -439,7 +444,7 @@ router.post('/:taskId/attachments', protect, taskController.uploadAttachment);
  *       500:
  *         description: Server error
  */
-router.get("/user/:userId", protect, taskController.getTasksByUserId);
+router.get("/user/:userId", taskController.getTasksByUserId);
 
 // Task assignment routes
 
@@ -470,7 +475,7 @@ router.get("/user/:userId", protect, taskController.getTasksByUserId);
  *       500:
  *         description: Server error
  */
-router.patch("/:taskId/assignments", protect, taskController.updateTaskAssignments);
+router.patch("/:taskId/assignments", taskController.updateTaskAssignments);
 
 /**
  * @swagger
@@ -499,6 +504,6 @@ router.patch("/:taskId/assignments", protect, taskController.updateTaskAssignmen
  *       500:
  *         description: Server error
  */
-router.get("/organization/:organizationId/available-users", protect, taskController.getAvailableUsersForAssignment);
+router.get("/organization/:organizationId/available-users", taskController.getAvailableUsersForAssignment);
 
 module.exports = router;

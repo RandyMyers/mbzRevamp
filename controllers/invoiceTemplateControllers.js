@@ -676,21 +676,22 @@ exports.createInvoiceTemplate = async (req, res) => {
       design,
       layout,
       content,
-      fields
+      fields,
+      storeId
     } = req.body;
 
     // Validate required fields - only name and userId needed now
     const requiredFields = ['name', 'userId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
-    
+
     if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Missing required fields: ${missingFields.join(', ')}` 
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
-    // Create new invoice template (global)
+    // Create new invoice template (global or store-specific)
     const newTemplate = new InvoiceTemplate({
       name,
       userId,
@@ -701,6 +702,7 @@ exports.createInvoiceTemplate = async (req, res) => {
       layout: layout || {},
       content: content || {},
       fields: fields || {},
+      store: storeId || null,
       createdBy: userId,
       updatedBy: userId
     });
@@ -738,10 +740,25 @@ exports.createInvoiceTemplate = async (req, res) => {
 // GET all invoice templates (global - accessible by all users)
 exports.getInvoiceTemplates = async (req, res) => {
   try {
-    // Get all active templates - no queries needed
-    const templates = await InvoiceTemplate.find({ isActive: true })
+    const { storeId } = req.query;
+
+    // Build query - get all active templates
+    const query = { isActive: true };
+
+    // If storeId is provided and not 'all', filter by store
+    // Include templates that are either store-specific or global (no store)
+    if (storeId && storeId !== 'all') {
+      query.$or = [
+        { store: storeId },
+        { store: { $exists: false } },
+        { store: null }
+      ];
+    }
+
+    const templates = await InvoiceTemplate.find(query)
       .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email')
+      .populate('store', 'name')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -1076,21 +1093,22 @@ exports.createReceiptTemplate = async (req, res) => {
       design,
       layout,
       content,
-      fields
+      fields,
+      storeId
     } = req.body;
 
     // Validate required fields - only name and userId needed now
     const requiredFields = ['name', 'userId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
-    
+
     if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Missing required fields: ${missingFields.join(', ')}` 
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
-    // Create new receipt template (global)
+    // Create new receipt template (global or store-specific)
     const newTemplate = new ReceiptTemplate({
       name,
       userId,
@@ -1101,6 +1119,7 @@ exports.createReceiptTemplate = async (req, res) => {
       layout: layout || {},
       content: content || {},
       fields: fields || {},
+      store: storeId || null,
       createdBy: userId,
       updatedBy: userId
     });
@@ -1138,10 +1157,25 @@ exports.createReceiptTemplate = async (req, res) => {
 // GET all receipt templates
 exports.getReceiptTemplates = async (req, res) => {
   try {
-    // Get all active templates - no queries needed
-    const templates = await ReceiptTemplate.find({ isActive: true })
+    const { storeId } = req.query;
+
+    // Build query - get all active templates
+    const query = { isActive: true };
+
+    // If storeId is provided and not 'all', filter by store
+    // Include templates that are either store-specific or global (no store)
+    if (storeId && storeId !== 'all') {
+      query.$or = [
+        { store: storeId },
+        { store: { $exists: false } },
+        { store: null }
+      ];
+    }
+
+    const templates = await ReceiptTemplate.find(query)
       .populate('userId', 'fullName email')
       .populate('updatedBy', 'fullName email')
+      .populate('store', 'name')
       .sort({ createdAt: -1 });
 
     res.status(200).json({

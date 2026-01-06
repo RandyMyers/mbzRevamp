@@ -718,6 +718,28 @@ const notificationTemplates = [
     isSystemDefault: true,
     isActive: true
   },
+  {
+    templateName: "external_call_invitation",
+    subject: "You're Invited: {{callTitle}} - {{companyName}}",
+    body: "Hello {{participantName}},\n\nYou have been invited to join a call.\n\nCall Details:\n- Title: {{callTitle}}\n- Date: {{callDate}}\n- Time: {{callTime}}\n- Description: {{callDescription}}\n\nJoin the call using this link: {{meetingLink}}\n\nThis invitation was sent by {{organizerName}} from {{companyName}}.\n\nWe look forward to speaking with you!",
+    type: "email",
+    triggerEvent: "external_call_invitation",
+    templateCategory: "communication",
+    priority: "high",
+    tags: ["call", "invitation", "external", "meeting"],
+    variables: {
+      callTitle: "Call title",
+      callDate: "Call date",
+      callTime: "Call time",
+      callDescription: "Call description",
+      meetingLink: "Meeting link",
+      participantName: "External participant name",
+      organizerName: "Call organizer name",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
 
   // TASK MANAGEMENT (8 templates)
   {
@@ -816,6 +838,24 @@ const notificationTemplates = [
       taskStatus: "Current task status",
       priority: "Task priority (low/medium/high)",
       assignedToName: "Name of user assigned to task",
+      companyName: "Organization name"
+    },
+    isSystemDefault: true,
+    isActive: true
+  },
+  {
+    templateName: "subtask_added",
+    subject: "New Subtask Added: {{subtaskTitle}} - {{taskTitle}}",
+    body: "{{addedByName}} added a new subtask '{{subtaskTitle}}' to task '{{taskTitle}}'. Please review and track progress.",
+    type: "system",
+    triggerEvent: "subtask_added",
+    templateCategory: "task_management",
+    priority: "medium",
+    tags: ["task", "subtask", "created"],
+    variables: {
+      subtaskTitle: "Subtask title",
+      taskTitle: "Parent task title",
+      addedByName: "Name of user who added subtask",
       companyName: "Organization name"
     },
     isSystemDefault: true,

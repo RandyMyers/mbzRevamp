@@ -10,6 +10,7 @@ const router = express.Router();
 
 const roleController = require('../controllers/roleController');
 const { protect } = require('../middleware/authMiddleware');
+const { requirePermission } = require('../middleware/permissionMiddleware');
 
 
 /**
@@ -39,7 +40,7 @@ const { protect } = require('../middleware/authMiddleware');
  *       500:
  *         description: Server error
  */
-router.post('/', protect, roleController.createRole);
+router.post('/', protect, requirePermission('roles', 'create'), roleController.createRole);
 
 /**
  * @swagger
@@ -68,7 +69,7 @@ router.post('/', protect, roleController.createRole);
  *       500:
  *         description: Server error
  */
-router.get('/', protect, roleController.getRoles);
+router.get('/', protect, requirePermission('roles', 'view'), roleController.getRoles);
 
 /**
  * @swagger
@@ -97,7 +98,7 @@ router.get('/', protect, roleController.getRoles);
  *       500:
  *         description: Server error
  */
-router.get('/:roleId', protect, roleController.getRoleById);
+router.get('/:roleId', protect, requirePermission('roles', 'view'), roleController.getRoleById);
 
 /**
  * @swagger
@@ -126,7 +127,7 @@ router.get('/:roleId', protect, roleController.getRoleById);
  *       500:
  *         description: Server error
  */
-router.patch('/:roleId', protect, roleController.updateRole);
+router.patch('/:roleId', protect, requirePermission('roles', 'edit'), roleController.updateRole);
 
 /**
  * @swagger
@@ -155,6 +156,6 @@ router.patch('/:roleId', protect, roleController.updateRole);
  *       500:
  *         description: Server error
  */
-router.delete('/:roleId', protect, roleController.deleteRole);
+router.delete('/:roleId', protect, requirePermission('roles', 'delete'), roleController.deleteRole);
 
 module.exports = router; 

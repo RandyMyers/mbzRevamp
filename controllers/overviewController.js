@@ -200,7 +200,7 @@ const batchConvertCurrency = async (conversions, targetCurrency, organizationId)
 exports.getOverviewStats = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { displayCurrency, timeRange } = req.query;
+    const { displayCurrency, timeRange, storeId } = req.query;
 
     if (!userId) {
       return res.status(400).json({
@@ -220,6 +220,16 @@ exports.getOverviewStats = async (req, res) => {
     }
 
     const orgId = new mongoose.Types.ObjectId(organizationId);
+
+    // Parse storeId if provided (for filtering by specific store)
+    let storeIdFilter = null;
+    if (storeId && storeId !== 'all') {
+      try {
+        storeIdFilter = new mongoose.Types.ObjectId(storeId);
+      } catch (e) {
+        console.warn('Invalid storeId provided:', storeId);
+      }
+    }
 
     // Determine display currency
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
@@ -241,25 +251,42 @@ exports.getOverviewStats = async (req, res) => {
       };
     }
 
-    // Build base match filter for orders (with optional date filter)
+    // Build base match filter for orders (with optional date and store filter)
     const orderBaseMatch = {
       organizationId: orgId,
       status: { $nin: ['cancelled', 'refunded'] },
+      ...(storeIdFilter ? { storeId: storeIdFilter } : {}),
       ...(currentPeriodFilter || {})
+    };
+
+    // Build base match filter for inventory (with optional store filter)
+    const inventoryBaseMatch = {
+      organizationId: orgId,
+      ...(storeIdFilter ? { storeId: storeIdFilter } : {})
+    };
+
+    // Build base match filter for customers (with optional store filter)
+    const customerBaseMatch = {
+      organizationId: orgId,
+      role: 'customer',
+      ...(storeIdFilter ? { storeId: storeIdFilter } : {})
     };
 
     // Build queries array
     const queries = [
-      // Revenue calculation with currency grouping (with optional date filter)
+      // Revenue calculation with currency grouping (with optional date and store filter)
       Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(
         organizationId,
         targetCurrency,
-        currentPeriodFilter
+        {
+          ...(currentPeriodFilter || {}),
+          ...(storeIdFilter ? { storeId: storeIdFilter } : {})
+        }
       )),
 
-      // Total customers count (with optional date filter)
+      // Total customers count (with optional date and store filter) - only count actual customers, not admins
       Customer.countDocuments({
-        organizationId: orgId,
+        ...customerBaseMatch,
         ...(currentPeriodFilter ? {
           $or: [
             currentPeriodFilter,
@@ -281,9 +308,9 @@ exports.getOverviewStats = async (req, res) => {
         }}
       ]),
 
-      // Category distribution (not date-filtered, always show all products)
+      // Category distribution (with optional store filter, not date-filtered)
       Inventory.aggregate([
-        { $match: { organizationId: orgId } },
+        { $match: inventoryBaseMatch },
         { $unwind: { path: '$categories', preserveNullAndEmptyArrays: true } },
         { $group: {
           _id: { $ifNull: ['$categories.name', 'Uncategorized'] },
@@ -291,16 +318,16 @@ exports.getOverviewStats = async (req, res) => {
         }}
       ]),
 
-      // Stock status distribution (not date-filtered, always show all products)
+      // Stock status distribution (with optional store filter, not date-filtered)
       Inventory.aggregate([
-        { $match: { organizationId: orgId } },
+        { $match: inventoryBaseMatch },
         { $group: {
           _id: { $ifNull: ['$stock_status', 'unknown'] },
           count: { $sum: 1 }
         }}
       ]),
 
-      // Top products by revenue (with optional date filter)
+      // Top products by revenue (with optional date and store filter)
       Order.aggregate([
         { $match: orderBaseMatch },
         { $unwind: '$line_items' },
@@ -315,11 +342,14 @@ exports.getOverviewStats = async (req, res) => {
         { $limit: 5 }
       ]),
 
-      // Recent orders (always show latest, no date filter)
-      Order.find({ organizationId: orgId })
+      // Recent orders (with optional store filter, always show latest)
+      Order.find({
+        organizationId: orgId,
+        ...(storeIdFilter ? { storeId: storeIdFilter } : {})
+      })
         .sort({ date_created: -1 })
         .limit(5)
-        .select('number _id billing line_items status total date_created')
+        .select('number _id billing line_items status total date_created storeId')
         .lean()
     ];
 
@@ -328,27 +358,31 @@ exports.getOverviewStats = async (req, res) => {
       const previousOrderMatch = {
         organizationId: orgId,
         status: { $nin: ['cancelled', 'refunded'] },
+        ...(storeIdFilter ? { storeId: storeIdFilter } : {}),
         ...previousPeriodFilter
       };
 
       queries.push(
-        // Previous period revenue
+        // Previous period revenue (with optional store filter)
         Order.aggregate(currencyUtils.createMultiCurrencyRevenuePipeline(
           organizationId,
           targetCurrency,
-          previousPeriodFilter
+          {
+            ...previousPeriodFilter,
+            ...(storeIdFilter ? { storeId: storeIdFilter } : {})
+          }
         )),
 
-        // Previous period customers
+        // Previous period customers - only count actual customers, not admins (with optional store filter)
         Customer.countDocuments({
-          organizationId: orgId,
+          ...customerBaseMatch,
           $or: [
             previousPeriodFilter,
             { createdAt: previousPeriodFilter.date_created }
           ]
         }),
 
-        // Previous period order count
+        // Previous period order count (with optional store filter)
         Order.countDocuments(previousOrderMatch)
       );
     }
@@ -559,9 +593,13 @@ exports.getOverviewStats = async (req, res) => {
       date: order.date_created
     }));
 
-    // Calculate sales trend using aggregation for better performance
+    // Calculate sales trend using aggregation for better performance (with optional store filter)
     const salesTrend = await Order.aggregate([
-      { $match: { organizationId: orgId, status: { $nin: ['cancelled', 'refunded'] } } },
+      { $match: {
+        organizationId: orgId,
+        status: { $nin: ['cancelled', 'refunded'] },
+        ...(storeIdFilter ? { storeId: storeIdFilter } : {})
+      } },
       { $addFields: {
         month: { $month: { $toDate: '$date_created' } },
         year: { $year: { $toDate: '$date_created' } },

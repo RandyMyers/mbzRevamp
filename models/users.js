@@ -2,7 +2,28 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const currencyList = require('../utils/currencyList');
 
+/**
+ * Generate a unique short_id for users
+ * Format: C + 9 alphanumeric characters (e.g., C1A2B3C4D5)
+ */
+function generateShortId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'C'; // Start with 'C' for Customer
+  for (let i = 0; i < 9; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 const UserSchema = new Schema({
+    // Unique customer ID for bank transfers and identification
+    short_id: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      description: 'Unique customer ID (C + 9 alphanumeric chars) used for bank transfer references'
+    },
     username: {
         type: String,
         trim: true,
@@ -276,7 +297,14 @@ const UserSchema = new Schema({
     backupCodes: [{
       type: String
     }],
-    
+
+    // Celebration milestones for gamification
+    celebrationMilestones: {
+      type: [String],
+      default: [],
+      description: 'Tracks completed celebration milestones (first-task, first-store, etc.)'
+    },
+
     createdAt: {
       type: Date,
       default: Date.now,
@@ -288,8 +316,35 @@ const UserSchema = new Schema({
   });
   
 
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', async function (next) {
   this.updatedAt = Date.now();
+
+  // Generate short_id for new users if not already set
+  if (!this.short_id) {
+    let shortId;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    // Keep generating until we find a unique one
+    while (!isUnique && attempts < maxAttempts) {
+      shortId = generateShortId();
+      // Check if this short_id already exists
+      const existing = await mongoose.model('User').findOne({ short_id: shortId });
+      if (!existing) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (isUnique) {
+      this.short_id = shortId;
+    } else {
+      // Fallback: append timestamp to ensure uniqueness
+      this.short_id = 'C' + Date.now().toString(36).toUpperCase().slice(-9);
+    }
+  }
+
   next();
 });
 

@@ -32,7 +32,12 @@ const EmailTemplateSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization", // Reference to the Organization model
-      
+
+    },
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store", // Reference to the Store model - optional for store-specific templates
+      required: false,
     },
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt fields

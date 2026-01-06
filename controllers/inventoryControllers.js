@@ -3419,3 +3419,134 @@ exports.syncProductToWooCommerce = async (req, res) => {
     });
   }
 };
+
+/**
+ * @swagger
+ * /api/inventory/cleanup/orphaned/{organizationId}:
+ *   delete:
+ *     summary: Clean up orphaned products (products whose store no longer exists)
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ObjectId
+ *         description: Organization ID
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: dryRun
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: If true, only returns count of orphaned products without deleting
+ *     responses:
+ *       200:
+ *         description: Orphaned products cleaned up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Cleaned up 5 orphaned products"
+ *                 orphanedProducts:
+ *                   type: array
+ *                   description: List of orphaned products found/deleted
+ *                 count:
+ *                   type: number
+ *                   description: Number of orphaned products
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Server error
+ */
+// Clean up orphaned products (products whose store no longer exists)
+exports.cleanupOrphanedProducts = async (req, res) => {
+  const { organizationId } = req.params;
+  const { dryRun = false } = req.query;
+
+  try {
+    console.log(`🔍 Checking for orphaned products in organization: ${organizationId}`);
+
+    // Get all store IDs for this organization
+    const activeStores = await Store.find({ organizationId }).select('_id');
+    const activeStoreIds = activeStores.map(store => store._id);
+
+    console.log(`📊 Found ${activeStoreIds.length} active stores for organization`);
+
+    // Find products whose storeId is NOT in the active store list
+    const orphanedProducts = await Inventory.find({
+      organizationId: organizationId,
+      storeId: { $nin: activeStoreIds }
+    }).select('_id name sku storeId wooCommerceId');
+
+    console.log(`🗑️ Found ${orphanedProducts.length} orphaned products`);
+
+    if (dryRun === 'true' || dryRun === true) {
+      // Dry run - just return the count and list
+      return res.status(200).json({
+        success: true,
+        message: `Found ${orphanedProducts.length} orphaned products (dry run - not deleted)`,
+        dryRun: true,
+        count: orphanedProducts.length,
+        orphanedProducts: orphanedProducts.map(p => ({
+          id: p._id,
+          name: p.name,
+          sku: p.sku,
+          storeId: p.storeId,
+          wooCommerceId: p.wooCommerceId
+        }))
+      });
+    }
+
+    // Delete orphaned products
+    const deleteResult = await Inventory.deleteMany({
+      organizationId: organizationId,
+      storeId: { $nin: activeStoreIds }
+    });
+
+    // Audit log for orphan cleanup
+    await createAuditLog({
+      action: 'Orphaned Products Cleanup',
+      user: req.user?._id || req.user?.userId,
+      resource: 'inventory',
+      resourceId: organizationId,
+      details: {
+        organizationId,
+        orphanedProductsCount: deleteResult.deletedCount,
+        orphanedProductNames: orphanedProducts.map(p => p.name)
+      },
+      organization: organizationId,
+      severity: 'warning',
+      ip: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Cleaned up ${deleteResult.deletedCount} orphaned products`,
+      count: deleteResult.deletedCount,
+      orphanedProducts: orphanedProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        sku: p.sku,
+        storeId: p.storeId
+      }))
+    });
+  } catch (error) {
+    console.error('Error cleaning up orphaned products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clean up orphaned products',
+      error: error.message
+    });
+  }
+};

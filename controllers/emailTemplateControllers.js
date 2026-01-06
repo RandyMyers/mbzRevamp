@@ -160,11 +160,11 @@ exports.createEmailTemplate = async (req, res) => {
     console.log('Request URL:', req.url);
     console.log('Request headers:', req.headers);
     
-    const { name, subject, body, variables, createdBy, organization } = req.body;
+    const { name, subject, body, variables, createdBy, organization, store } = req.body;
     console.log('=== EMAIL TEMPLATE CREATION DEBUG ===');
     console.log('Request body:', req.body);
     console.log('User object:', req.user);
-    console.log('Extracted fields:', { name, subject, body, variables, createdBy, organization });
+    console.log('Extracted fields:', { name, subject, body, variables, createdBy, organization, store });
     
     // Validate required fields
     if (!name || !subject || !body) {
@@ -219,6 +219,12 @@ exports.createEmailTemplate = async (req, res) => {
     if (organization) {
       emailTemplateData.organization = organization;
       console.log('Organization added:', organization);
+    }
+
+    // Only add the store field if it's provided
+    if (store) {
+      emailTemplateData.store = store;
+      console.log('Store added:', store);
     }
 
     console.log('Email template data to save:', emailTemplateData);
@@ -427,9 +433,10 @@ exports.getAllEmailTemplates = async (req, res) => {
  *                   type: string
  *                   example: "Failed to retrieve email templates"
  */
-// GET email templates by organization
+// GET email templates by organization (with optional store filter)
 exports.getEmailTemplatesByOrganization = async (req, res) => {
   const { organizationId } = req.params; // Assuming organizationId is passed in the URL
+  const { storeId } = req.query;
 
   try {
     console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG ===');
@@ -438,14 +445,22 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
     console.log('🔍 User role:', req.user?.role);
     console.log('🔍 User organizationId:', req.user?.organizationId);
     console.log('🔍 Requested organizationId:', organizationId);
+    console.log('🔍 Store filter:', storeId);
     console.log('🔍 Params:', req.params);
-    
-    const emailTemplates = await EmailTemplate.find({ organization: organizationId })
+
+    // Build query with optional store filter
+    const query = { organization: organizationId };
+    if (storeId && storeId !== 'all') {
+      query.store = storeId;
+    }
+
+    const emailTemplates = await EmailTemplate.find(query)
       .populate("createdBy", "name") // Populate the createdBy field with the user's name
+      .populate("store", "name") // Populate store field
       .exec();
 
     console.log('✅ Found email templates for organization:', emailTemplates.length);
-    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization })));
+    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization, store: t.store })));
     console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG END ===');
 
     // Return empty array instead of 404 when no templates found

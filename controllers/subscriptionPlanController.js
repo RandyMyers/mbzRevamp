@@ -84,7 +84,8 @@ exports.createPlan = async (req, res) => {
 // Get all subscription plans
 exports.getPlans = async (req, res) => {
   try {
-    const plans = await SubscriptionPlan.find();
+    // Only return active plans, sorted by displayOrder
+    const plans = await SubscriptionPlan.find({ isActive: true }).sort({ displayOrder: 1 });
     res.json(plans);
   } catch (err) {
     res.status(500).json({ error: err.message });

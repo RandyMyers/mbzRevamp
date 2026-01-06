@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const productController = require("../controllers/productControllers");
 
 /**
@@ -8,6 +9,9 @@ const productController = require("../controllers/productControllers");
  *   - name: Products
  *     description: Product management operations
  */
+
+// Protect all product routes - require authentication
+router.use(protect);
 
 // Routes
 /**

@@ -10,6 +10,15 @@ const router = express.Router();
 
 const campaignController = require('../controllers/campaignControllers');
 const { protect } = require('../middleware/authMiddleware');
+const { requireMarketingAccess } = require('../middleware/permissionMiddleware');
+
+// Public tracking endpoints (no auth required - used for email open/click tracking)
+router.get('/track/open/:campaignId/:customerId', campaignController.trackOpen);
+router.get('/track/click/:campaignId/:customerId', campaignController.trackClick);
+
+// Apply marketing access check to all other campaign routes
+// Campaigns require 'campaigns' marketing access (Standard and Premium plans)
+router.use(protect, requireMarketingAccess('campaigns'));
 
 // CRUD routes
 
@@ -40,7 +49,7 @@ const { protect } = require('../middleware/authMiddleware');
  *       500:
  *         description: Server error
  */
-router.post('/create', protect, campaignController.createCampaign);
+router.post('/create', campaignController.createCampaign);
 
 /**
  * @swagger
@@ -69,7 +78,7 @@ router.post('/create', protect, campaignController.createCampaign);
  *       500:
  *         description: Server error
  */
-router.get('/all', protect, campaignController.getCampaigns);
+router.get('/all', campaignController.getCampaigns);
 
 /**
  * @swagger
@@ -98,7 +107,7 @@ router.get('/all', protect, campaignController.getCampaigns);
  *       500:
  *         description: Server error
  */
-router.get('/organization/:organizationId', protect, campaignController.getCampaignsByOrganization);
+router.get('/organization/:organizationId', campaignController.getCampaignsByOrganization);
 
 /**
  * @swagger
@@ -127,7 +136,7 @@ router.get('/organization/:organizationId', protect, campaignController.getCampa
  *       500:
  *         description: Server error
  */
-router.get('/get/:campaignId', protect, campaignController.getCampaignById);
+router.get('/get/:campaignId', campaignController.getCampaignById);
 
 /**
  * @swagger
@@ -156,7 +165,7 @@ router.get('/get/:campaignId', protect, campaignController.getCampaignById);
  *       500:
  *         description: Server error
  */
-router.patch('/update/:campaignId', protect, campaignController.updateCampaign);
+router.patch('/update/:campaignId', campaignController.updateCampaign);
 
 /**
  * @swagger
@@ -185,7 +194,7 @@ router.patch('/update/:campaignId', protect, campaignController.updateCampaign);
  *       500:
  *         description: Server error
  */
-router.delete('/delete/:campaignId', protect, campaignController.deleteCampaign);
+router.delete('/delete/:campaignId', campaignController.deleteCampaign);
 
 // Specialized campaign updates
 
@@ -216,7 +225,7 @@ router.delete('/delete/:campaignId', protect, campaignController.deleteCampaign)
  *       500:
  *         description: Server error
  */
-router.patch('/updateTemplate/:campaignId', protect, campaignController.updateTemplate);
+router.patch('/updateTemplate/:campaignId', campaignController.updateTemplate);
 
 /**
  * @swagger
@@ -245,7 +254,7 @@ router.patch('/updateTemplate/:campaignId', protect, campaignController.updateTe
  *       500:
  *         description: Server error
  */
-router.patch('/updateContacts/:campaignId', protect, campaignController.updateContacts);
+router.patch('/updateContacts/:campaignId', campaignController.updateContacts);
 
 /**
  * @swagger
@@ -274,7 +283,7 @@ router.patch('/updateContacts/:campaignId', protect, campaignController.updateCo
  *       500:
  *         description: Server error
  */
-router.patch('/updateSenderEmails/:campaignId', protect, campaignController.updateSenderEmails);
+router.patch('/updateSenderEmails/:campaignId', campaignController.updateSenderEmails);
 
 /**
  * @swagger
@@ -303,7 +312,7 @@ router.patch('/updateSenderEmails/:campaignId', protect, campaignController.upda
  *       500:
  *         description: Server error
  */
-router.patch('/updateTargetCategories/:campaignId', protect, campaignController.updateTargetCategories);
+router.patch('/updateTargetCategories/:campaignId', campaignController.updateTargetCategories);
 
 /**
  * @swagger
@@ -332,7 +341,7 @@ router.patch('/updateTargetCategories/:campaignId', protect, campaignController.
  *       500:
  *         description: Server error
  */
-router.patch('/updateStatus/:campaignId', protect, campaignController.updateStatus);
+router.patch('/updateStatus/:campaignId', campaignController.updateStatus);
 
 // Start campaign
 
@@ -363,7 +372,7 @@ router.patch('/updateStatus/:campaignId', protect, campaignController.updateStat
  *       500:
  *         description: Server error
  */
-router.post('/start/:campaignId', protect, campaignController.startCampaign);
+router.post('/start/:campaignId', campaignController.startCampaign);
 
 // Stats routes for page overview
 
@@ -394,7 +403,7 @@ router.post('/start/:campaignId', protect, campaignController.startCampaign);
  *       500:
  *         description: Server error
  */
-router.get('/metrics/total-campaigns/:organizationId', protect, campaignController.getTotalCampaigns);
+router.get('/metrics/total-campaigns/:organizationId', campaignController.getTotalCampaigns);
 
 /**
  * @swagger
@@ -423,7 +432,7 @@ router.get('/metrics/total-campaigns/:organizationId', protect, campaignControll
  *       500:
  *         description: Server error
  */
-router.get('/metrics/active-campaigns/:organizationId', protect, campaignController.getActiveCampaigns);
+router.get('/metrics/active-campaigns/:organizationId', campaignController.getActiveCampaigns);
 
 /**
  * @swagger
@@ -452,7 +461,7 @@ router.get('/metrics/active-campaigns/:organizationId', protect, campaignControl
  *       500:
  *         description: Server error
  */
-router.get('/metrics/emails-sent/:organizationId', protect, campaignController.getEmailsSent);
+router.get('/metrics/emails-sent/:organizationId', campaignController.getEmailsSent);
 
 /**
  * @swagger
@@ -481,7 +490,7 @@ router.get('/metrics/emails-sent/:organizationId', protect, campaignController.g
  *       500:
  *         description: Server error
  */
-router.get('/metrics/open-rate/:organizationId', protect, campaignController.getOpenRate);
+router.get('/metrics/open-rate/:organizationId', campaignController.getOpenRate);
 
 /**
  * @swagger
@@ -510,7 +519,7 @@ router.get('/metrics/open-rate/:organizationId', protect, campaignController.get
  *       500:
  *         description: Server error
  */
-router.get('/metrics/click-rate/:organizationId', protect, campaignController.getClickRate);
+router.get('/metrics/click-rate/:organizationId', campaignController.getClickRate);
 
 // Stats route for overview
 
@@ -542,73 +551,5 @@ router.get('/metrics/click-rate/:organizationId', protect, campaignController.ge
  *         description: Server error
  */
 //router.get('/stats/overview', campaignController.getCampaignStats);
-
-// Tracking endpoints
-
-/**
- * @swagger
- * /api/campaigns/track/open/:campaignId/:customerId:
- *   get:
- *     summary: Get Open
- *     tags: [Campaigns]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Operation completed successfully"
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.get('/track/open/:campaignId/:customerId', campaignController.trackOpen);
-
-/**
- * @swagger
- * /api/campaigns/track/click/{campaignId}/{customerId}:
- *   get:
- *     summary: Track email link click
- *     tags: [Campaigns]
- *     parameters:
- *       - in: path
- *         name: campaignId
- *         required: true
- *         schema:
- *           type: string
- *         description: Campaign ID
- *       - in: path
- *         name: customerId
- *         required: true
- *         schema:
- *           type: string
- *         description: Customer ID
- *       - in: query
- *         name: redirect
- *         required: false
- *         schema:
- *           type: string
- *         description: URL to redirect to after tracking
- *     responses:
- *       302:
- *         description: Redirects to the original URL
- *       200:
- *         description: Click tracked successfully
- *       404:
- *         description: Campaign or contact not found
- *       500:
- *         description: Server error
- */
-router.get('/track/click/:campaignId/:customerId', campaignController.trackClick);
 
 module.exports = router; 

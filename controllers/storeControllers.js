@@ -1,6 +1,9 @@
 const Store = require("../models/store"); // Import the Store model
 const Organization = require("../models/organization"); // Import the Organization model if needed
 const User = require("../models/users"); // Import the User model if needed
+const Inventory = require("../models/inventory"); // Import for cascade deletion
+const Customer = require("../models/customers"); // Import for cascade deletion
+const Order = require("../models/order"); // Import for cascade deletion
 const cloudinary = require('cloudinary').v2;
 const { createDefaultWebhooks, validateStoreForWebhooks } = require('../services/webhookAutoCreationService');
 const { Worker } = require('worker_threads');
@@ -147,13 +150,36 @@ exports.syncProducts = async (storeId, organizationId, userId) => {
 
         if (message.status === 'success') {
           console.log(`✅ Product sync completed: ${message.message}`);
+
+          // Build detailed notification body with sync statistics
+          const syncData = message.data || {};
+          let notificationBody = `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.\n\n`;
+          notificationBody += `📊 Sync Summary:\n`;
+          notificationBody += `• Total Products in Store: ${syncData.total || 0}\n`;
+          notificationBody += `• Created: ${syncData.created || 0}\n`;
+          notificationBody += `• Updated: ${syncData.updated || 0}\n`;
+          notificationBody += `• Failed: ${syncData.failed || 0}\n`;
+
+          // Add plan limit warning if products were skipped
+          if (syncData.skipped > 0) {
+            notificationBody += `\n⚠️ Plan Limit Notice:\n`;
+            notificationBody += `• ${syncData.skipped} products were not synced due to your subscription plan limit.\n`;
+            notificationBody += `• Upgrade your plan to sync more products.`;
+          }
+
+          if (syncData.orphansRemoved > 0) {
+            notificationBody += `\n🗑️ Cleanup: ${syncData.orphansRemoved} deleted products removed`;
+          }
+
           // Notify success for product sync
           createAndSendNotification({
             userId,
             organization: organizationId,
             type: 'system',
-            subject: `WooCommerce Product Sync Succeeded - ${store.name}`,
-            body: `Product sync completed successfully for ${store.name} at ${new Date().toISOString()}.`
+            subject: syncData.skipped > 0
+              ? `WooCommerce Product Sync - Plan Limit Reached - ${store.name}`
+              : `WooCommerce Product Sync Succeeded - ${store.name}`,
+            body: notificationBody
           }).catch(() => {});
           settled = true;
           resolve(message);
@@ -1061,26 +1087,63 @@ exports.deleteStore = async (req, res) => {
   const { storeId  } = req.params;
 
   try {
-    const deletedStore = await Store.findByIdAndDelete(storeId );
-    if (!deletedStore) {
+    const storeToDelete = await Store.findById(storeId);
+    if (!storeToDelete) {
       return res.status(404).json({ success: false, message: 'Store not found' });
     }
 
-    // Audit log for store deletion
+    // Cascade delete associated data
+    console.log(`🗑️ Deleting associated data for store: ${storeToDelete.name} (${storeId})`);
+
+    // Delete associated products
+    const deletedProducts = await Inventory.deleteMany({ storeId: storeId });
+    console.log(`✅ Deleted ${deletedProducts.deletedCount} products from store`);
+
+    // Delete associated customers
+    const deletedCustomers = await Customer.deleteMany({ storeId: storeId });
+    console.log(`✅ Deleted ${deletedCustomers.deletedCount} customers from store`);
+
+    // Delete associated orders
+    const deletedOrders = await Order.deleteMany({ storeId: storeId });
+    console.log(`✅ Deleted ${deletedOrders.deletedCount} orders from store`);
+
+    // Now delete the store itself
+    const deletedStore = await Store.findByIdAndDelete(storeId);
+
+    // Audit log for store deletion with cascade info
     await createAuditLog({
       action: 'Store Deleted',
       user: req.user?._id || req.user?.userId,
       resource: 'store',
       resourceId: deletedStore._id,
-      details: { name: deletedStore.name, url: deletedStore.url, platform: deletedStore.platformType },
+      details: {
+        name: deletedStore.name,
+        url: deletedStore.url,
+        platform: deletedStore.platformType,
+        cascadeDeleted: {
+          products: deletedProducts.deletedCount,
+          customers: deletedCustomers.deletedCount,
+          orders: deletedOrders.deletedCount
+        }
+      },
       organization: req.user?.organization || deletedStore.organizationId,
-      severity: 'info',
+      severity: 'critical',
       ip: req.ip || req.connection?.remoteAddress,
       userAgent: req.get('User-Agent')
     });
 
-    res.status(200).json({ success: true, message: 'Store deleted successfully', store: deletedStore });
+    res.status(200).json({
+      success: true,
+      message: 'Store and associated data deleted successfully',
+      store: deletedStore,
+      deletedCounts: {
+        products: deletedProducts.deletedCount,
+        customers: deletedCustomers.deletedCount,
+        orders: deletedOrders.deletedCount
+      }
+    });
   } catch (error) {
+    console.error('Error deleting store:', error);
     res.status(500).json({ success: false, message: 'Error deleting store', error: error.message });
   }
 };
@@ -1142,7 +1205,56 @@ exports.getStoresByOrganization = async (req, res) => {
 
   try {
     const stores = await Store.find({ organizationId }).populate('userId', 'name email');
-    res.status(200).json({ success: true, stores });
+
+    // Fetch per-store metrics (revenue, orders, products) in parallel
+    const mongoose = require('mongoose');
+    const Order = require('../models/order');
+    const Inventory = require('../models/inventory');
+
+    const storesWithMetrics = await Promise.all(stores.map(async (store) => {
+      const storeObj = store.toObject();
+      const storeId = store._id;
+
+      try {
+        // Get order count and revenue for this store
+        const orderMetrics = await Order.aggregate([
+          {
+            $match: {
+              storeId: new mongoose.Types.ObjectId(storeId),
+              status: { $nin: ['cancelled', 'refunded', 'failed'] }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalOrders: { $sum: 1 },
+              totalRevenue: { $sum: { $toDouble: { $ifNull: ['$total', 0] } } },
+              currency: { $first: '$currency' }
+            }
+          }
+        ]);
+
+        // Get product count for this store
+        const productCount = await Inventory.countDocuments({ storeId: storeId });
+
+        // Apply metrics to store object
+        storeObj.orders = orderMetrics[0]?.totalOrders || 0;
+        storeObj.revenue = orderMetrics[0]?.totalRevenue || 0;
+        storeObj.currency = orderMetrics[0]?.currency || 'USD';
+        storeObj.products = productCount;
+      } catch (metricsError) {
+        console.error(`Error calculating metrics for store ${storeId}:`, metricsError.message);
+        // Keep default values if metrics calculation fails
+        storeObj.orders = 0;
+        storeObj.revenue = 0;
+        storeObj.currency = 'USD';
+        storeObj.products = 0;
+      }
+
+      return storeObj;
+    }));
+
+    res.status(200).json({ success: true, stores: storesWithMetrics });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching stores', error: error.message });
   }

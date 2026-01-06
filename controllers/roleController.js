@@ -181,18 +181,23 @@ exports.createRole = async (req, res) => {
       });
     }
     
-    // ✅ CHECK IF ROLE NAME ALREADY EXISTS IN THIS ORGANIZATION
-    const existingRole = await Role.findOne({ 
-      name: name, 
-      organization: organizationId 
+    // ✅ CHECK IF ROLE NAME ALREADY EXISTS IN THIS ORGANIZATION (case-insensitive)
+    const existingRole = await Role.findOne({
+      name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      organization: organizationId
     });
-    
+
     if (existingRole) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Role "${name}" already exists in this organization` 
+      console.log(`⚠️ Role name conflict: Tried to create "${name}", found existing "${existingRole.name}" (ID: ${existingRole._id}) in org ${organizationId}`);
+      return res.status(400).json({
+        success: false,
+        message: `Role "${existingRole.name}" already exists in this organization`
       });
     }
+
+    // Debug: Log all existing roles in this organization
+    const allRoles = await Role.find({ organization: organizationId }).select('name');
+    console.log(`📋 Creating role "${name}" - Existing roles in org:`, allRoles.map(r => r.name));
     
     // ✅ CREATE NEW ROLE
     const role = new Role({ 

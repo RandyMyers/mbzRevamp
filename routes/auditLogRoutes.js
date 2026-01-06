@@ -9,6 +9,12 @@ const router = express.Router();
  */
 
 const auditLogController = require('../controllers/auditLogController');
+const { protect } = require('../middleware/authMiddleware');
+const { requirePlanFeature } = require('../middleware/permissionMiddleware');
+
+// Apply audit logs feature check to all routes
+// Audit logs are only available on Standard and Premium plans
+router.use(protect, requirePlanFeature('auditLogs'));
 
 
 /**
