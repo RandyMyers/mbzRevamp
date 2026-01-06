@@ -206,21 +206,21 @@ app.use((req, res, next) => {
   const allowedOrigins = [
     'http://localhost:8800',
     'http://localhost:3000',
-    'http://localhost:3001', 
+    'http://localhost:3001',
     'http://localhost:8080',
     'http://localhost:8081',
     'https://api.elapix.store',
     'https://elapix.store',
-    'https://elapix.store'
+    'https://elapix.mbztechnology.com'
   ];
-  
+
   if (allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   }
-  
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'false');
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
   // Handle preflight requests
