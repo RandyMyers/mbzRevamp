@@ -195,7 +195,7 @@ app.use(cors({
     'Access-Control-Request-Method',
     'Access-Control-Request-Headers'
   ],
-  credentials: false,
+  credentials: true,
   optionsSuccessStatus: 200, // Some legacy browsers choke on 204
   preflightContinue: false
 }));
