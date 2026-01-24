@@ -120,8 +120,20 @@ exports.protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.log('❌ Auth middleware error:', error.message);
-    console.log('❌ Error stack:', error.stack);
+    console.log('❌ Error name:', error.name);
     console.log('=== AUTH MIDDLEWARE DEBUG END ===');
+
+    // Handle JWT-specific errors with proper 401 status
+    if (error.name === 'TokenExpiredError') {
+      return next(new UnauthorizedError('Your session has expired. Please log in again.'));
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return next(new UnauthorizedError('Invalid token. Please log in again.'));
+    }
+    if (error.name === 'NotBeforeError') {
+      return next(new UnauthorizedError('Token not yet valid. Please try again.'));
+    }
+
     next(error);
   }
 };
