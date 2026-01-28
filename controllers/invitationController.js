@@ -1347,15 +1347,30 @@ exports.createInvitation = async (req, res) => {
   }
 };
 
-// Get all invitations (optionally by organization)
+// Get all invitations for the user's organization
 exports.getInvitations = async (req, res) => {
   try {
-    const { organizationId } = req.query;
-    const filter = organizationId ? { organization: organizationId } : {};
-    const invitations = await Invitation.find(filter).populate('invitedBy organization');
+    // SECURITY: Always filter by the logged-in user's organization
+    // This prevents users from seeing invitations from other organizations
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    const filter = { organization: userOrgId };
+    const invitations = await Invitation.find(filter)
+      .populate('invitedBy', 'fullName email')
+      .populate('organization', 'name')
+      .populate('role', 'name')
+      .sort({ createdAt: -1 });
+
     res.status(200).json({ success: true, invitations });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching invitations:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch invitations' });
   }
 };
@@ -1451,9 +1466,19 @@ exports.resendInvitation = async (req, res) => {
       .populate(['invitedBy', 'organization', 'role']);
 
     if (!invitation) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Invitation not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Invitation not found'
+      });
+    }
+
+    // ✅ SECURITY: Verify invitation belongs to user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    const invitationOrgId = invitation.organization?._id || invitation.organization;
+    if (!userOrgId || userOrgId.toString() !== invitationOrgId?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to resend this invitation'
       });
     }
 
@@ -1592,8 +1617,18 @@ exports.cancelInvitation = async (req, res) => {
       });
     }
 
-    const invitation = await Invitation.findByIdAndUpdate(
-      invitationId,
+    // SECURITY: Get user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Only update if invitation belongs to user's organization
+    const invitation = await Invitation.findOneAndUpdate(
+      { _id: invitationId, organization: userOrgId },
       { status: 'cancelled' },
       { new: true }
     );
@@ -1601,7 +1636,7 @@ exports.cancelInvitation = async (req, res) => {
     if (!invitation) {
       return res.status(404).json({
         success: false,
-        message: 'Invitation not found'
+        message: 'Invitation not found or you do not have permission to cancel it'
       });
     }
 
@@ -1812,9 +1847,26 @@ exports.deleteInvitation = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invitation ID is required' });
     }
 
-    const invitation = await Invitation.findByIdAndDelete(invitationId);
+    // SECURITY: Get user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Only delete if invitation belongs to user's organization
+    const invitation = await Invitation.findOneAndDelete({
+      _id: invitationId,
+      organization: userOrgId
+    });
+
     if (!invitation) {
-      return res.status(404).json({ success: false, message: 'Invitation not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Invitation not found or you do not have permission to delete it'
+      });
     }
 
     // ✅ AUDIT LOG: Invitation Deleted

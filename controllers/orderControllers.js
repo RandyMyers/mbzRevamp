@@ -842,20 +842,30 @@ exports.createOrder = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const { organizationId, limit, status } = req.query;
-    
-    // SECURITY: Validate organizationId is provided
-    if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Organization ID is required" 
+
+    // SECURITY: Get user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Use user's organization if not provided, or verify if provided
+    const targetOrgId = organizationId || userOrgId.toString();
+    if (targetOrgId !== userOrgId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to access orders from this organization'
       });
     }
 
     // SECURITY: Build query with organization filter
-    const query = { 
-      organizationId: new mongoose.Types.ObjectId(organizationId) 
+    const query = {
+      organizationId: new mongoose.Types.ObjectId(targetOrgId)
     };
-    
+
     // Add status filter if provided
     if (status && status !== 'all') {
       query.status = status;
@@ -865,14 +875,13 @@ exports.getAllOrders = async (req, res) => {
     let ordersQuery = Order.find(query)
       .populate("storeId userId organizationId customer_id", "name email")
       .sort({ createdAt: -1 }); // Sort by newest first
-    
+
     if (limit) {
       ordersQuery = ordersQuery.limit(parseInt(limit));
     }
 
     const orders = await ordersQuery.exec();
-    
-    console.log(`📦 Found ${orders.length} orders for organization: ${organizationId}`);
+
     res.status(200).json({ success: true, orders });
   } catch (error) {
     console.error('❌ Error in getAllOrders:', error);
@@ -964,9 +973,16 @@ exports.getAllOrders = async (req, res) => {
 exports.getAllOrdersByOrganization = async (req, res) => {
   const { organizationId } = req.params;
   const { userId, displayCurrency } = req.query;
-  
+
   try {
-    console.log('🔄 Fetching orders for organization:', organizationId);
+    // SECURITY: Verify the requested organization matches the user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId || userOrgId.toString() !== organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to access orders from this organization'
+      });
+    }
     
     // Get display currency for the user/organization
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
@@ -1226,6 +1242,25 @@ exports.getOrdersByStoreId = async (req, res) => {
   try {
     const { storeId } = req.params;
     const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+
+    // SECURITY: Get user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Verify the store belongs to user's organization
+    const Store = require('../models/store');
+    const store = await Store.findById(storeId);
+    if (!store || store.organizationId?.toString() !== userOrgId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to access orders from this store'
+      });
+    }
 
     const query = { storeId };
 

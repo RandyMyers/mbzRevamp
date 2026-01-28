@@ -648,6 +648,15 @@ exports.createCustomer = async (req, res) => {
     try {
       const { organizationId } = req.params;
 
+      // SECURITY: Verify the requested organization matches the user's organization
+      const userOrgId = req.user?.organizationId || req.user?.organization;
+      if (!userOrgId || userOrgId.toString() !== organizationId) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to access customers from this organization'
+        });
+      }
+
       // Fetch customers by organizationId and populate related fields
       // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
       const customers = await Customer.find({
@@ -719,16 +728,28 @@ exports.createCustomer = async (req, res) => {
    */
   exports.getAllCustomers = async (req, res) => {
     try {
-      // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
-      const customers = await Customer.find({ role: 'customer' })
+      // SECURITY: Get organization from authenticated user
+      const userOrgId = req.user?.organizationId || req.user?.organization;
+      if (!userOrgId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User organization not found'
+        });
+      }
+
+      // SECURITY: Always filter by user's organization
+      const customers = await Customer.find({
+        organizationId: userOrgId,
+        role: 'customer' // Only fetch actual customers, not WordPress admin users
+      })
         .populate('storeId', 'name') // Adjust fields to populate as per your Store schema
         .populate('userId', 'name email') // Adjust fields to populate as per your User schema
         .populate('organizationId', 'name'); // Adjust fields to populate as per your Organization schema
 
-      res.status(200).json({ message: 'Customers retrieved successfully.', data: customers });
+      res.status(200).json({ success: true, message: 'Customers retrieved successfully.', data: customers });
     } catch (error) {
       console.error('Error retrieving customers:', error);
-      res.status(500).json({ message: 'Error retrieving customers.', error });
+      res.status(500).json({ success: false, message: 'Error retrieving customers.', error });
     }
   };
 
@@ -1425,16 +1446,35 @@ exports.createCustomer = async (req, res) => {
     try {
       const { storeId } = req.params;
 
+      // SECURITY: Get user's organization
+      const userOrgId = req.user?.organizationId || req.user?.organization;
+      if (!userOrgId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User organization not found'
+        });
+      }
+
+      // SECURITY: Verify the store belongs to user's organization
+      const Store = require('../models/store');
+      const store = await Store.findById(storeId);
+      if (!store || store.organizationId?.toString() !== userOrgId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to access customers from this store'
+        });
+      }
+
       // Filter to only include users with 'customer' role (exclude administrators, shop managers, etc.)
       const customers = await Customer.find({
         storeId,
         role: 'customer' // Only fetch actual customers, not WordPress admin users
       }).populate('userId', 'name email');
 
-      res.status(200).json({ message: 'Customers retrieved successfully for the store.', data: customers });
+      res.status(200).json({ success: true, message: 'Customers retrieved successfully for the store.', data: customers });
     } catch (error) {
       console.error('Error retrieving customers by store ID:', error);
-      res.status(500).json({ message: 'Error retrieving customers by store ID.', error });
+      res.status(500).json({ success: false, message: 'Error retrieving customers by store ID.', error });
     }
   };
 

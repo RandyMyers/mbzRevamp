@@ -214,12 +214,27 @@ exports.createTicket = async (req, res) => {
 exports.getTickets = async (req, res) => {
   try {
     const { organizationId, customerEmail, page = 1, limit = 10 } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'organizationId is required' });
+
+    // SECURITY: Get user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Use user's organization if not provided, or verify if provided
+    const targetOrgId = organizationId || userOrgId.toString();
+    if (targetOrgId !== userOrgId.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to access tickets from this organization'
+      });
     }
 
     // Build query filter
-    const filter = { organizationId };
+    const filter = { organizationId: targetOrgId };
 
     // If customerEmail is provided, filter by customer email (for customer dashboard)
     if (customerEmail) {

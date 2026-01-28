@@ -694,8 +694,18 @@ exports.createUser = async (req, res) => {
 // Get all users in an organization
 exports.getAllUsers = async (req, res) => {
   try {
-    // Exclude users that are pending deletion or have deletion scheduled
+    // SECURITY: Get organization from authenticated user, not from params/query
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User organization not found'
+      });
+    }
+
+    // SECURITY: Always filter by user's organization
     const users = await User.find({
+      organization: userOrgId,
       status: { $ne: 'pending-deletion' },
       deletionScheduledAt: { $exists: false }
     }).populate("organization").populate("roleId");
@@ -1179,6 +1189,15 @@ exports.getUsersByOrganization = async (req, res) => {
   const { organizationId } = req.params;
 
   try {
+    // SECURITY: Verify the requested organization matches the user's organization
+    const userOrgId = req.user?.organizationId || req.user?.organization;
+    if (!userOrgId || userOrgId.toString() !== organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to access users from this organization'
+      });
+    }
+
     // Fetch all users belonging to the specified organization
     // Exclude users that are pending deletion or have deletion scheduled
     const users = await User.find({
@@ -1187,9 +1206,8 @@ exports.getUsersByOrganization = async (req, res) => {
       deletionScheduledAt: { $exists: false }
     }).populate("organization").populate("roleId");
 
-    console.log('users for the organization', users);
     if (!users.length) {
-      return res.status(404).json({ success: false, message: "No users found for this organization." });
+      return res.status(200).json({ success: true, users: [], roleCounts: {}, message: "No users found for this organization." });
     }
 
     // Map users to include role as roleId for frontend compatibility
@@ -1205,8 +1223,6 @@ exports.getUsersByOrganization = async (req, res) => {
       counts[role] = counts[role] ? counts[role] + 1 : 1;
       return counts;
     }, {});
-
-    console.log(roleCounts);
 
     res.status(200).json({ success: true, users: usersWithRole, roleCounts });
   } catch (error) {

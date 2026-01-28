@@ -102,7 +102,22 @@
       "Bash(add-swagger-docs.js )",
       "Bash(add-comprehensive-swagger-docs.js )",
       "Bash(add-overview-indexes.js )",
-      "Bash(fix-role-index.js)"
+      "Bash(fix-role-index.js)",
+      "Bash(zip:*)",
+      "Bash(pm2 logs:*)",
+      "Bash(sshpass:*)",
+      "Bash(export SSHPASS='u##z3U!8GxN@Dyq')",
+      "Bash(ssh root@159.203.139.181 \"cd /var/www/aafn-backend && git pull && pm2 restart aafn-backend\")",
+      "Bash(set +H)",
+      "Bash(ssh -o StrictHostKeyChecking=no root@159.203.139.181 \"echo ''SSH connection successful!'' && pm2 status\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@159.203.139.181 \"echo ''=== Disk Usage ==='' && df -h && echo '''' && echo ''=== Home Directory ==='' && ls -la /root && echo '''' && echo ''=== /var/www ==='' && ls -la /var/www 2>/dev/null || echo ''No /var/www'' && echo '''' && echo ''=== PM2 Apps ==='' && pm2 list && echo '''' && echo ''=== Large Directories ==='' && du -sh /root/* 2>/dev/null | sort -hr | head -20\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -T root@159.203.139.181 \"rm -rf /root/aafn-* && rm -f /root/*.sh /root/nginx_aafn_only && rm -rf /var/www/aafn-* && echo ''Done'' && df -h /\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@159.203.139.181 'rm -rf /root/aafn-store-frontend /root/aafn-store /root/aafn-backend /root/aafn-admin')",
+      "Bash(ssh -o StrictHostKeyChecking=no root@159.203.139.181 'echo connected')",
+      "Bash(ssh:*)",
+      "Bash(./deploy_to_digitalocean.sh:*)",
+      "Bash(tar:*)",
+      "Bash(scp:*)"
     ],
     "deny": [],
     "ask": []
