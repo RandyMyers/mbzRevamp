@@ -943,16 +943,7 @@ exports.createInvitation = async (req, res) => {
       });
     }
 
-    // ✅ VALIDATION 3: Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'A user with this email already exists' 
-      });
-    }
-
-    // ✅ VALIDATION 4: Check for existing pending invitation
+    // ✅ VALIDATION 3: Check for existing pending invitation
     const existingInvitation = await Invitation.findOne({ 
       email: email.toLowerCase(), 
       status: 'pending',
@@ -966,7 +957,7 @@ exports.createInvitation = async (req, res) => {
       });
     }
 
-    // ✅ VALIDATION 5: Validate organization with fallbacks
+    // ✅ VALIDATION 4: Validate organization with fallbacks
     let organizationId = organization || req.user.organization;
     let organizationDoc = null;
     
@@ -1004,12 +995,33 @@ exports.createInvitation = async (req, res) => {
     }
     
     if (!organizationDoc) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Organization not found. Please contact support.' 
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found. Please contact support.'
       });
     }
-    
+
+    // ✅ VALIDATION 5: Check if user already exists (with organization context)
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      // Check if user is already in the target organization
+      const userOrgId = existingUser.organization ? existingUser.organization.toString() : null;
+      const targetOrgId = organizationId.toString();
+
+      if (userOrgId === targetOrgId) {
+        // User is already a member of this organization
+        return res.status(400).json({
+          success: false,
+          message: 'This user is already a member of your organization. No invitation needed.'
+        });
+      } else {
+        // User exists but belongs to a different organization
+        return res.status(400).json({
+          success: false,
+          message: 'This email is already registered with another organization. Each user account can only belong to one organization. Please ask the user to register a new account with a different email address, or contact support for assistance.'
+        });
+      }
+    }
 
     // ✅ VALIDATION 6: Validate role if provided
     if (role) {
