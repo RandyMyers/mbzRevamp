@@ -838,10 +838,14 @@ exports.loginOrganizationUser = async (req, res) => {
     }
 
     // If OTP is not enabled, proceed with normal login
+    // Update last login timestamp
+    user.lastLogin = new Date();
+    await user.save();
+
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role }, 
-      process.env.JWT_SECRET, 
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
