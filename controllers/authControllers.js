@@ -585,6 +585,59 @@ exports.registerOrganizationUser = async (req, res) => {
       userAgent: req.headers['user-agent']
     });
 
+    // ✅ Create Free plan subscription for new user with audit log
+    try {
+      const SubscriptionPlan = require('../models/subscriptionPlans');
+      const Subscription = require('../models/subscriptions');
+
+      // Find the Free plan
+      const freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
+
+      if (freePlan) {
+        // Create Free subscription (no expiry for free plan)
+        const freeSubscription = new Subscription({
+          user: newUser._id,
+          plan: freePlan._id,
+          organization: newOrganization._id,
+          status: 'active',
+          isActive: true,
+          startDate: new Date(),
+          endDate: null, // Free plan doesn't expire
+          billingInterval: 'monthly',
+          autoRenew: false,
+          isTrial: false,
+          paymentStatus: 'completed', // Free plan is always "paid"
+          paymentMethod: 'free'
+        });
+
+        await freeSubscription.save();
+
+        // Create audit log for free plan assignment
+        await createAuditLog({
+          action: 'assign_free_plan',
+          user: newUser._id,
+          resource: 'subscription',
+          resourceId: freeSubscription._id,
+          details: {
+            planName: freePlan.name,
+            planSlug: freePlan.slug,
+            action: 'Initial free plan assigned during registration',
+            subscriptionId: freeSubscription._id,
+            organizationId: newOrganization._id
+          },
+          organization: newOrganization._id,
+          severity: 'info'
+        });
+
+        console.log(`✅ [REGISTRATION] Free plan subscription created for user: ${newUser.email}`);
+      } else {
+        console.warn('⚠️ [REGISTRATION] Free plan not found, user registered without subscription');
+      }
+    } catch (subscriptionError) {
+      console.error('❌ [REGISTRATION] Failed to create free subscription:', subscriptionError);
+      // Don't fail registration if subscription creation fails
+    }
+
     // Email sending temporarily disabled
     // try {
     //   await sendSystemEmail(
@@ -1948,11 +2001,65 @@ exports.registerUser = async (req, res) => {
     adminRole.userId = newUser._id;
     await adminRole.save();
 
+    // ✅ Create Free plan subscription for new user with audit log
+    try {
+      const SubscriptionPlan = require('../models/subscriptionPlans');
+      const Subscription = require('../models/subscriptions');
+      const { createAuditLog } = require('../helpers/auditLogHelper');
+
+      // Find the Free plan
+      const freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
+
+      if (freePlan) {
+        // Create Free subscription (no expiry for free plan)
+        const freeSubscription = new Subscription({
+          user: newUser._id,
+          plan: freePlan._id,
+          organization: newOrganization._id,
+          status: 'active',
+          isActive: true,
+          startDate: new Date(),
+          endDate: null, // Free plan doesn't expire
+          billingInterval: 'monthly',
+          autoRenew: false,
+          isTrial: false,
+          paymentStatus: 'completed', // Free plan is always "paid"
+          paymentMethod: 'free'
+        });
+
+        await freeSubscription.save();
+
+        // Create audit log for free plan assignment
+        await createAuditLog({
+          action: 'assign_free_plan',
+          user: newUser._id,
+          resource: 'subscription',
+          resourceId: freeSubscription._id,
+          details: {
+            planName: freePlan.name,
+            planSlug: freePlan.slug,
+            action: 'Initial free plan assigned during registration',
+            subscriptionId: freeSubscription._id,
+            organizationId: newOrganization._id
+          },
+          organization: newOrganization._id,
+          severity: 'info'
+        });
+
+        console.log(`✅ [REGISTRATION] Free plan subscription created for user: ${newUser.email}`);
+      } else {
+        console.warn('⚠️ [REGISTRATION] Free plan not found, user registered without subscription');
+      }
+    } catch (subscriptionError) {
+      console.error('❌ [REGISTRATION] Failed to create free subscription:', subscriptionError);
+      // Don't fail registration if subscription creation fails
+    }
+
     // Send email verification code
     console.log(`📧 [REGISTRATION] Attempting to send verification email to: ${newUser.email}`);
     try {
       const verificationResult = await EmailVerificationService.sendVerificationCode(newUser, req);
-      
+
       if (!verificationResult.success) {
         console.error('❌ [AUTH CONTROLLER] Failed to send verification email:', verificationResult.error);
         console.error('❌ [AUTH CONTROLLER] Email verification details:', verificationResult);
