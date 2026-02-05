@@ -291,26 +291,30 @@ exports.requirePermissionOrOwner = (module, action, getOwnerId) => {
  */
 const getUserPlanName = async (userId) => {
   try {
-    const subscription = await Subscription.findOne({
-      user: userId,
-      isActive: true,
-      status: 'active'
-    }).populate('plan', 'name slug');
-
-    if (subscription && subscription.plan) {
-      return subscription.plan.slug || subscription.plan.name.toLowerCase();
-    }
-
-    // Check for trial
+    // Check for active trial first (trials should be checked by trialEnd, not endDate)
     const trialSub = await Subscription.findOne({
       user: userId,
       isTrial: true,
       trialConverted: false,
-      trialEnd: { $gt: new Date() }
+      trialEnd: { $gt: new Date() },
+      status: 'active'
     }).populate('plan', 'name slug');
 
     if (trialSub && trialSub.plan) {
       return trialSub.plan.slug || trialSub.plan.name.toLowerCase();
+    }
+
+    // Check for paid subscription (exclude trials to avoid double-checking)
+    const subscription = await Subscription.findOne({
+      user: userId,
+      isTrial: { $ne: true },  // Exclude trials
+      isActive: true,
+      status: 'active',
+      endDate: { $gte: new Date() }  // Ensure subscription hasn't expired
+    }).populate('plan', 'name slug');
+
+    if (subscription && subscription.plan) {
+      return subscription.plan.slug || subscription.plan.name.toLowerCase();
     }
 
     return 'free'; // Default to free if no subscription
