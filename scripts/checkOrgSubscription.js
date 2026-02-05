@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const User = require('../models/users');
 const Subscription = require('../models/subscriptions');
 const Organization = require('../models/organization');
+const Role = require('../models/role'); // Required for population
+const SubscriptionPlan = require('../models/subscriptionPlans'); // Required for population
 require('dotenv').config();
 
 const checkOrganization = async (orgId) => {
