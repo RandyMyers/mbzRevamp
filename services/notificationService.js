@@ -76,15 +76,22 @@ exports.createAndSendNotification = async (notificationData) => {
       return { success: false, error: 'No notification settings' };
     }
 
-    // Check if user has enabled notifications for this category (email channel only)
-    if (
-      type === 'email' &&
-      category &&
-      settings.email?.enabled &&
-      !settings.email?.categories?.[category]
-    ) {
-      console.log(`⚠️ Email notifications disabled for category ${category} for user ${userId}`);
-      return { success: false, error: 'Email notifications disabled for this category' };
+    // ✅ FIX: Check if user has disabled email notifications (opt-out model)
+    // - If email notifications are globally disabled, skip
+    // - If email notifications are enabled but category is explicitly disabled, skip
+    // - If email notifications are enabled and category is undefined or true, send email
+    if (type === 'email') {
+      // Check if email notifications are globally disabled
+      if (!settings.email?.enabled) {
+        console.log(`⚠️ Email notifications globally disabled for user ${userId}`);
+        return { success: false, error: 'Email notifications globally disabled' };
+      }
+
+      // Check if this specific category is explicitly disabled
+      if (category && settings.email?.categories?.[category] === false) {
+        console.log(`⚠️ Email notifications disabled for category ${category} for user ${userId}`);
+        return { success: false, error: 'Email notifications disabled for this category' };
+      }
     }
 
     // Create notification record
