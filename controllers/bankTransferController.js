@@ -157,24 +157,33 @@ exports.submitBankTransfer = async (req, res) => {
 
     // Send confirmation email to user
     try {
+      const content = `
+        <h2>Hi ${user.fullName || 'there'},</h2>
+        <p>We have received your bank transfer payment submission for the <strong>${plan.name}</strong> plan.</p>
+        <div class="info-box">
+          <h3>📋 Payment Details:</h3>
+          <ul>
+            <li><strong>Plan:</strong> ${plan.name}</li>
+            <li><strong>Amount:</strong> ${currency} ${amount.toLocaleString()}</li>
+            <li><strong>Reference:</strong> ${user.short_id}</li>
+            <li><strong>Status:</strong> Pending Verification</li>
+          </ul>
+        </div>
+        <p>Our team will verify your payment and activate your subscription within <strong>24 hours</strong>.</p>
+        <div class="divider"></div>
+        <p>If you have any questions, please contact our support team.</p>
+      `;
+
+      const htmlContent = sendGridService.generateEmailTemplate({
+        title: 'Bank Transfer Received - Pending Verification',
+        heading: '💰 Bank Transfer Received',
+        content: content
+      });
+
       await sendGridService.sendEmail({
         to: user.email,
         subject: 'Bank Transfer Received - Pending Verification',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Bank Transfer Received</h2>
-            <p>Hi ${user.fullName || 'there'},</p>
-            <p>We have received your bank transfer payment submission for the <strong>${plan.name}</strong> plan.</p>
-            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>Plan:</strong> ${plan.name}</p>
-              <p style="margin: 5px 0 0;"><strong>Amount:</strong> ${currency} ${amount.toLocaleString()}</p>
-              <p style="margin: 5px 0 0;"><strong>Reference:</strong> ${user.short_id}</p>
-              <p style="margin: 5px 0 0;"><strong>Status:</strong> Pending Verification</p>
-            </div>
-            <p>Our team will verify your payment and activate your subscription within 24 hours.</p>
-            <p>If you have any questions, please contact support.</p>
-          </div>
-        `
+        html: htmlContent
       });
     } catch (emailError) {
       console.error('Error sending confirmation email:', emailError);
@@ -467,28 +476,38 @@ exports.approveTransfer = async (req, res) => {
         day: 'numeric'
       });
 
+      const content = `
+        <h2>Hi ${transfer.user.fullName || 'there'},</h2>
+        <p>Great news! Your bank transfer payment has been verified and approved. 🎉</p>
+        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px 20px; margin: 20px 0; border-radius: 4px;">
+          <strong style="color: #155724;">✅ Your subscription is now active!</strong>
+        </div>
+        <div class="info-box">
+          <h3>📋 Subscription Details:</h3>
+          <ul>
+            <li><strong>Plan:</strong> ${transfer.plan.name}</li>
+            <li><strong>Amount:</strong> ${transfer.currency} ${transfer.amount.toLocaleString()}</li>
+            <li><strong>Valid Until:</strong> ${formattedEndDate}</li>
+          </ul>
+        </div>
+        <p>Enjoy your new features and thank you for your payment!</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'https://app.mbztechnology.com'}/dashboard" class="button">
+            Go to Dashboard
+          </a>
+        </div>
+      `;
+
+      const htmlContent = sendGridService.generateEmailTemplate({
+        title: `Payment Approved - ${transfer.plan.name} Plan Activated!`,
+        heading: '✅ Payment Approved!',
+        content: content
+      });
+
       await sendGridService.sendEmail({
         to: transfer.user.email,
         subject: `Payment Approved - ${transfer.plan.name} Plan Activated!`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #10B981;">Payment Approved!</h2>
-            <p>Hi ${transfer.user.fullName || 'there'},</p>
-            <p>Great news! Your bank transfer payment has been verified and approved.</p>
-            <div style="background: #ECFDF5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #10B981;">
-              <p style="margin: 0;"><strong>Plan:</strong> ${transfer.plan.name}</p>
-              <p style="margin: 5px 0 0;"><strong>Amount:</strong> ${transfer.currency} ${transfer.amount.toLocaleString()}</p>
-              <p style="margin: 5px 0 0;"><strong>Valid Until:</strong> ${formattedEndDate}</p>
-            </div>
-            <p>Your subscription is now active. Enjoy your new features!</p>
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'https://app.mbztechnology.com'}/dashboard"
-                 style="background: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Go to Dashboard
-              </a>
-            </p>
-          </div>
-        `
+        html: htmlContent
       });
     } catch (emailError) {
       console.error('Error sending approval email:', emailError);
@@ -575,33 +594,39 @@ exports.rejectTransfer = async (req, res) => {
 
     // Send rejection email to user
     try {
+      const content = `
+        <h2>Hi ${transfer.user.fullName || 'there'},</h2>
+        <p>Unfortunately, we were unable to verify your bank transfer payment for the <strong>${transfer.plan.name}</strong> plan.</p>
+        <div class="warning-box">
+          <h3>⚠️ Reason:</h3>
+          <p>${reason}</p>
+        </div>
+        <div class="info-box">
+          <h3>What to do next:</h3>
+          <ul>
+            <li>Verify that you used the correct customer reference: <strong>${transfer.customerReference}</strong></li>
+            <li>Ensure the transfer was made to the correct account</li>
+            <li>Upload a clearer receipt image if needed</li>
+          </ul>
+        </div>
+        <p>If you have any questions or believe this is an error, please contact our support team.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'https://app.mbztechnology.com'}/dashboard/billing" class="button">
+            Try Again
+          </a>
+        </div>
+      `;
+
+      const htmlContent = sendGridService.generateEmailTemplate({
+        title: 'Bank Transfer Payment - Action Required',
+        heading: '⚠️ Payment Could Not Be Verified',
+        content: content
+      });
+
       await sendGridService.sendEmail({
         to: transfer.user.email,
         subject: 'Bank Transfer Payment - Action Required',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #EF4444;">Payment Could Not Be Verified</h2>
-            <p>Hi ${transfer.user.fullName || 'there'},</p>
-            <p>Unfortunately, we were unable to verify your bank transfer payment for the <strong>${transfer.plan.name}</strong> plan.</p>
-            <div style="background: #FEF2F2; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #EF4444;">
-              <p style="margin: 0;"><strong>Reason:</strong></p>
-              <p style="margin: 5px 0 0;">${reason}</p>
-            </div>
-            <p><strong>What to do next:</strong></p>
-            <ul>
-              <li>Verify that you used the correct customer reference: <strong>${transfer.customerReference}</strong></li>
-              <li>Ensure the transfer was made to the correct account</li>
-              <li>Upload a clearer receipt image if needed</li>
-            </ul>
-            <p>If you have any questions or believe this is an error, please contact our support team.</p>
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'https://app.mbztechnology.com'}/dashboard/billing"
-                 style="background: #800020; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Try Again
-              </a>
-            </p>
-          </div>
-        `
+        html: htmlContent
       });
     } catch (emailError) {
       console.error('Error sending rejection email:', emailError);
