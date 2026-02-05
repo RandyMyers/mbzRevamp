@@ -456,9 +456,18 @@ exports.registerOrganizationUser = async (req, res) => {
     // Check if organization already exists
     const existingOrganization = await Organization.findOne({ name: businessName });
     if (existingOrganization) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Organization with this name already exists' 
+      return res.status(400).json({
+        success: false,
+        message: 'Organization with this name already exists'
+      });
+    }
+
+    // ✅ VALIDATION: Strong password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
       });
     }
 
@@ -1881,12 +1890,21 @@ exports.registerUser = async (req, res) => {
     
     // Basic validation
     if (!firstName || !lastName || !email || !password || !companyName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'All required fields must be provided' 
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
       });
     }
-    
+
+    // ✅ VALIDATION: Strong password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -3219,11 +3237,12 @@ exports.activateAccount = async (req, res) => {
       });
     }
 
-    // Validate password strength
-    if (password.length < 8) {
+    // ✅ VALIDATION: Strong password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long'
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
       });
     }
 
