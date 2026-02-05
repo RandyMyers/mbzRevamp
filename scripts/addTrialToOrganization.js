@@ -15,7 +15,7 @@ const addTrialToOrganization = async (organizationId) => {
     console.log(`📋 Organization ID: ${organizationId}`);
 
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URL);
     console.log('✅ Connected to MongoDB');
 
     // Find the organization
