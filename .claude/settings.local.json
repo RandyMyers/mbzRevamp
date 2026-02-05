@@ -117,7 +117,9 @@
       "Bash(ssh:*)",
       "Bash(./deploy_to_digitalocean.sh:*)",
       "Bash(tar:*)",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(git reset:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []
