@@ -1742,8 +1742,8 @@ exports.acceptInvitation = async (req, res) => {
       department: invitation.department || null,
       organization: invitation.organization._id,
       organizationCode: invitation.organization.organizationCode, // Required for login and organization linkage
-      status: 'pending-verification', // User needs to verify email first
-      emailVerified: false,
+      status: 'active', // ✅ User verified email by accepting invitation link
+      emailVerified: true, // ✅ Invitation acceptance proves email ownership
       lastLogin: new Date()
     });
 

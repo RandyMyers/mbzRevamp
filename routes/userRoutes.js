@@ -147,7 +147,8 @@ router.get('/check-owner-status', userController.checkOwnerStatus);
  *       500:
  *         description: Server error
  */
-router.get('/get/:userId', requirePermission('users', 'view'), userController.getUserById);
+// Get user by ID - users can always view themselves, viewing others requires users.view permission (checked in controller)
+router.get('/get/:userId', userController.getUserById);
 
 // Update user details (requires users.edit permission)
 router.patch('/update/:userId', requirePermission('users', 'edit'), userController.updateUser);

@@ -159,20 +159,24 @@ exports.createSubscription = async (req, res) => {
   }
 };
 
-// Get subscriptions for the current user
+// Get subscriptions for the current user's organization
 exports.getSubscriptions = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    // Get organization from authenticated user
+    const organizationId = req.user?.organizationId || req.user?.organization;
 
-    if (!userId) {
+    if (!organizationId) {
       return res.status(401).json({
         success: false,
-        error: 'User not authenticated'
+        error: 'User organization not found'
       });
     }
 
-    // Only return subscriptions for the authenticated user
-    const subscriptions = await Subscription.find({ user: userId }).populate('user plan payment');
+    // ✅ Return subscriptions for the user's ORGANIZATION (not individual user)
+    // This ensures all users in the organization share the same subscription
+    const subscriptions = await Subscription.find({ organization: organizationId })
+      .populate('user plan payment');
+
     res.json(subscriptions);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -594,56 +594,70 @@ exports.registerOrganizationUser = async (req, res) => {
       userAgent: req.headers['user-agent']
     });
 
-    // ✅ Create Free plan subscription for new user with audit log
+    // ✅ Create 14-day Premium trial for new organization
     try {
       const SubscriptionPlan = require('../models/subscriptionPlans');
       const Subscription = require('../models/subscriptions');
 
-      // Find the Free plan
-      const freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
+      // Find the Premium plan for trial
+      const premiumPlan = await SubscriptionPlan.findOne({ slug: 'premium' });
 
-      if (freePlan) {
-        // Create Free subscription (no expiry for free plan)
-        const freeSubscription = new Subscription({
+      if (premiumPlan) {
+        // Calculate trial dates (14 days)
+        const trialStart = new Date();
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 14); // 14 days from now
+
+        // Create Premium trial subscription
+        const trialSubscription = new Subscription({
           user: newUser._id,
-          plan: freePlan._id,
+          plan: premiumPlan._id,
           organization: newOrganization._id,
           status: 'active',
           isActive: true,
-          startDate: new Date(),
-          endDate: null, // Free plan doesn't expire
+          startDate: trialStart,
+          endDate: trialEnd,
+          isTrial: true, // ✅ This is a trial subscription
+          trialStart: trialStart,
+          trialEnd: trialEnd,
+          trialConverted: false,
           billingInterval: 'monthly',
           autoRenew: false,
-          isTrial: false,
-          paymentStatus: 'completed', // Free plan is always "paid"
-          paymentMethod: 'free'
+          paymentStatus: 'completed', // Trial doesn't require payment
+          paymentMethod: 'trial'
         });
 
-        await freeSubscription.save();
+        await trialSubscription.save();
 
-        // Create audit log for free plan assignment
+        // Update organization hasUsedTrial flag
+        newOrganization.hasUsedTrial = true;
+        await newOrganization.save();
+
+        // Create audit log for trial assignment
         await createAuditLog({
-          action: 'assign_free_plan',
+          action: 'assign_trial_subscription',
           user: newUser._id,
           resource: 'subscription',
-          resourceId: freeSubscription._id,
+          resourceId: trialSubscription._id,
           details: {
-            planName: freePlan.name,
-            planSlug: freePlan.slug,
-            action: 'Initial free plan assigned during registration',
-            subscriptionId: freeSubscription._id,
+            planName: premiumPlan.name,
+            planSlug: premiumPlan.slug,
+            action: '14-day Premium trial assigned during registration',
+            trialStart: trialStart,
+            trialEnd: trialEnd,
+            subscriptionId: trialSubscription._id,
             organizationId: newOrganization._id
           },
           organization: newOrganization._id,
           severity: 'info'
         });
 
-        console.log(`✅ [REGISTRATION] Free plan subscription created for user: ${newUser.email}`);
+        console.log(`✅ [REGISTRATION] 14-day Premium trial created for user: ${newUser.email}`);
       } else {
-        console.warn('⚠️ [REGISTRATION] Free plan not found, user registered without subscription');
+        console.warn('⚠️ [REGISTRATION] Premium plan not found, user registered without trial');
       }
     } catch (subscriptionError) {
-      console.error('❌ [REGISTRATION] Failed to create free subscription:', subscriptionError);
+      console.error('❌ [REGISTRATION] Failed to create trial subscription:', subscriptionError);
       // Don't fail registration if subscription creation fails
     }
 
@@ -700,8 +714,8 @@ exports.loginOrganizationUser = async (req, res) => {
   console.log('Organization User Login:', req.body);
 
   try {
-    // Find the user by email
-    const user = await User.findOne({ email });
+    // Find the user by email and populate role with permissions
+    const user = await User.findOne({ email }).populate('roleId');
     console.log('🔍 User found:', user ? 'YES' : 'NO', user ? `(${user.email})` : '');
     if (!user) {
       console.log('❌ User not found for email:', email);
@@ -887,7 +901,7 @@ exports.loginOrganizationUser = async (req, res) => {
       userId: user._id.toString(), // ✅ Convert ObjectId to string
       username: user.fullName,
       email: user.email,
-      role: user.role,
+      role: user.roleId || user.role, // ✅ Include full role object with permissions for frontend
       organizationId: organization._id.toString(), // ✅ Convert ObjectId to string
       organization: organization.name,
       organizationCode: user.organizationCode,

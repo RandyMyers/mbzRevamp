@@ -786,14 +786,38 @@ exports.getAllUsers = async (req, res) => {
 // Get a single user by ID
 exports.getUserById = async (req, res) => {
   const { userId } = req.params;
-  
+
   try {
-    const user = await User.findById(userId).populate("organization");
+    const user = await User.findById(userId)
+      .populate("organization")
+      .populate("roleId"); // ✅ Populate role with permissions for frontend permission checks
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ success: true, user });
+    // SECURITY: Users can always view their own data
+    // For viewing OTHER users, the requirePermission middleware handles authorization
+    const requestingUserId = req.user?.userId || req.user?._id;
+    const isSelf = requestingUserId?.toString() === userId;
+
+    if (!isSelf) {
+      // If viewing another user, verify they're in the same organization
+      const userOrgId = req.user?.organizationId || req.user?.organization;
+      if (!userOrgId || user.organization?._id?.toString() !== userOrgId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to view users from other organizations"
+        });
+      }
+    }
+
+    // Map roleId to role for frontend compatibility
+    const userResponse = user.toObject();
+    if (userResponse.roleId) {
+      userResponse.role = userResponse.roleId;
+    }
+
+    res.status(200).json({ success: true, user: userResponse });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });

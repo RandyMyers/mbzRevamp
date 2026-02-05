@@ -4,7 +4,12 @@ const subscriptionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true, // User who created/owns the subscription
+  },
+  organization: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true, // ✅ Organization this subscription belongs to
   },
   plan: {
     type: mongoose.Schema.Types.ObjectId,
