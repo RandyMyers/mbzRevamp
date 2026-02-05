@@ -80,7 +80,7 @@ const addTrialToOrganization = async (organizationId) => {
       trialConverted: false,
       billingInterval: 'monthly',
       autoRenew: false,
-      paymentStatus: 'completed',
+      paymentStatus: 'Paid',
       paymentMethod: 'trial'
     });
 
