@@ -867,7 +867,11 @@ exports.loginOrganizationUser = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      {
+        userId: user._id,
+        role: user.role,
+        organizationId: organization._id  // ✅ Include organizationId in JWT
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -2222,7 +2226,11 @@ exports.validateOTP = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      {
+        userId: user._id,
+        role: user.role,
+        organizationId: organization._id  // ✅ Include organizationId in JWT
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
