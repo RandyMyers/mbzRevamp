@@ -12,11 +12,24 @@ const sendEmailNotification = async (notification, user) => {
   try {
     console.log(`📧 Sending email notification to ${user.email}: ${notification.subject}`);
 
+    // ✅ Wrap notification body in branded email template for professional appearance
+    const brandedHtml = SendGridService.generateEmailTemplate({
+      title: notification.subject,
+      heading: notification.subject,
+      content: `
+        <p>${notification.body}</p>
+      `,
+      footer: `
+        <p>This is an automated notification from MBZ Technology Platform.</p>
+        <p>© ${new Date().getFullYear()} MBZ Technology. All rights reserved.</p>
+      `
+    });
+
     // Send email via Resend (through SendGridService which now uses Resend)
     const result = await SendGridService.sendEmail({
       to: user.email,
       subject: notification.subject,
-      html: notification.body,
+      html: brandedHtml,
       text: notification.body.replace(/<[^>]*>/g, ''), // Strip HTML for text version
       userId: user._id,
       organizationId: notification.organization
