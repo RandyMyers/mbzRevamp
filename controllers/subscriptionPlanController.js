@@ -84,9 +84,21 @@ exports.createPlan = async (req, res) => {
 // Get all subscription plans
 exports.getPlans = async (req, res) => {
   try {
+    const { currency } = req.query; // optional: 'USD' or 'NGN'
     // Only return active plans, sorted by displayOrder
     const plans = await SubscriptionPlan.find({ isActive: true }).sort({ displayOrder: 1 });
-    res.json(plans);
+
+    const plansData = plans.map(plan => {
+      const planObj = plan.toObject();
+      // If a specific currency is requested, include convenience fields
+      if (currency && planObj.pricing?.[currency]) {
+        planObj.regionalPricing = planObj.pricing[currency];
+        planObj.displayCurrency = currency;
+      }
+      return planObj;
+    });
+
+    res.json(plansData);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

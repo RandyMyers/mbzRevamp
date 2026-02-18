@@ -25,6 +25,19 @@ const subscriptionPlanSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Regional pricing: per-currency, per-billing-cycle
+  pricing: {
+    USD: {
+      monthly: { type: Number, default: 0 },
+      quarterly: { type: Number, default: 0 },
+      yearly: { type: Number, default: 0 },
+    },
+    NGN: {
+      monthly: { type: Number, default: 0 },
+      quarterly: { type: Number, default: 0 },
+      yearly: { type: Number, default: 0 },
+    },
+  },
   currency: {
     type: String,
     enum: ['USD', 'NGN', 'EUR', 'GBP'],
@@ -33,7 +46,6 @@ const subscriptionPlanSchema = new mongoose.Schema({
   billingInterval: {
     type: String,
     enum: ['monthly', 'quarterly', 'yearly'],
-    required: true,
     default: 'monthly',
   },
   // Plan limits
@@ -108,6 +120,10 @@ const subscriptionPlanSchema = new mongoose.Schema({
 
 subscriptionPlanSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
+  // Keep legacy price field in sync with USD monthly pricing
+  if (this.pricing?.USD?.monthly !== undefined) {
+    this.price = this.pricing.USD.monthly;
+  }
   next();
 });
 

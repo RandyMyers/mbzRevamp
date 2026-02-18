@@ -437,10 +437,22 @@ exports.createSubscriptionWithPayment = async (req, res) => {
     // Verify plan exists
     const plan = await SubscriptionPlan.findById(planId);
     if (!plan) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Subscription plan not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Subscription plan not found'
       });
+    }
+
+    // Validate submitted amount matches plan pricing for the given currency and billing cycle
+    const expectedPricing = plan.pricing?.[currency];
+    if (expectedPricing) {
+      const expectedAmount = expectedPricing[billingCycle];
+      if (expectedAmount !== undefined && Math.abs(amount - expectedAmount) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: `Price mismatch. Expected ${currency} ${expectedAmount} for ${billingCycle} billing.`
+        });
+      }
     }
 
     // Check if user already has an active subscription
@@ -543,7 +555,10 @@ exports.createSubscriptionWithPayment = async (req, res) => {
       }
 
       // Determine if this is a downgrade (new plan costs less)
-      const isDowngrade = newPlan.price < currentPlan.price;
+      // Compare using regional pricing for the selected currency/cycle, fall back to legacy price
+      const currentPrice = currentPlan.pricing?.[currency]?.[billingCycle] ?? currentPlan.price;
+      const newPrice = newPlan.pricing?.[currency]?.[billingCycle] ?? newPlan.price;
+      const isDowngrade = newPrice < currentPrice;
 
       if (isDowngrade) {
         // ========== DOWNGRADE FLOW ==========

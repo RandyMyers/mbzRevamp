@@ -17,6 +17,10 @@ const subscriptionPlans = [
     slug: 'free',
     description: 'Perfect for getting started and exploring the platform',
     price: 0,
+    pricing: {
+      USD: { monthly: 0, quarterly: 0, yearly: 0 },
+      NGN: { monthly: 0, quarterly: 0, yearly: 0 },
+    },
     currency: 'USD',
     billingInterval: 'monthly',
     features: [
@@ -63,7 +67,11 @@ const subscriptionPlans = [
     name: 'Basic',
     slug: 'basic',
     description: 'For small businesses ready to grow',
-    price: 9.99,
+    price: 5,
+    pricing: {
+      USD: { monthly: 5, quarterly: 14, yearly: 50 },
+      NGN: { monthly: 6000, quarterly: 15000, yearly: 55000 },
+    },
     currency: 'USD',
     billingInterval: 'monthly',
     features: [
@@ -112,7 +120,11 @@ const subscriptionPlans = [
     name: 'Standard',
     slug: 'standard',
     description: 'For growing businesses that need more power',
-    price: 29.99,
+    price: 10,
+    pricing: {
+      USD: { monthly: 10, quarterly: 27, yearly: 100 },
+      NGN: { monthly: 12000, quarterly: 30000, yearly: 110000 },
+    },
     currency: 'USD',
     billingInterval: 'monthly',
     features: [
@@ -165,7 +177,11 @@ const subscriptionPlans = [
     name: 'Premium',
     slug: 'premium',
     description: 'For enterprises that need the full suite',
-    price: 79.99,
+    price: 15,
+    pricing: {
+      USD: { monthly: 15, quarterly: 40, yearly: 150 },
+      NGN: { monthly: 20000, quarterly: 50000, yearly: 195000 },
+    },
     currency: 'USD',
     billingInterval: 'monthly',
     features: [
@@ -253,10 +269,10 @@ async function seedSubscriptionPlans() {
     console.log('\n=== Subscription Plans Summary ===');
     for (const plan of allPlans) {
       console.log(`\n${plan.displayOrder}. ${plan.name} (${plan.slug})`);
-      console.log(`   Price: $${plan.price}/month`);
+      console.log(`   USD: $${plan.pricing?.USD?.monthly || plan.price}/mo, $${plan.pricing?.USD?.quarterly || 0}/qtr, $${plan.pricing?.USD?.yearly || 0}/yr`);
+      console.log(`   NGN: N${plan.pricing?.NGN?.monthly || 0}/mo, N${plan.pricing?.NGN?.quarterly || 0}/qtr, N${plan.pricing?.NGN?.yearly || 0}/yr`);
       console.log(`   Stores: ${plan.limits.maxStores}, Products: ${plan.limits.maxProducts === -1 ? 'Unlimited' : plan.limits.maxProducts}`);
       console.log(`   Users: ${plan.limits.maxUsers}, Websites: ${plan.limits.maxFreeWebsites}`);
-      console.log(`   Features: Tasks=${plan.featureAccess.tasks}, Marketing=${plan.featureAccess.marketing}, Analytics=${plan.featureAccess.analytics}`);
       console.log(`   Recommended: ${plan.isRecommended ? 'Yes' : 'No'}`);
     }
 
