@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const Customer = require('../models/customers'); // Adjust the path as per your project structure
+const Order = require('../models/order');
 const { Worker } = require('worker_threads');
 const path = require('path');
 const Store = require('../models/store');
@@ -665,17 +667,53 @@ exports.createCustomer = async (req, res) => {
       })
         .populate('storeId', 'name') // Adjust fields to match Store schema
         .populate('userId', 'name email') // Adjust fields to match User schema
-        .populate('organizationId', 'name'); // Adjust fields to match Organization schema
+        .populate('organizationId', 'name') // Adjust fields to match Organization schema
+        .lean(); // Use lean() so we can attach computed fields
+
+      // Aggregate order stats (totalSpent, orderCount) per customer in a single query
+      // Exclude cancelled and refunded orders from both totalSpent and orderCount
+      const orderStats = await Order.aggregate([
+        { $match: {
+          organizationId: new mongoose.Types.ObjectId(organizationId),
+          status: { $nin: ['cancelled', 'refunded'] }
+        }},
+        { $group: {
+          _id: '$customerId',
+          totalSpent: { $sum: { $toDouble: '$total' } },
+          orderCount: { $sum: 1 }
+        }}
+      ]);
+
+      // Build a lookup map: customerId -> { totalSpent, orderCount }
+      const statsMap = new Map();
+      for (const stat of orderStats) {
+        if (stat._id) {
+          statsMap.set(stat._id.toString(), {
+            totalSpent: stat.totalSpent || 0,
+            orderCount: stat.orderCount || 0
+          });
+        }
+      }
+
+      // Attach order stats to each customer
+      const enrichedCustomers = customers.map(customer => {
+        const stats = statsMap.get(customer._id.toString()) || { totalSpent: 0, orderCount: 0 };
+        return {
+          ...customer,
+          totalSpent: stats.totalSpent,
+          orderCount: stats.orderCount
+        };
+      });
 
       // Return 200 with empty array if no customers found (not an error condition)
       res.status(200).json({
         success: true,
-        message: customers.length === 0 ? 'No customers found for this organization.' : 'Customers retrieved successfully for the organization.',
-        data: customers,
-        customers, // Keep for backward compatibility
+        message: enrichedCustomers.length === 0 ? 'No customers found for this organization.' : 'Customers retrieved successfully for the organization.',
+        data: enrichedCustomers,
+        customers: enrichedCustomers, // Keep for backward compatibility
         currentPage: 1,
         totalPages: 1,
-        totalCustomers: customers.length
+        totalCustomers: enrichedCustomers.length
       });
     } catch (error) {
       console.error('Error retrieving customers by organization ID:', error);

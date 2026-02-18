@@ -1731,6 +1731,10 @@ exports.acceptInvitation = async (req, res) => {
     // ✅ HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Inherit display currency: check the inviting user's currency, then org default
+    const invitingUser = await User.findById(invitation.invitedBy).select('displayCurrency');
+    const inheritedCurrency = invitingUser?.displayCurrency || invitation.organization.defaultCurrency || 'USD';
+
     // ✅ CREATE USER
     const newUser = new User({
       email: invitation.email,
@@ -1742,12 +1746,17 @@ exports.acceptInvitation = async (req, res) => {
       department: invitation.department || null,
       organization: invitation.organization._id,
       organizationCode: invitation.organization.organizationCode, // Required for login and organization linkage
+      displayCurrency: inheritedCurrency,
       status: 'active', // ✅ User verified email by accepting invitation link
       emailVerified: true, // ✅ Invitation acceptance proves email ownership
       lastLogin: new Date()
     });
 
     await newUser.save();
+
+    // ✅ FIX: Populate roleId with full role object including permissions
+    await newUser.populate('roleId');
+    console.log('✅ User created and role populated:', newUser.email);
 
     // ✅ UPDATE INVITATION STATUS
     invitation.status = 'accepted';
@@ -1756,10 +1765,11 @@ exports.acceptInvitation = async (req, res) => {
 
     // ✅ GENERATE JWT TOKEN
     const jwtToken = jwt.sign(
-      { 
+      {
         userId: newUser._id,
         email: newUser.email,
         organization: newUser.organization,
+        organizationId: newUser.organization,  // ✅ FIX: Add organizationId for subscription fetching
         role: newUser.role
       },
       process.env.JWT_SECRET,
@@ -1808,17 +1818,22 @@ exports.acceptInvitation = async (req, res) => {
     });
 
     // ✅ SUCCESS RESPONSE
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: 'Invitation accepted successfully',
       user: {
         _id: newUser._id,
         email: newUser.email,
         fullName: newUser.fullName,
         username: newUser.username,
-        role: newUser.role,
+        role: newUser.roleId || newUser.role,  // ✅ FIX: Send full role object with permissions
         department: newUser.department,
-        organization: newUser.organization,
+        organization: invitation.organization.name,
+        organizationId: invitation.organization._id,
+        defaultCurrency: invitation.organization.defaultCurrency || 'USD',
+        organizationCode: newUser.organizationCode,
+        profilePicture: newUser.profilePicture,
+        shortId: newUser.short_id,  // ✅ FIX: Include shortId for consistency
         status: newUser.status
       },
       token: jwtToken,

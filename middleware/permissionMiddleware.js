@@ -291,9 +291,18 @@ exports.requirePermissionOrOwner = (module, action, getOwnerId) => {
  */
 const getUserPlanName = async (userId) => {
   try {
+    // Get user's organization to check org-level subscription
+    const user = await User.findById(userId).select('organization');
+    const organizationId = user?.organization;
+
+    // Build query filter: check by organization if available, fallback to user
+    const ownerFilter = organizationId
+      ? { organization: organizationId }
+      : { user: userId };
+
     // Check for active trial first (trials should be checked by trialEnd, not endDate)
     const trialSub = await Subscription.findOne({
-      user: userId,
+      ...ownerFilter,
       isTrial: true,
       trialConverted: false,
       trialEnd: { $gt: new Date() },
@@ -306,7 +315,7 @@ const getUserPlanName = async (userId) => {
 
     // Check for paid subscription (exclude trials to avoid double-checking)
     const subscription = await Subscription.findOne({
-      user: userId,
+      ...ownerFilter,
       isTrial: { $ne: true },  // Exclude trials
       isActive: true,
       status: 'active',

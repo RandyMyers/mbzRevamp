@@ -213,6 +213,22 @@ const Organization = require('../models/organization');
 const currencyUtils = require('../utils/currencyUtils');
 const mongoose = require('mongoose');
 
+// Helper: verify organizationId from query matches authenticated user's org
+const verifyOrgAccess = (req) => {
+  const { organizationId } = req.query;
+  const userOrgId = req.user?.organizationId || req.user?.organization;
+  if (!organizationId) {
+    return { error: 'Organization ID is required', status: 400 };
+  }
+  if (!userOrgId) {
+    return { error: 'User organization not found', status: 400 };
+  }
+  if (organizationId !== userOrgId.toString()) {
+    return { error: 'You do not have permission to access this organization', status: 403 };
+  }
+  return { organizationId };
+};
+
 // Helper function to calculate date range
 const getDateRange = (timeRange) => {
   const now = new Date();
@@ -248,11 +264,10 @@ const getPreviousPeriodRange = (timeRange) => {
 // Revenue Growth (compares current period to previous period)
 exports.revenueGrowth = async (req, res) => {
   try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
-
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
     const { currentStart, previousStart, previousEnd } = getPreviousPeriodRange(timeRange);
@@ -301,11 +316,10 @@ exports.revenueGrowth = async (req, res) => {
 // Order Growth (compares current period to previous period)
 exports.orderGrowth = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
-
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const { currentStart, previousStart, previousEnd } = getPreviousPeriodRange(timeRange);
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
@@ -344,28 +358,10 @@ exports.orderGrowth = async (req, res) => {
 
 exports.totalRevenue = async (req, res) => {
     try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
-    
-    console.log('🔍 Total Revenue Analytics Request:');
-    console.log('   Organization ID:', organizationId);
-    console.log('   Time Range:', timeRange);
-    console.log('   User ID:', userId);
-    console.log('   Display Currency:', displayCurrency);
-    
-    if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Organization ID is required" 
-      });
-    }
-
-    // Debug: Check data existence
-    const totalOrdersInDB = await Order.countDocuments();
-    const ordersForOrg = await Order.countDocuments({ 
-      organizationId: new mongoose.Types.ObjectId(organizationId) 
-    });
-    console.log('📊 Debug - Total orders in DB:', totalOrdersInDB);
-    console.log('📊 Debug - Orders for this org:', ordersForOrg);
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const startDate = getDateRange(timeRange);
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
@@ -381,7 +377,7 @@ exports.totalRevenue = async (req, res) => {
 
     res.json({
       success: true,
-      data: { 
+      data: {
         totalRevenue: revenueSummary.totalConverted,
         currency: revenueSummary.targetCurrency,
         currencyBreakdown: revenueSummary.currencyBreakdown,
@@ -389,13 +385,6 @@ exports.totalRevenue = async (req, res) => {
           start: startDate,
           end: new Date()
         }
-      },
-      debug: {
-        organizationId,
-        totalOrdersInDB,
-        ordersForOrg,
-        hasData: ordersForOrg > 0,
-        issue: ordersForOrg === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {
@@ -410,26 +399,10 @@ exports.totalRevenue = async (req, res) => {
 // Total Orders
 exports.totalOrders = async (req, res) => {
     try {
-    const { timeRange, organizationId } = req.query;
-    
-    console.log('🔍 Total Orders Analytics Request:');
-    console.log('   Organization ID:', organizationId);
-    console.log('   Time Range:', timeRange);
-    
-    if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Organization ID is required" 
-      });
-    }
-
-    // Debug: Check data existence
-    const totalOrdersInDB = await Order.countDocuments();
-    const ordersForOrg = await Order.countDocuments({ 
-      organizationId: new mongoose.Types.ObjectId(organizationId) 
-    });
-    console.log('📊 Debug - Total orders in DB:', totalOrdersInDB);
-    console.log('📊 Debug - Orders for this org:', ordersForOrg);
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const startDate = getDateRange(timeRange);
 
@@ -444,19 +417,12 @@ exports.totalOrders = async (req, res) => {
 
     res.json({
       success: true,
-      data: { 
+      data: {
         totalOrders,
         timeRange: {
           start: startDate,
-          end: new Date() // Include end date for clarity
+          end: new Date()
         }
-      },
-      debug: {
-        organizationId,
-        totalOrdersInDB,
-        ordersForOrg,
-        hasData: ordersForOrg > 0,
-        issue: ordersForOrg === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {
@@ -471,27 +437,12 @@ exports.totalOrders = async (req, res) => {
 // New Customers
 exports.newCustomers = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
-
-    console.log('🔍 New Customers Analytics Request:');
-    console.log('   Organization ID:', organizationId);
-    console.log('   Time Range:', timeRange);
-
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
-
-    // Debug: Check data existence
-    const totalCustomersInDB = await Customer.countDocuments();
-    const customersForOrg = await Customer.countDocuments({ 
-      organizationId: new mongoose.Types.ObjectId(organizationId) 
-    });
-    console.log('📊 Debug - Total customers in DB:', totalCustomersInDB);
-    console.log('📊 Debug - Customers for this org:', customersForOrg);
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const startDate = getDateRange(timeRange);
-
-    // Cast organizationId and support either date_created (Woo) or createdAt
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
 
     const newCustomers = await Customer.countDocuments({
@@ -502,16 +453,9 @@ exports.newCustomers = async (req, res) => {
       ]
     });
 
-    res.json({ 
-      success: true, 
-      data: { newCustomers },
-      debug: {
-        organizationId,
-        totalCustomersInDB,
-        customersForOrg,
-        hasData: customersForOrg > 0,
-        issue: customersForOrg === 0 ? "No customers found for this organization" : null
-      }
+    res.json({
+      success: true,
+      data: { newCustomers }
     });
   } catch (error) {
     console.error('New Customers Error:', error);
@@ -522,42 +466,39 @@ exports.newCustomers = async (req, res) => {
 // Average Order Value
 exports.averageOrderValue = async (req, res) => {
     try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
-    
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
+
     const startDate = getDateRange(timeRange);
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     // Multi-currency average order value calculation
     const revenuePipeline = currencyUtils.createMultiCurrencyRevenuePipeline(
-      organizationId, 
-      targetCurrency, 
+      organizationId,
+      targetCurrency,
       { date_created: { $gte: startDate } }
     );
     const revenueResults = await Order.aggregate(revenuePipeline);
     const revenueSummary = await currencyUtils.processMultiCurrencyResults(revenueResults, targetCurrency, organizationId);
 
-    // Get total order count for the period
+    // Get total order count — match same filters as revenue pipeline
     const totalOrders = await Order.countDocuments({
       organizationId: new mongoose.Types.ObjectId(organizationId),
       date_created: { $gte: startDate },
-      status: { $nin: ['cancelled', 'refunded'] }
+      status: { $nin: ['cancelled', 'refunded'] },
+      total: { $exists: true, $ne: "" }
     });
-    
+
     const averageOrderValue = totalOrders > 0 ? revenueSummary.totalConverted / totalOrders : 0;
 
     res.json({
       success: true,
-      data: { 
+      data: {
         averageOrderValue,
         currency: revenueSummary.targetCurrency,
         totalOrders
-      },
-      debug: {
-        organizationId,
-        totalOrdersInDB: await Order.countDocuments(),
-        ordersForOrg: totalOrders,
-        hasData: totalOrders > 0,
-        issue: totalOrders === 0 ? "No orders found for this organization" : null
       }
     });
     } catch (error) {
@@ -572,10 +513,10 @@ exports.averageOrderValue = async (req, res) => {
 // Return Rate
 exports.returnRate = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
     const startDate = getDateRange(timeRange);
 
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
@@ -607,10 +548,10 @@ exports.returnRate = async (req, res) => {
 // Customer Retention Rate (percentage of customers who made repeat purchases)
 exports.customerRetentionRate = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
     const startDate = getDateRange(timeRange);
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
 
@@ -653,10 +594,10 @@ exports.customerRetentionRate = async (req, res) => {
 // Churn Rate (percentage of customers who haven't purchased recently)
 exports.churnRate = async (req, res) => {
   try {
-    const { organizationId, churnPeriodDays = 90 } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { churnPeriodDays = 90 } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
     const churnDate = new Date();
@@ -703,10 +644,10 @@ exports.churnRate = async (req, res) => {
 // Top Customers by Spending
 exports.topCustomers = async (req, res) => {
   try {
-    const { organizationId, userId, displayCurrency, limit = 10 } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { userId, displayCurrency, limit = 10 } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
@@ -812,10 +753,10 @@ exports.topCustomers = async (req, res) => {
 // Sales Time Series (daily revenue and orders breakdown)
 exports.salesTimeSeries = async (req, res) => {
   try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
     const startDate = getDateRange(timeRange);
@@ -900,7 +841,10 @@ exports.salesTimeSeries = async (req, res) => {
 // Lifetime Value
 exports.lifetimeValue = async (req, res) => {
   try {
-    const { organizationId, userId, displayCurrency } = req.query;
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
     const pipeline = [
@@ -983,8 +927,11 @@ exports.lifetimeValue = async (req, res) => {
 // Customer Acquisition
 exports.customerAcquisition = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
-    
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
+
     const startDate = getDateRange(timeRange);
 
     const pipeline = [
@@ -1036,7 +983,10 @@ exports.customerAcquisition = async (req, res) => {
 // Product Performance
 exports.productPerformance = async (req, res) => {
   try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
     const startDate = getDateRange(timeRange);
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
@@ -1069,20 +1019,14 @@ exports.productPerformance = async (req, res) => {
         }
       },
       {
-        $unwind: "$product"
+        $unwind: { path: "$product", preserveNullAndEmptyArrays: true }
       },
       {
         $project: {
-          name: "$product.name",
+          name: { $ifNull: ["$product.name", "Deleted Product"] },
           sales: 1,
           quantity: 1,
-          currency: 1,
-          profit: { 
-            $multiply: [
-              "$quantity",
-              { $subtract: [{ $toDouble: "$product.regular_price" }, { $toDouble: "$product.cost" }] }
-            ]
-          }
+          currency: 1
         }
       },
       {
@@ -1131,7 +1075,10 @@ exports.productPerformance = async (req, res) => {
 // Funnel Data - Shows order funnel based on actual order statuses
 exports.funnelData = async (req, res) => {
   try {
-    const { timeRange, organizationId } = req.query;
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange } = req.query;
+    const organizationId = orgCheck.organizationId;
 
     const startDate = getDateRange(timeRange);
 
@@ -1189,10 +1136,9 @@ exports.funnelData = async (req, res) => {
 // Retention Data
 exports.retentionData = async (req, res) => {
   try {
-    const { organizationId } = req.query;
-    if (!organizationId) {
-      return res.status(400).json({ success: false, error: 'Organization ID is required' });
-    }
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const organizationId = orgCheck.organizationId;
 
     const pipeline = [
       {
@@ -1255,8 +1201,11 @@ exports.retentionData = async (req, res) => {
 // Regional Sales
 exports.regionalSales = async (req, res) => {
   try {
-    const { timeRange, organizationId, userId, displayCurrency } = req.query;
-    
+    const orgCheck = verifyOrgAccess(req);
+    if (orgCheck.error) return res.status(orgCheck.status).json({ success: false, error: orgCheck.error });
+    const { timeRange, userId, displayCurrency } = req.query;
+    const organizationId = orgCheck.organizationId;
+
     const startDate = getDateRange(timeRange);
     const targetCurrency = displayCurrency || await currencyUtils.getDisplayCurrency(userId, organizationId);
 
@@ -1270,7 +1219,13 @@ exports.regionalSales = async (req, res) => {
       },
       {
         $addFields: {
-          numericTotal: { $toDouble: "$total" }
+          numericTotal: {
+            $cond: [
+              { $eq: [{ $type: "$total" }, "string"] },
+              { $toDouble: "$total" },
+              "$total"
+            ]
+          }
         }
       },
       {

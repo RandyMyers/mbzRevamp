@@ -7,7 +7,7 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const { createAuditLog } = require('../helpers/auditLogHelper');
 const { createProductInWooCommerce } = require('../helper/wooCommerceCreateHelper');
-const { updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
+const { updateProductInWooCommerce: updateWooCommerceProduct } = require('../helper/wooCommerceUpdateHelper');
 const { notifyProductCreated, notifyLowInventory, notifyOutOfStock } = require('../helpers/notificationHelper');
 
 /**
@@ -903,10 +903,10 @@ exports.createProduct = async (req, res) => {
     console.log('🏷️ Tags processed:', processedTags.length, 'tags');
 
     // Validate numeric fields
-    const processedPrice = price ? Number(price) : null;
-    const processedSalePrice = sale_price ? Number(sale_price) : null;
-    const processedRegularPrice = regular_price ? Number(regular_price) : null;
-    const processedStockQuantity = stock_quantity ? Number(stock_quantity) : null;
+    const processedPrice = (price !== null && price !== undefined && price !== '') ? Number(price) : null;
+    const processedSalePrice = (sale_price !== null && sale_price !== undefined && sale_price !== '') ? Number(sale_price) : null;
+    const processedRegularPrice = (regular_price !== null && regular_price !== undefined && regular_price !== '') ? Number(regular_price) : null;
+    const processedStockQuantity = (stock_quantity !== null && stock_quantity !== undefined && stock_quantity !== '') ? Number(stock_quantity) : null;
     const processedRatingCount = rating_count ? Number(rating_count) : 0;
     
     console.log('💰 Price data processed:', {
@@ -1184,7 +1184,9 @@ exports.createProduct = async (req, res) => {
             console.log('✅ Local record updated with WooCommerce ID');
           } else {
             syncStatus = 'failed';
-            syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
+            syncError = typeof wooCommerceResult.error === 'string'
+              ? wooCommerceResult.error
+              : wooCommerceResult.error?.message || 'WooCommerce sync failed';
             console.error('❌ WooCommerce sync failed:', wooCommerceResult.error);
             
             // Update local record with sync failure
@@ -1869,20 +1871,26 @@ exports.updateProduct = async (req, res) => {
     });
 
     // Validate and process specific fields
+    // Use explicit null/empty checks instead of falsy checks to preserve 0 values
     if (sanitizedData.price !== undefined) {
-      sanitizedData.price = sanitizedData.price ? Number(sanitizedData.price) : null;
+      sanitizedData.price = (sanitizedData.price !== null && sanitizedData.price !== '') ? Number(sanitizedData.price) : null;
     }
-    
+
     if (sanitizedData.sale_price !== undefined) {
-      sanitizedData.sale_price = sanitizedData.sale_price ? Number(sanitizedData.sale_price) : null;
+      sanitizedData.sale_price = (sanitizedData.sale_price !== null && sanitizedData.sale_price !== '') ? Number(sanitizedData.sale_price) : null;
     }
-    
+
     if (sanitizedData.regular_price !== undefined) {
-      sanitizedData.regular_price = sanitizedData.regular_price ? Number(sanitizedData.regular_price) : null;
+      sanitizedData.regular_price = (sanitizedData.regular_price !== null && sanitizedData.regular_price !== '') ? Number(sanitizedData.regular_price) : null;
     }
-    
+
     if (sanitizedData.stock_quantity !== undefined) {
-      sanitizedData.stock_quantity = sanitizedData.stock_quantity ? Number(sanitizedData.stock_quantity) : null;
+      sanitizedData.stock_quantity = (sanitizedData.stock_quantity !== null && sanitizedData.stock_quantity !== '') ? Number(sanitizedData.stock_quantity) : null;
+    }
+
+    // Keep price in sync with regular_price
+    if (sanitizedData.regular_price !== undefined && sanitizedData.price === undefined) {
+      sanitizedData.price = sanitizedData.regular_price;
     }
     
     if (sanitizedData.rating_count !== undefined) {
@@ -2126,16 +2134,19 @@ exports.updateProduct = async (req, res) => {
           };
         } else {
           sanitizedData.syncStatus = 'failed';
-          sanitizedData.syncError = wooCommerceResult.error?.message || 'WooCommerce sync failed';
-          
+          // error can be a string or an object with .message
+          sanitizedData.syncError = typeof wooCommerceResult.error === 'string'
+            ? wooCommerceResult.error
+            : wooCommerceResult.error?.message || 'WooCommerce sync failed';
+
           wooCommerceSync = {
             synced: false,
             wooCommerceId: existingProduct.wooCommerceId,
             status: 'failed',
             error: sanitizedData.syncError
           };
-          
-          console.error('WooCommerce sync error:', wooCommerceResult.error);
+
+          console.error('WooCommerce sync error:', wooCommerceResult);
         }
       } catch (wooCommerceError) {
         sanitizedData.syncStatus = 'failed';
@@ -2407,11 +2418,14 @@ exports.deleteProduct = async (req, res) => {
           };
           console.log(`✅ WooCommerce product deleted: ${productToDelete.name} (ID: ${productToDelete.wooCommerceId})`);
         } else {
+          const deleteErrorMsg = typeof wooCommerceResult.error === 'string'
+            ? wooCommerceResult.error
+            : wooCommerceResult.error?.message || 'WooCommerce delete failed';
           wooCommerceSync = {
             synced: false,
             wooCommerceId: productToDelete.wooCommerceId,
             status: 'failed',
-            error: wooCommerceResult.error?.message || 'WooCommerce delete failed'
+            error: deleteErrorMsg
           };
           console.error('WooCommerce delete error:', wooCommerceResult.error);
         }
@@ -3334,7 +3348,7 @@ exports.syncProductToWooCommerce = async (req, res) => {
 
     // If product already exists in WooCommerce, update it
     if (product.wooCommerceId) {
-      wooCommerceResult = await updateWooCommerceProduct(store, existingProduct.wooCommerceId, productData);
+      wooCommerceResult = await updateWooCommerceProduct(store, product.wooCommerceId, productData);
       syncAction = 'updated';
     } else {
       // If product doesn't exist in WooCommerce, create it
@@ -3386,20 +3400,24 @@ exports.syncProductToWooCommerce = async (req, res) => {
       });
     } else {
       // Update local record with sync failure
+      const syncErrorMsg = typeof wooCommerceResult.error === 'string'
+        ? wooCommerceResult.error
+        : wooCommerceResult.error?.message || 'WooCommerce sync failed';
+
       await Inventory.findByIdAndUpdate(productId, {
         syncStatus: 'failed',
-        syncError: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+        syncError: syncErrorMsg
       });
 
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Failed to sync product to WooCommerce",
         wooCommerceSync: {
           synced: false,
           action: syncAction,
           wooCommerceId: null,
           status: 'failed',
-          error: wooCommerceResult.error?.message || 'WooCommerce sync failed'
+          error: syncErrorMsg
         }
       });
     }

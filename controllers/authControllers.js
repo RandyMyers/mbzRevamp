@@ -908,6 +908,7 @@ exports.loginOrganizationUser = async (req, res) => {
       role: user.roleId || user.role, // ✅ Include full role object with permissions for frontend
       organizationId: organization._id.toString(), // ✅ Convert ObjectId to string
       organization: organization.name,
+      defaultCurrency: organization.defaultCurrency || 'USD',
       organizationCode: user.organizationCode,
       profilePicture: user.profilePicture,
       status: user.status,
@@ -2186,7 +2187,7 @@ exports.validateOTP = async (req, res) => {
     }
 
     // Get user details
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).populate('roleId');
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -2268,12 +2269,14 @@ exports.validateOTP = async (req, res) => {
       userId: user._id,
       username: user.fullName,
       email: user.email,
-      role: user.role,
+      role: user.roleId || user.role,
       organizationId: organization._id,
       organization: organization.name,
+      defaultCurrency: organization.defaultCurrency || 'USD',
       organizationCode: user.organizationCode,
       profilePicture: user.profilePicture,
       status: user.status,
+      shortId: user.short_id,
       onboarding: {
         status: onboardingStatus.status,
         currentStep: onboardingStatus.currentStep,
