@@ -135,7 +135,11 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    const subscription = new Subscription(req.body);
+    const subscription = new Subscription({
+      ...req.body,
+      user: userId,
+      organization: organizationId
+    });
     await subscription.save();
     await logEvent({
       action: 'start_subscription',
@@ -262,7 +266,7 @@ exports.assignSubscription = async (req, res) => {
       await subscription.save();
     } else {
       // Create new subscription
-      subscription = new Subscription({ user, plan, billingInterval, currency, startDate, endDate, status: 'active' });
+      subscription = new Subscription({ user, organization: organizationId, plan, billingInterval, currency, startDate, endDate, status: 'active' });
       await subscription.save();
     }
     res.json(subscription);
@@ -659,6 +663,7 @@ exports.createSubscriptionWithPayment = async (req, res) => {
     // Create subscription with pending status
     const subscriptionData = {
       user: userId,
+      organization: organizationId,
       plan: planId,
       billingInterval: billingCycle,
       currency: currency,
@@ -845,6 +850,7 @@ exports.createTrialSubscription = async (req, res) => {
     // Create trial subscription
     const subscription = new Subscription({
       user: userId,
+      organization: organizationId,
       plan: planId,
       billingInterval: billingCycle,
       currency: 'USD',
