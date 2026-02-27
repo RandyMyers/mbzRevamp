@@ -71,8 +71,8 @@ const syncProductJob = async (jobData) => {
     // Initialize WooCommerce API
     const wooCommerce = new WooCommerceRestApi({
       url: store.url,
-      consumerKey: store.apiKey,
-      consumerSecret: store.secretKey,
+      consumerKey: store.apiKey?.trim(),
+      consumerSecret: store.secretKey?.trim(),
       version: 'wc/v3',
       queryStringAuth: true, // Force Basic Authentication as query string
       ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
@@ -83,8 +83,12 @@ const syncProductJob = async (jobData) => {
     try {
       console.log('💱 Fetching store currency from WooCommerce...');
       const systemStatusResponse = await wooCommerce.get('system_status');
-      if (systemStatusResponse.data?.settings?.currency) {
-        storeCurrency = systemStatusResponse.data.settings.currency;
+      let statusData = systemStatusResponse.data;
+      if (typeof statusData === 'string') {
+        try { statusData = JSON.parse(statusData); } catch (e) { /* ignore */ }
+      }
+      if (statusData?.settings?.currency) {
+        storeCurrency = statusData.settings.currency;
         console.log(`✅ Store currency from WooCommerce: ${storeCurrency}`);
       } else {
         console.warn('⚠️ Could not get currency from system_status, using USD as fallback');

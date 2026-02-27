@@ -22,8 +22,8 @@ const syncCustomerJob = async (jobData) => {
 
     const wooCommerce = new WooCommerceRestApi({
       url: store.url,
-      consumerKey: store.apiKey,
-      consumerSecret: store.secretKey,
+      consumerKey: store.apiKey?.trim(),
+      consumerSecret: store.secretKey?.trim(),
       version: 'wc/v3',
       queryStringAuth: true, // Force Basic Authentication as query string
       ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured

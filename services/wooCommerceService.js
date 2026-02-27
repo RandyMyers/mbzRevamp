@@ -21,8 +21,8 @@ class WooCommerceService {
     
     this.api = new WooCommerceRestApi({
       url: store.url,
-      consumerKey: store.apiKey,
-      consumerSecret: store.secretKey,
+      consumerKey: store.apiKey?.trim(),
+      consumerSecret: store.secretKey?.trim(),
       version: 'wc/v3',
       queryStringAuth: true, // Force Basic Authentication as query string
       ...(httpsAgent && { httpsAgent }) // Only add httpsAgent if it's configured
@@ -148,19 +148,28 @@ class WooCommerceService {
   async getStoreCurrency() {
     try {
       const result = await this.getSystemStatus();
-      console.log('🔍 [WooCommerce] getStoreCurrency - System status result:', JSON.stringify(result.data?.settings || result.data, null, 2).substring(0, 500));
 
-      if (result.success && result.data?.settings?.currency) {
-        console.log('✅ [WooCommerce] Store currency found:', result.data.settings.currency);
+      // Parse data if it's a string (some WooCommerce versions return stringified JSON)
+      let data = result.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.warn('⚠️ [WooCommerce] Could not parse system status response as JSON');
+        }
+      }
+
+      if (result.success && data?.settings?.currency) {
+        console.log('✅ [WooCommerce] Store currency found:', data.settings.currency);
         return {
           success: true,
-          currency: result.data.settings.currency,
-          currencySymbol: result.data.settings.currency_symbol,
-          currencyPosition: result.data.settings.currency_position
+          currency: data.settings.currency,
+          currencySymbol: data.settings.currency_symbol,
+          currencyPosition: data.settings.currency_position
         };
       }
       // Fallback: return USD if we can't get the currency
-      console.warn('⚠️ Could not get store currency from WooCommerce, using USD as fallback. Result:', JSON.stringify(result, null, 2).substring(0, 300));
+      console.warn('⚠️ Could not get store currency from WooCommerce, using USD as fallback.');
       return { success: true, currency: 'USD', currencySymbol: '$', currencyPosition: 'left' };
     } catch (error) {
       console.error('❌ Error getting store currency:', error.message);
