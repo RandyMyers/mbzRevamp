@@ -259,9 +259,23 @@ const getWooCommerceCategories = async (storeId) => {
         })
       );
 
-      const categories = response.data || [];
+      let categories = response.data || [];
 
-      if (categories.length === 0) {
+      // Handle HTML-injected responses (e.g. affiliate tracking plugins)
+      if (typeof categories === 'string') {
+        try {
+          const commentIdx = categories.indexOf('<!--');
+          const scriptIdx = categories.indexOf('<script');
+          const cutoff = commentIdx > 0 ? commentIdx : (scriptIdx > 0 ? scriptIdx : -1);
+          const cleaned = cutoff > 0 ? categories.substring(0, cutoff).trim() : categories;
+          categories = JSON.parse(cleaned);
+        } catch (e) {
+          console.error('❌ Could not parse WooCommerce categories response:', e.message);
+          categories = [];
+        }
+      }
+
+      if (!Array.isArray(categories) || categories.length === 0) {
         hasMore = false;
       } else {
         allCategories = [...allCategories, ...categories];
