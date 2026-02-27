@@ -204,9 +204,6 @@ const mongoose = require('mongoose');
 const Store = require('../models/store');
 const WooCommerceService = require('../services/wooCommerceService');
 
-console.log('[WooCommerceReports] WooCommerceService import:', typeof WooCommerceService);
-console.log('[WooCommerceReports] WooCommerceService constructor:', typeof WooCommerceService);
-
 // Helper functions
 function mergeArrays(arrays) {
   return arrays.reduce((acc, arr) => acc.concat(arr || []), []);
@@ -240,35 +237,17 @@ function aggregateTotals(results) {
 
 // Fetch and aggregate WooCommerce reports for all stores in an organization
 async function fetchMultiStoreReport(orgId, endpoint, params = {}) {
-  console.log(`[WooCommerceReports] Fetching ${endpoint} for org ${orgId} with params:`, params);
-  console.log(`[WooCommerceReports] orgId type:`, typeof orgId);
-  console.log(`[WooCommerceReports] orgId value:`, orgId);
-  
-  // Convert orgId to ObjectId if it's a string
   const organizationId = mongoose.Types.ObjectId.isValid(orgId) ? new mongoose.Types.ObjectId(orgId) : orgId;
-  console.log(`[WooCommerceReports] Converted organizationId:`, organizationId);
-  
   const stores = await Store.find({ organizationId: organizationId });
-  console.log(`[WooCommerceReports] Query executed: Store.find({ organizationId: "${organizationId}" })`);
-  console.log(`[WooCommerceReports] Stores found:`, stores);
-  console.log(`[WooCommerceReports] Found ${stores.length} WooCommerce stores for org ${orgId}`);
-  
+
   let results = [];
   let errors = [];
 
   for (const store of stores) {
-    console.log(`[WooCommerceReports] Processing store: ${store.name} (${store._id})`);
-    
     try {
-      console.log(`[WooCommerceReports] Creating WooCommerceService for store:`, store.name);
       const wc = new WooCommerceService(store);
-      console.log(`[WooCommerceReports] WooCommerceService created:`,  wc);
-      console.log(`[WooCommerceReports] makeRequest method exists:`, wc.makeRequest);
-      console.log(`[WooCommerceReports] Calling makeRequest with endpoint: ${endpoint} and params:`, params);
-      
       const response = await wc.makeRequest('GET', endpoint, params);
 
-      // Get store currency
       let storeCurrency = 'USD';
       try {
         const currencyResult = await wc.getStoreCurrency();
@@ -276,7 +255,7 @@ async function fetchMultiStoreReport(orgId, endpoint, params = {}) {
           storeCurrency = currencyResult.currency || 'USD';
         }
       } catch (currencyError) {
-        console.warn(`[WooCommerceReports] Could not get currency for store ${store.name}:`, currencyError.message);
+        // Use USD fallback
       }
 
       if (response.success) {
@@ -286,26 +265,22 @@ async function fetchMultiStoreReport(orgId, endpoint, params = {}) {
           currency: storeCurrency,
           data: response.data
         });
-        console.log(`[WooCommerceReports] Success for store ${store.name} (${storeCurrency}):`, response.data);
       } else {
-        errors.push({ 
-          store: store._id, 
+        errors.push({
+          store: store._id,
           storeName: store.name,
-          error: response.error 
+          error: response.error
         });
-        console.error(`[WooCommerceReports] Error for store ${store.name}:`, response.error);
       }
     } catch (error) {
-      errors.push({ 
-        store: store._id, 
+      errors.push({
+        store: store._id,
         storeName: store.name,
-        error: error.message 
+        error: error.message
       });
-      console.error(`[WooCommerceReports] Exception for store ${store.name}:`, error.message);
-      console.error(`[WooCommerceReports] Full error:`, error);
     }
   }
-  
+
   return { results, errors };
 }
 
@@ -313,7 +288,6 @@ async function fetchMultiStoreReport(orgId, endpoint, params = {}) {
 exports.getMultiStoreSales = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreSales called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -358,7 +332,6 @@ exports.getMultiStoreSales = async (req, res) => {
 exports.getMultiStoreOrdersReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreOrdersReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -389,7 +362,6 @@ exports.getMultiStoreOrdersReport = async (req, res) => {
 exports.getMultiStoreProductsReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreProductsReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -453,7 +425,6 @@ exports.getMultiStoreProductsReport = async (req, res) => {
 exports.getMultiStoreCustomersReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreCustomersReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -484,7 +455,6 @@ exports.getMultiStoreCustomersReport = async (req, res) => {
 exports.getMultiStoreCouponsReport = async (req, res) => {
   try {
     const { orgId, limit = 20 } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreCouponsReport called with:`, { orgId, limit });
 
     // Fetch actual coupons
     const { results, errors } = await fetchMultiStoreReport(orgId, 'coupons', {
@@ -560,7 +530,6 @@ exports.getMultiStoreCouponsReport = async (req, res) => {
 exports.getMultiStoreTaxesReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreTaxesReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -587,7 +556,6 @@ exports.getMultiStoreTaxesReport = async (req, res) => {
 exports.getMultiStoreDownloadsReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreDownloadsReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -614,7 +582,6 @@ exports.getMultiStoreDownloadsReport = async (req, res) => {
 exports.getMultiStoreStockReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreStockReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -641,7 +608,6 @@ exports.getMultiStoreStockReport = async (req, res) => {
 exports.getMultiStoreReviewsReport = async (req, res) => {
   try {
     const { orgId, limit = 20 } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreReviewsReport called with:`, { orgId, limit });
 
     // Fetch actual product reviews
     const { results, errors } = await fetchMultiStoreReport(orgId, 'products/reviews', {
@@ -707,7 +673,6 @@ exports.getMultiStoreReviewsReport = async (req, res) => {
 exports.getMultiStoreCategoriesReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreCategoriesReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -734,7 +699,6 @@ exports.getMultiStoreCategoriesReport = async (req, res) => {
 exports.getMultiStoreTagsReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreTagsReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -761,7 +725,6 @@ exports.getMultiStoreTagsReport = async (req, res) => {
 exports.getMultiStoreAttributesReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreAttributesReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -788,7 +751,6 @@ exports.getMultiStoreAttributesReport = async (req, res) => {
 exports.getMultiStoreTopSellersReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreTopSellersReport called with:`, { orgId, period, after, before });
     
     const params = {};
     if (period) params.period = period;
@@ -815,7 +777,6 @@ exports.getMultiStoreTopSellersReport = async (req, res) => {
 exports.getMultiStoreRefundsReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreRefundsReport called with:`, { orgId, period, after, before });
 
     const params = {};
     if (period) params.period = period;
@@ -864,7 +825,6 @@ exports.getMultiStoreRefundsReport = async (req, res) => {
 exports.getMultiStoreLowStockReport = async (req, res) => {
   try {
     const { orgId, threshold = 10 } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreLowStockReport called with:`, { orgId, threshold });
 
     // Fetch products with stock management enabled
     const { results, errors } = await fetchMultiStoreReport(orgId, 'products', {
@@ -928,7 +888,6 @@ exports.getMultiStoreLowStockReport = async (req, res) => {
 exports.getMultiStoreShippingReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreShippingReport called with:`, { orgId, period, after, before });
 
     const params = { status: 'completed' };
     if (after) params.after = after;
@@ -989,7 +948,6 @@ exports.getMultiStoreShippingReport = async (req, res) => {
 exports.getMultiStoreRevenueBreakdown = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStoreRevenueBreakdown called with:`, { orgId, period, after, before });
 
     const params = { status: 'completed' };
     if (after) params.after = after;
@@ -1049,7 +1007,6 @@ exports.getMultiStoreRevenueBreakdown = async (req, res) => {
 exports.getMultiStorePaymentMethodsReport = async (req, res) => {
   try {
     const { orgId, period, after, before } = req.query;
-    console.log(`[WooCommerceReports] getMultiStorePaymentMethodsReport called with:`, { orgId, period, after, before });
 
     const params = {};
     if (after) params.after = after;

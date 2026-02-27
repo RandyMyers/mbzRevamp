@@ -17,21 +17,11 @@ const syncProductJob = async (jobData) => {
   const { storeId, store, organizationId, userId } = workerData;
 
   try {
-    console.log('Starting product sync for store:', storeId);
-
-    // Connect to MongoDB
     await connectDB();
-
-    // Get user and organization currency preferences
-    console.log('🔍 Getting currency preferences for user:', userId);
     const user = await User.findById(userId).select('displayCurrency');
     const organization = await Organization.findById(organizationId).select('analyticsCurrency defaultCurrency');
 
     const targetCurrency = user?.displayCurrency || organization?.analyticsCurrency || organization?.defaultCurrency || 'USD';
-    console.log(`💰 Target currency for conversion: ${targetCurrency}`);
-
-    // Get user's subscription plan to determine product limits
-    console.log('📋 Checking subscription plan limits for user:', userId);
     let maxProductsLimit = 10; // Default to free plan limit
     let planName = 'free';
 
@@ -47,15 +37,11 @@ const syncProductJob = async (jobData) => {
         // Get limit from subscription plan
         maxProductsLimit = subscription.plan.limits?.maxProducts ?? 10;
         planName = subscription.plan.slug || subscription.plan.name?.toLowerCase() || 'free';
-        console.log(`✅ User plan: ${planName}, Max products: ${maxProductsLimit === -1 ? 'unlimited' : maxProductsLimit}`);
       } else {
-        // Fallback to planPermissions config
         const planConfig = getPlanPermissions('free');
         maxProductsLimit = planConfig?.limits?.maxProducts ?? 10;
-        console.log(`⚠️ No active subscription found, using free plan limit: ${maxProductsLimit}`);
       }
     } catch (subscriptionError) {
-      console.warn('⚠️ Failed to fetch subscription, using free plan limits:', subscriptionError.message);
       const planConfig = getPlanPermissions('free');
       maxProductsLimit = planConfig?.limits?.maxProducts ?? 10;
     }
@@ -79,9 +65,8 @@ const syncProductJob = async (jobData) => {
     });
 
     // Fetch store currency from WooCommerce system status
-    let storeCurrency = 'USD'; // Default fallback
+    let storeCurrency = 'USD';
     try {
-      console.log('💱 Fetching store currency from WooCommerce...');
       const systemStatusResponse = await wooCommerce.get('system_status');
       let statusData = systemStatusResponse.data;
       if (typeof statusData === 'string') {
@@ -99,13 +84,9 @@ const syncProductJob = async (jobData) => {
       }
       if (statusData?.settings?.currency) {
         storeCurrency = statusData.settings.currency;
-        console.log(`✅ Store currency from WooCommerce: ${storeCurrency}`);
-      } else {
-        console.warn('⚠️ Could not get currency from system_status, using USD as fallback');
       }
     } catch (currencyError) {
-      console.warn('⚠️ Failed to fetch store currency:', currencyError.message);
-      console.warn('⚠️ Using USD as fallback currency');
+      // Use USD fallback
     }
 
     // Fetch all products from WooCommerce
@@ -150,19 +131,14 @@ const syncProductJob = async (jobData) => {
       }
     }
 
-    console.log(`Total products fetched from WooCommerce: ${products.length}`);
-
     // Apply plan-based product limit
     let productsToSync = products;
     let limitedByPlan = false;
 
     if (maxProductsLimit !== -1 && products.length > maxProductsLimit) {
-      console.log(`📊 Plan limit: ${maxProductsLimit} products. Limiting sync to first ${maxProductsLimit} products.`);
       productsToSync = products.slice(0, maxProductsLimit);
       limitedByPlan = true;
     }
-
-    console.log(`Total products to sync: ${productsToSync.length}${limitedByPlan ? ` (limited by ${planName} plan)` : ''}`);
 
     // Sync statistics
     let created = 0;
@@ -210,9 +186,7 @@ const syncProductJob = async (jobData) => {
         
         if (originalCurrency !== targetCurrency && originalPrice > 0) {
           try {
-            console.log(`🔄 Converting ${originalPrice} ${originalCurrency} to ${targetCurrency}`);
             convertedPrice = await currencyUtils.convertCurrency(originalPrice, originalCurrency, targetCurrency);
-            console.log(`✅ Converted price: ${convertedPrice} ${targetCurrency}`);
             
             if (originalSalePrice > 0) {
               convertedSalePrice = await currencyUtils.convertCurrency(originalSalePrice, originalCurrency, targetCurrency);
@@ -222,8 +196,6 @@ const syncProductJob = async (jobData) => {
               convertedRegularPrice = await currencyUtils.convertCurrency(originalRegularPrice, originalCurrency, targetCurrency);
             }
           } catch (conversionError) {
-            console.error(`❌ Currency conversion failed for product ${product.name}:`, conversionError.message);
-            // Fallback to original prices if conversion fails
             convertedPrice = originalPrice;
             convertedSalePrice = originalSalePrice;
             convertedRegularPrice = originalRegularPrice;
@@ -304,30 +276,18 @@ const syncProductJob = async (jobData) => {
             { new: true, runValidators: true }
           );
           updated++;
-          console.log(`Updated product: ${product.name} (WooCommerce ID: ${wooCommerceId})`);
         } else {
           // Create new product
           await Inventory.create(productData);
           created++;
-          console.log(`Created product: ${product.name} (WooCommerce ID: ${wooCommerceId})`);
         }
       } catch (error) {
         failed++;
-        console.error(`Failed to sync product ${product.name} (WooCommerce ID: ${product.id}):`, error.message);
-        
-        // Log detailed error for debugging
-        console.error('Product data:', {
-          name: product.name,
-          sku: product.sku,
-          wooCommerceId: product.id,
-          storeId: storeId,
-          error: error.message
-        });
+        console.error(`Failed to sync product ${product.name}:`, error.message);
       }
     }
 
     // Detect and remove orphaned products (deleted from WooCommerce)
-    console.log('🔍 Checking for orphaned products (deleted from WooCommerce)...');
 
     // Get all WooCommerce IDs that were synced
     const syncedWooCommerceIds = products.map(p => p.id);
@@ -339,21 +299,13 @@ const syncProductJob = async (jobData) => {
     });
 
     let orphansRemoved = 0;
-    if (orphanedProducts.length > 0) {
-      console.log(`🗑️ Found ${orphanedProducts.length} orphaned products to remove`);
-
-      for (const orphan of orphanedProducts) {
-        try {
-          await Inventory.findByIdAndDelete(orphan._id);
-          orphansRemoved++;
-          console.log(`🗑️ Removed orphaned product: ${orphan.name} (WooCommerce ID: ${orphan.wooCommerceId})`);
-        } catch (deleteError) {
-          console.error(`Failed to delete orphaned product ${orphan.name}:`, deleteError.message);
-        }
+    for (const orphan of orphanedProducts) {
+      try {
+        await Inventory.findByIdAndDelete(orphan._id);
+        orphansRemoved++;
+      } catch (deleteError) {
+        console.error(`Failed to delete orphaned product ${orphan.name}:`, deleteError.message);
       }
-      console.log(`✅ Removed ${orphansRemoved} orphaned products`);
-    } else {
-      console.log('✅ No orphaned products found');
     }
 
     const syncSummary = {

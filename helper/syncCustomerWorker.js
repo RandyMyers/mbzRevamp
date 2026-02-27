@@ -76,8 +76,6 @@ const syncCustomerJob = async (jobData) => {
     let failed = 0;
     let skipped = 0;
 
-    console.log(`Starting customer sync for store ${storeId}. Total customers to process: ${customers.length}`);
-
     for (const customer of customers) {
       try {
         const wooCommerceId = customer.id;
@@ -139,24 +137,13 @@ const syncCustomerJob = async (jobData) => {
             { new: true, runValidators: true }
           );
           updated++;
-          console.log(`Updated customer: ${customer.email} (WooCommerce ID: ${wooCommerceId})`);
         } else {
-          // Create new customer
           await Customer.create(customerData);
           created++;
-          console.log(`Created customer: ${customer.email} (WooCommerce ID: ${wooCommerceId})`);
         }
       } catch (error) {
         failed++;
-        console.error(`Failed to sync customer ${customer.email} (WooCommerce ID: ${customer.id}):`, error.message);
-        
-        // Log detailed error for debugging
-        console.error('Customer data:', {
-          email: customer.email,
-          wooCommerceId: customer.id,
-          storeId: storeId,
-          error: error.message
-        });
+        console.error(`Failed to sync customer ${customer.email}:`, error.message);
       }
     }
 

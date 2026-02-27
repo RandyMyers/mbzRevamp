@@ -155,20 +155,10 @@ const {
 // CREATE a new email template
 exports.createEmailTemplate = async (req, res) => {
   try {
-    console.log('=== EMAIL TEMPLATE CREATION START ===');
-    console.log('Request method:', req.method);
-    console.log('Request URL:', req.url);
-    console.log('Request headers:', req.headers);
-    
     const { name, subject, body, variables, createdBy, organization, store } = req.body;
-    console.log('=== EMAIL TEMPLATE CREATION DEBUG ===');
-    console.log('Request body:', req.body);
-    console.log('User object:', req.user);
-    console.log('Extracted fields:', { name, subject, body, variables, createdBy, organization, store });
-    
+
     // Validate required fields
     if (!name || !subject || !body) {
-      console.log('Missing required fields:', { name: !!name, subject: !!subject, body: !!body });
       return res.status(400).json({
         success: false,
         message: "Name, subject, and body are required fields"
@@ -177,7 +167,6 @@ exports.createEmailTemplate = async (req, res) => {
     
     // Validate template name format
     if (name.length < 3 || name.length > 100) {
-      console.log('Invalid name length:', name.length);
       return res.status(400).json({
         success: false,
         message: "Template name must be between 3 and 100 characters"
@@ -187,7 +176,6 @@ exports.createEmailTemplate = async (req, res) => {
     // Validate ObjectIds
     const mongoose = require('mongoose');
     if (createdBy && !mongoose.Types.ObjectId.isValid(createdBy)) {
-      console.log('Invalid createdBy ObjectId:', createdBy);
       return res.status(400).json({
         success: false,
         message: "Invalid createdBy ID format"
@@ -195,7 +183,6 @@ exports.createEmailTemplate = async (req, res) => {
     }
     
     if (organization && !mongoose.Types.ObjectId.isValid(organization)) {
-      console.log('Invalid organization ObjectId:', organization);
       return res.status(400).json({
         success: false,
         message: "Invalid organization ID format"
@@ -212,35 +199,22 @@ exports.createEmailTemplate = async (req, res) => {
     // Add variables if provided and not empty
     if (variables && Object.keys(variables).length > 0) {
       emailTemplateData.variables = variables;
-      console.log('Variables added:', variables);
     }
 
     // Only add the organization field if it's provided
     if (organization) {
       emailTemplateData.organization = organization;
-      console.log('Organization added:', organization);
     }
 
     // Only add the store field if it's provided
     if (store) {
       emailTemplateData.store = store;
-      console.log('Store added:', store);
     }
 
-    console.log('Email template data to save:', emailTemplateData);
-    
-    // Check database connection
-    console.log('Database connection state:', mongoose.connection.readyState);
-    
     const newEmailTemplate = new EmailTemplate(emailTemplateData);
-    console.log('EmailTemplate model created successfully');
-    
     const savedEmailTemplate = await newEmailTemplate.save();
-    console.log('Email template saved successfully:', savedEmailTemplate._id);
     
-    // ✅ AUDIT LOG: Email Template Created
     try {
-      console.log('Attempting to create audit log...');
       await createAuditLog({
         action: 'Email Template Created',
         user: req.user?._id || req.user?.userId,
@@ -252,25 +226,13 @@ exports.createEmailTemplate = async (req, res) => {
         ip: req.ip || req.connection?.remoteAddress,
         userAgent: req.get('User-Agent')
       });
-      console.log('Audit log created successfully');
     } catch (auditError) {
-      console.error('Audit log error (non-blocking):', auditError);
       // Don't fail the main operation if audit logging fails
     }
     
-    console.log('=== EMAIL TEMPLATE CREATION SUCCESS ===');
     res.status(201).json({ success: true, emailTemplate: savedEmailTemplate });
   } catch (error) {
-    console.error('=== EMAIL TEMPLATE ERROR DETAILS ===');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Error code:', error.code);
-    console.error('Full error object:', JSON.stringify(error, null, 2));
-    
-    // Provide more specific error messages
     if (error.name === 'ValidationError') {
-      console.log('Validation error details:', Object.values(error.errors).map(err => err.message));
       return res.status(400).json({ 
         success: false, 
         message: "Validation error", 
@@ -279,7 +241,6 @@ exports.createEmailTemplate = async (req, res) => {
     }
     
     if (error.code === 11000) {
-      console.log('Duplicate key error');
       return res.status(400).json({ 
         success: false, 
         message: "Template name already exists" 
@@ -287,14 +248,12 @@ exports.createEmailTemplate = async (req, res) => {
     }
     
     if (error.name === 'CastError') {
-      console.log('Cast error - invalid ObjectId');
       return res.status(400).json({ 
         success: false, 
         message: "Invalid ID format provided" 
       });
     }
     
-    console.error('=== UNKNOWN ERROR - RETURNING 500 ===');
     res.status(500).json({ 
       success: false, 
       message: "Failed to create email template",
@@ -347,27 +306,13 @@ exports.createEmailTemplate = async (req, res) => {
 // GET all email templates
 exports.getAllEmailTemplates = async (req, res) => {
   try {
-    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER DEBUG ===');
-    console.log('🔍 Request user:', req.user);
-    console.log('🔍 User ID:', req.user?._id);
-    console.log('🔍 User role:', req.user?.role);
-    console.log('🔍 User email:', req.user?.email);
-    
     const emailTemplates = await EmailTemplate.find()
-      .populate("createdBy organization", "name") // Populate fields with related data
+      .populate("createdBy organization", "name")
       .exec();
-    
-    console.log('✅ Found email templates:', emailTemplates.length);
-    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization })));
-    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER DEBUG END ===');
-    
+
     res.status(200).json({ success: true, emailTemplates });
   } catch (error) {
-    console.log('❌ GET ALL EMAIL TEMPLATES CONTROLLER ERROR ===');
-    console.log('🔍 Error:', error.message);
-    console.log('🔍 Stack:', error.stack);
-    console.log('=== GET ALL EMAIL TEMPLATES CONTROLLER ERROR END ===');
-    console.error(error);
+    console.error('Failed to retrieve email templates:', error.message);
     res.status(500).json({ success: false, message: "Failed to retrieve email templates" });
   }
 };
@@ -439,15 +384,6 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
   const { storeId } = req.query;
 
   try {
-    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG ===');
-    console.log('🔍 Request user:', req.user);
-    console.log('🔍 User ID:', req.user?._id);
-    console.log('🔍 User role:', req.user?.role);
-    console.log('🔍 User organizationId:', req.user?.organizationId);
-    console.log('🔍 Requested organizationId:', organizationId);
-    console.log('🔍 Store filter:', storeId);
-    console.log('🔍 Params:', req.params);
-
     // Build query with optional store filter
     const query = { organization: organizationId };
     if (storeId && storeId !== 'all') {
@@ -459,18 +395,10 @@ exports.getEmailTemplatesByOrganization = async (req, res) => {
       .populate("store", "name") // Populate store field
       .exec();
 
-    console.log('✅ Found email templates for organization:', emailTemplates.length);
-    console.log('🔍 Templates:', emailTemplates.map(t => ({ id: t._id, name: t.name, organization: t.organization, store: t.store })));
-    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER DEBUG END ===');
-
     // Return empty array instead of 404 when no templates found
     res.status(200).json({ success: true, emailTemplates });
   } catch (error) {
-    console.log('❌ GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER ERROR ===');
-    console.log('🔍 Error:', error.message);
-    console.log('🔍 Stack:', error.stack);
-    console.log('=== GET EMAIL TEMPLATES BY ORGANIZATION CONTROLLER ERROR END ===');
-    console.error(error);
+    console.error('Failed to retrieve email templates by organization:', error.message);
     res.status(500).json({ success: false, message: "Failed to retrieve email templates by organization" });
   }
 };

@@ -10,10 +10,6 @@ class WooCommerceService {
     
     // Check if SSL verification should be bypassed (DEVELOPMENT/TESTING ONLY)
     if (process.env.WOOCOMMERCE_BYPASS_SSL === 'true' || process.env.NODE_ENV === 'development') {
-      console.warn('⚠️  [WARNING] SSL certificate verification is DISABLED for WooCommerce API calls');
-      console.warn('⚠️  [WARNING] This should ONLY be used for development/testing purposes');
-      console.warn('⚠️  [WARNING] For production, please renew your SSL certificate instead');
-      
       httpsAgent = new https.Agent({
         rejectUnauthorized: false // WARNING: This bypasses SSL certificate validation
       });
@@ -31,11 +27,6 @@ class WooCommerceService {
 
   // Generic method to make API requests
   async makeRequest(method, endpoint, params = {}) {
-    console.log('🔍 [WooCommerceAPI] Starting makeRequest');
-    console.log('📋 [WooCommerceAPI] Method:', method);
-    console.log('📋 [WooCommerceAPI] Endpoint:', endpoint);
-    console.log('📋 [WooCommerceAPI] Store URL:', this.store.url);
-    console.log('📋 [WooCommerceAPI] Params:', params);
     try {
       let response;
       switch (method.toUpperCase()) {
@@ -177,7 +168,6 @@ class WooCommerceService {
       const data = result.data;
 
       if (result.success && data?.settings?.currency) {
-        console.log('✅ [WooCommerce] Store currency found:', data.settings.currency);
         return {
           success: true,
           currency: data.settings.currency,
@@ -185,11 +175,8 @@ class WooCommerceService {
           currencyPosition: data.settings.currency_position
         };
       }
-      // Fallback: return USD if we can't get the currency
-      console.warn('⚠️ Could not get store currency from WooCommerce, using USD as fallback.');
       return { success: true, currency: 'USD', currencySymbol: '$', currencyPosition: 'left' };
     } catch (error) {
-      console.error('❌ Error getting store currency:', error.message);
       return { success: false, currency: 'USD', error: error.message };
     }
   }

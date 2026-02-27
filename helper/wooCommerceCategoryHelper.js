@@ -17,7 +17,6 @@ const {
  */
 const createCategoryInWooCommerce = async (categoryData, storeId, userId, organizationId) => {
   try {
-    console.log('🚀 Creating category in WooCommerce:', categoryData.name);
     
     // Get store configuration
     const store = await getStoreById(storeId);
@@ -26,7 +25,6 @@ const createCategoryInWooCommerce = async (categoryData, storeId, userId, organi
     // Map local category data to WooCommerce format
     const wooCommerceData = mapCategoryToWooCommerce(categoryData);
 
-    console.log('📦 Category data for WooCommerce:', wooCommerceData);
 
     // Execute API call with rate limiting
     const response = await executeWithRateLimit(() => 
@@ -53,7 +51,6 @@ const createCategoryInWooCommerce = async (categoryData, storeId, userId, organi
       wooCommerceId: wooCommerceCategory.id
     });
 
-    console.log('✅ Category created in WooCommerce:', wooCommerceCategory.id);
 
     return {
       success: true,
@@ -63,7 +60,6 @@ const createCategoryInWooCommerce = async (categoryData, storeId, userId, organi
     };
 
   } catch (error) {
-    console.error('❌ WooCommerce create error for category:', error);
     const errorResult = handleWooCommerceError(error, 'create', 'category');
     
     // Log failed sync
@@ -92,7 +88,6 @@ const createCategoryInWooCommerce = async (categoryData, storeId, userId, organi
  */
 const updateCategoryInWooCommerce = async (categoryData, storeId, userId, organizationId) => {
   try {
-    console.log('🔄 Updating category in WooCommerce:', categoryData.name, 'ID:', categoryData.wooCommerceId);
     
     if (!categoryData.wooCommerceId) {
       throw new Error('Category does not have a WooCommerce ID');
@@ -105,7 +100,6 @@ const updateCategoryInWooCommerce = async (categoryData, storeId, userId, organi
     // Map local category data to WooCommerce format
     const wooCommerceData = mapCategoryToWooCommerce(categoryData);
 
-    console.log('📦 Category update data for WooCommerce:', wooCommerceData);
 
     // Execute API call with rate limiting
     const response = await executeWithRateLimit(() => 
@@ -132,7 +126,6 @@ const updateCategoryInWooCommerce = async (categoryData, storeId, userId, organi
       wooCommerceId: wooCommerceCategory.id
     });
 
-    console.log('✅ Category updated in WooCommerce:', wooCommerceCategory.id);
 
     return {
       success: true,
@@ -142,7 +135,6 @@ const updateCategoryInWooCommerce = async (categoryData, storeId, userId, organi
     };
 
   } catch (error) {
-    console.error('❌ WooCommerce update error for category:', error);
     const errorResult = handleWooCommerceError(error, 'update', 'category');
     
     // Log failed sync
@@ -171,7 +163,6 @@ const updateCategoryInWooCommerce = async (categoryData, storeId, userId, organi
  */
 const deleteCategoryInWooCommerce = async (wooCommerceId, storeId, userId, organizationId) => {
   try {
-    console.log('🗑️ Deleting category from WooCommerce, ID:', wooCommerceId);
     
     // Get store configuration
     const store = await getStoreById(storeId);
@@ -200,7 +191,6 @@ const deleteCategoryInWooCommerce = async (wooCommerceId, storeId, userId, organ
       wooCommerceId: wooCommerceId
     });
 
-    console.log('✅ Category deleted from WooCommerce:', wooCommerceId);
 
     return {
       success: true,
@@ -209,7 +199,6 @@ const deleteCategoryInWooCommerce = async (wooCommerceId, storeId, userId, organ
     };
 
   } catch (error) {
-    console.error('❌ WooCommerce delete error for category:', error);
     const errorResult = handleWooCommerceError(error, 'delete', 'category');
     
     // Log failed sync
@@ -236,7 +225,6 @@ const deleteCategoryInWooCommerce = async (wooCommerceId, storeId, userId, organ
  */
 const getWooCommerceCategories = async (storeId) => {
   try {
-    console.log('📋 Fetching categories from WooCommerce for store:', storeId);
 
     // Get store configuration
     const store = await getStoreById(storeId);
@@ -270,7 +258,7 @@ const getWooCommerceCategories = async (storeId) => {
           const cleaned = cutoff > 0 ? categories.substring(0, cutoff).trim() : categories;
           categories = JSON.parse(cleaned);
         } catch (e) {
-          console.error('❌ Could not parse WooCommerce categories response:', e.message);
+          console.error('Could not parse WooCommerce categories response:', e.message);
           categories = [];
         }
       }
@@ -283,7 +271,6 @@ const getWooCommerceCategories = async (storeId) => {
       }
     }
 
-    console.log(`✅ Fetched ${allCategories.length} categories from WooCommerce (${page - 1} pages)`);
 
     return {
       success: true,
@@ -292,7 +279,7 @@ const getWooCommerceCategories = async (storeId) => {
     };
 
   } catch (error) {
-    console.error('❌ WooCommerce fetch error for categories:', error);
+    console.error('WooCommerce fetch error for categories:', error.message);
     return {
       success: false,
       error: error.message,
@@ -310,9 +297,6 @@ const getWooCommerceCategories = async (storeId) => {
  */
 const syncCategories = async (storeId, userId, organizationId) => {
   try {
-    console.log('🔄 Starting category sync for store:', storeId);
-    console.log('📋 Sync parameters - userId:', userId, 'organizationId:', organizationId);
-    
     // Validate required parameters
     if (!storeId) {
       throw new Error('Store ID is required for category sync');
@@ -329,7 +313,6 @@ const syncCategories = async (storeId, userId, organizationId) => {
     const wooCommerceCategories = wooCommerceResult.data || [];
     const localCategories = await Category.find({ storeId, isActive: true });
     
-    console.log(`📊 Found ${localCategories.length} local categories and ${wooCommerceCategories.length} WooCommerce categories`);
 
     const syncResults = {
       created: 0,
@@ -351,22 +334,19 @@ const syncCategories = async (storeId, userId, organizationId) => {
       try {
         if (!localCategory.wooCommerceId) {
           // Category doesn't exist in WooCommerce, create it
-          console.log(`➕ Creating category in WooCommerce: ${localCategory.name}`);
           const createResult = await createCategoryInWooCommerce(localCategory, storeId, userId, organizationId);
-          
+
           if (createResult.success) {
             localCategory.wooCommerceId = createResult.wooCommerceId;
             localCategory.syncStatus = 'synced';
             localCategory.lastSyncedAt = new Date();
             await localCategory.save();
             syncResults.created++;
-            console.log(`✅ Created category: ${localCategory.name}`);
           } else {
             localCategory.syncStatus = 'failed';
             await localCategory.save();
             syncResults.failed++;
             syncResults.errors.push(`Failed to create ${localCategory.name}: ${createResult.error}`);
-            console.log(`❌ Failed to create category: ${localCategory.name}`);
           }
         } else {
           // Category exists, check if it needs updating
@@ -377,50 +357,41 @@ const syncCategories = async (storeId, userId, organizationId) => {
             const wooCommerceUpdated = new Date(wooCommerceCategory.date_modified_gmt);
             
             if (localUpdated > wooCommerceUpdated) {
-              console.log(`🔄 Updating category in WooCommerce: ${localCategory.name}`);
               const updateResult = await updateCategoryInWooCommerce(localCategory, storeId, userId, organizationId);
-              
+
               if (updateResult.success) {
                 localCategory.syncStatus = 'synced';
                 localCategory.lastSyncedAt = new Date();
                 await localCategory.save();
                 syncResults.updated++;
-                console.log(`✅ Updated category: ${localCategory.name}`);
               } else {
                 localCategory.syncStatus = 'failed';
                 await localCategory.save();
                 syncResults.failed++;
                 syncResults.errors.push(`Failed to update ${localCategory.name}: ${updateResult.error}`);
-                console.log(`❌ Failed to update category: ${localCategory.name}`);
               }
             } else {
-              // WooCommerce is newer, update local
-              console.log(`📥 Updating local category from WooCommerce: ${localCategory.name}`);
               localCategory.name = wooCommerceCategory.name;
               localCategory.description = wooCommerceCategory.description || '';
               localCategory.syncStatus = 'synced';
               localCategory.lastSyncedAt = new Date();
               await localCategory.save();
               syncResults.updated++;
-              console.log(`✅ Updated local category: ${localCategory.name}`);
             }
           } else {
-            // WooCommerce ID exists but category not found, reset it
-            console.log(`🔄 WooCommerce category not found, resetting ID for: ${localCategory.name}`);
             localCategory.wooCommerceId = null;
             localCategory.syncStatus = 'pending';
             await localCategory.save();
           }
         }
       } catch (error) {
-        console.error(`❌ Error syncing category ${localCategory.name}:`, error);
+        console.error(`Error syncing category ${localCategory.name}:`, error.message);
         syncResults.failed++;
         syncResults.errors.push(`Error syncing ${localCategory.name}: ${error.message}`);
       }
     }
 
     // Import WooCommerce categories that don't exist locally
-    console.log('📥 Importing WooCommerce categories to local database...');
     for (const wooCommerceCategory of wooCommerceCategories) {
       try {
         // Check if category already exists locally by WooCommerce ID
@@ -446,10 +417,7 @@ const syncCategories = async (storeId, userId, organizationId) => {
             existingBySlug.lastSyncedAt = new Date();
             await existingBySlug.save();
             syncResults.updated++;
-            console.log(`✅ Linked existing category to WooCommerce: ${wooCommerceCategory.name}`);
           } else {
-            // Create new local category from WooCommerce data
-            console.log(`➕ Importing category from WooCommerce: ${wooCommerceCategory.name}`);
 
             const categoryData = {
               name: wooCommerceCategory.name,
@@ -474,17 +442,15 @@ const syncCategories = async (storeId, userId, organizationId) => {
             await newCategory.save();
 
             syncResults.created++;
-            console.log(`✅ Imported category: ${wooCommerceCategory.name}`);
           }
         }
       } catch (error) {
-        console.error(`❌ Error importing category ${wooCommerceCategory.name}:`, error);
+        console.error(`Error importing category ${wooCommerceCategory.name}:`, error.message);
         syncResults.failed++;
         syncResults.errors.push(`Error importing ${wooCommerceCategory.name}: ${error.message}`);
       }
     }
 
-    console.log('✅ Category sync completed:', syncResults);
 
     return {
       success: true,
@@ -493,7 +459,7 @@ const syncCategories = async (storeId, userId, organizationId) => {
     };
 
   } catch (error) {
-    console.error('❌ Error during category sync:', error);
+    console.error('Error during category sync:', error.message);
     return {
       success: false,
       error: error.message
