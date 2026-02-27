@@ -86,9 +86,16 @@ const syncProductJob = async (jobData) => {
       let statusData = systemStatusResponse.data;
       if (typeof statusData === 'string') {
         try {
-          const jsonMatch = statusData.match(/^(\{[\s\S]*\})/);
-          statusData = JSON.parse(jsonMatch ? jsonMatch[1] : statusData);
-        } catch (e) { /* ignore */ }
+          statusData = JSON.parse(statusData);
+        } catch (e) {
+          // Strip HTML injected by WooCommerce plugins (e.g. affiliate tracking scripts)
+          let cleaned = statusData;
+          const commentIdx = statusData.indexOf('<!--');
+          const scriptIdx = statusData.indexOf('<script');
+          const cutoff = commentIdx > 0 ? commentIdx : (scriptIdx > 0 ? scriptIdx : -1);
+          if (cutoff > 0) cleaned = statusData.substring(0, cutoff).trim();
+          try { statusData = JSON.parse(cleaned); } catch (e2) { /* ignore */ }
+        }
       }
       if (statusData?.settings?.currency) {
         storeCurrency = statusData.settings.currency;

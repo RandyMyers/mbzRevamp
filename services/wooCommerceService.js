@@ -82,11 +82,22 @@ class WooCommerceService {
   _cleanResponseData(data) {
     if (typeof data === 'string') {
       try {
-        // Strip HTML injected after JSON (e.g. affiliate tracking scripts)
-        const jsonMatch = data.match(/^(\{[\s\S]*\}|\[[\s\S]*\])/);
-        return jsonMatch ? JSON.parse(jsonMatch[1]) : JSON.parse(data);
+        return JSON.parse(data);
       } catch (e) {
-        return data; // Return as-is if not parseable
+        // WooCommerce plugins (e.g. affiliate trackers) can inject HTML after JSON.
+        // Strip everything from the first <!-- or <script that appears after the JSON.
+        let cleaned = data;
+        const commentIdx = data.indexOf('<!--');
+        const scriptIdx = data.indexOf('<script');
+        const cutoff = commentIdx > 0 ? commentIdx : (scriptIdx > 0 ? scriptIdx : -1);
+        if (cutoff > 0) {
+          cleaned = data.substring(0, cutoff).trim();
+        }
+        try {
+          return JSON.parse(cleaned);
+        } catch (e2) {
+          return data; // Return as-is if still not parseable
+        }
       }
     }
     return data;
@@ -162,22 +173,8 @@ class WooCommerceService {
   async getStoreCurrency() {
     try {
       const result = await this.getSystemStatus();
-
-      // Parse data if it's a string (some WooCommerce plugins inject HTML into API responses)
-      let data = result.data;
-      if (typeof data === 'string') {
-        try {
-          // Strip any HTML injected by plugins (e.g. affiliate tracking scripts)
-          const jsonMatch = data.match(/^(\{[\s\S]*\})/);
-          if (jsonMatch) {
-            data = JSON.parse(jsonMatch[1]);
-          } else {
-            data = JSON.parse(data);
-          }
-        } catch (e) {
-          console.warn('⚠️ [WooCommerce] Could not parse system status response as JSON');
-        }
-      }
+      // _cleanResponseData already handles HTML stripping in handleApiCall
+      const data = result.data;
 
       if (result.success && data?.settings?.currency) {
         console.log('✅ [WooCommerce] Store currency found:', data.settings.currency);
