@@ -85,7 +85,10 @@ const syncProductJob = async (jobData) => {
       const systemStatusResponse = await wooCommerce.get('system_status');
       let statusData = systemStatusResponse.data;
       if (typeof statusData === 'string') {
-        try { statusData = JSON.parse(statusData); } catch (e) { /* ignore */ }
+        try {
+          const jsonMatch = statusData.match(/^(\{[\s\S]*\})/);
+          statusData = JSON.parse(jsonMatch ? jsonMatch[1] : statusData);
+        } catch (e) { /* ignore */ }
       }
       if (statusData?.settings?.currency) {
         storeCurrency = statusData.settings.currency;

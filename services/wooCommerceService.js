@@ -54,7 +54,7 @@ class WooCommerceService {
         default:
           throw new Error(`Unsupported HTTP method: ${method}`);
       }
-      return { success: true, data: response.data };
+      return { success: true, data: this._cleanResponseData(response.data) };
     } catch (error) {
       // Enhanced error logging for SSL and connection issues
       if (error.code === 'CERT_HAS_EXPIRED') {
@@ -78,11 +78,25 @@ class WooCommerceService {
     }
   }
 
+  // Clean response data that may contain HTML injected by WooCommerce plugins
+  _cleanResponseData(data) {
+    if (typeof data === 'string') {
+      try {
+        // Strip HTML injected after JSON (e.g. affiliate tracking scripts)
+        const jsonMatch = data.match(/^(\{[\s\S]*\}|\[[\s\S]*\])/);
+        return jsonMatch ? JSON.parse(jsonMatch[1]) : JSON.parse(data);
+      } catch (e) {
+        return data; // Return as-is if not parseable
+      }
+    }
+    return data;
+  }
+
   // Helper method to handle API errors
   async handleApiCall(apiCall) {
     try {
       const response = await apiCall();
-      return { success: true, data: response.data };
+      return { success: true, data: this._cleanResponseData(response.data) };
     } catch (error) {
       return {
         success: false,
@@ -149,11 +163,17 @@ class WooCommerceService {
     try {
       const result = await this.getSystemStatus();
 
-      // Parse data if it's a string (some WooCommerce versions return stringified JSON)
+      // Parse data if it's a string (some WooCommerce plugins inject HTML into API responses)
       let data = result.data;
       if (typeof data === 'string') {
         try {
-          data = JSON.parse(data);
+          // Strip any HTML injected by plugins (e.g. affiliate tracking scripts)
+          const jsonMatch = data.match(/^(\{[\s\S]*\})/);
+          if (jsonMatch) {
+            data = JSON.parse(jsonMatch[1]);
+          } else {
+            data = JSON.parse(data);
+          }
         } catch (e) {
           console.warn('⚠️ [WooCommerce] Could not parse system status response as JSON');
         }
