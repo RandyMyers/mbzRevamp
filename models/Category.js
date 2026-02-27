@@ -158,4 +158,9 @@ categorySchema.statics.getCategoryTree = function(storeId) {
     });
 };
 
-module.exports = mongoose.model('Category', categorySchema); 
+const Category = mongoose.model('Category', categorySchema);
+
+// Ensure stale indexes (e.g. old slug_1 unique) are dropped on startup
+Category.syncIndexes().catch(err => console.error('Category syncIndexes error:', err.message));
+
+module.exports = Category; 
