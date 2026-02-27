@@ -10,7 +10,6 @@ const categorySchema = new mongoose.Schema({
   slug: {
     type: String,
     required: [true, 'Category slug is required'],
-    unique: true,
     lowercase: true,
     trim: true
   },
@@ -76,7 +75,7 @@ const categorySchema = new mongoose.Schema({
 // Indexes for better query performance
 categorySchema.index({ storeId: 1, isActive: 1 });
 categorySchema.index({ organizationId: 1, isActive: 1 });
-categorySchema.index({ slug: 1 });
+categorySchema.index({ slug: 1, storeId: 1 }, { unique: true });
 categorySchema.index({ wooCommerceId: 1 });
 categorySchema.index({ parent: 1 });
 

@@ -430,33 +430,52 @@ const syncCategories = async (storeId, userId, organizationId) => {
         });
 
         if (!existingCategory) {
-          // Create new local category from WooCommerce data
-          console.log(`➕ Importing category from WooCommerce: ${wooCommerceCategory.name}`);
-          
-          const categoryData = {
-            name: wooCommerceCategory.name,
-            slug: wooCommerceCategory.slug || wooCommerceCategory.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            description: wooCommerceCategory.description || '',
-            image: wooCommerceCategory.image ? {
-              src: wooCommerceCategory.image.src,
-              alt: wooCommerceCategory.image.alt || wooCommerceCategory.name
-            } : {},
-            parent: null, // Will need to handle parent relationships later
-            wooCommerceId: wooCommerceCategory.id,
-            storeId: storeId,
-            organizationId: organizationId,
-            isActive: true,
-            menuOrder: wooCommerceCategory.menu_order || 0,
-            productCount: wooCommerceCategory.count || 0,
-            syncStatus: 'synced',
-            lastSyncedAt: new Date()
-          };
+          const slug = wooCommerceCategory.slug || wooCommerceCategory.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-          const newCategory = new Category(categoryData);
-          await newCategory.save();
-          
-          syncResults.created++;
-          console.log(`✅ Imported category: ${wooCommerceCategory.name}`);
+          // Check if category exists by slug + storeId (from a previous partial sync)
+          const existingBySlug = await Category.findOne({ slug, storeId: storeId });
+
+          if (existingBySlug) {
+            // Link existing category to WooCommerce
+            existingBySlug.wooCommerceId = wooCommerceCategory.id;
+            existingBySlug.name = wooCommerceCategory.name;
+            existingBySlug.description = wooCommerceCategory.description || '';
+            existingBySlug.menuOrder = wooCommerceCategory.menu_order || 0;
+            existingBySlug.productCount = wooCommerceCategory.count || 0;
+            existingBySlug.syncStatus = 'synced';
+            existingBySlug.lastSyncedAt = new Date();
+            await existingBySlug.save();
+            syncResults.updated++;
+            console.log(`✅ Linked existing category to WooCommerce: ${wooCommerceCategory.name}`);
+          } else {
+            // Create new local category from WooCommerce data
+            console.log(`➕ Importing category from WooCommerce: ${wooCommerceCategory.name}`);
+
+            const categoryData = {
+              name: wooCommerceCategory.name,
+              slug,
+              description: wooCommerceCategory.description || '',
+              image: wooCommerceCategory.image ? {
+                src: wooCommerceCategory.image.src,
+                alt: wooCommerceCategory.image.alt || wooCommerceCategory.name
+              } : {},
+              parent: null,
+              wooCommerceId: wooCommerceCategory.id,
+              storeId: storeId,
+              organizationId: organizationId,
+              isActive: true,
+              menuOrder: wooCommerceCategory.menu_order || 0,
+              productCount: wooCommerceCategory.count || 0,
+              syncStatus: 'synced',
+              lastSyncedAt: new Date()
+            };
+
+            const newCategory = new Category(categoryData);
+            await newCategory.save();
+
+            syncResults.created++;
+            console.log(`✅ Imported category: ${wooCommerceCategory.name}`);
+          }
         }
       } catch (error) {
         console.error(`❌ Error importing category ${wooCommerceCategory.name}:`, error);
